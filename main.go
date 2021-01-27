@@ -41,7 +41,7 @@ func header(w io.Writer, r *syscall.PtraceRegs) error {
 
 	var l string
 	for i := 0; i < s.NumField(); i++ {
-		l += fmt.Sprintf("%16s,", typeOfT.Field(i).Name)
+		l += fmt.Sprintf("%s,", typeOfT.Field(i).Name)
 	}
 	_, err := fmt.Fprint(w, l)
 	return err
@@ -53,9 +53,9 @@ func regs(w io.Writer, r *syscall.PtraceRegs) error {
 	var l string
 	for i := 0; i < s.NumField(); i++ {
 		f := s.Field(i)
-		l += fmt.Sprintf("%#016x,", f.Interface())
+		l += fmt.Sprintf("%#x,", f.Interface())
 	}
-	_, err := fmt.Fprintln(w, l)
+	_, err := fmt.Fprint(w, l)
 	return err
 }
 func showone(w io.Writer, indent string, in interface{}) {
@@ -160,7 +160,7 @@ func main() {
 			log.Printf("Can't decode %#02x: %v", insn, err)
 			continue
 		}
-		fmt.Println("%s", x86asm.GNUSyntax(d, uint64(pc), nil))
+		fmt.Println(x86asm.GNUSyntax(d, uint64(pc), nil))
 		any()
 		if err := t.SingleStep(); err != nil {
 			log.Print(err)
