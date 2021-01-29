@@ -20,13 +20,28 @@ import (
 	"syscall"
 
 	"github.com/tfogal/ptrace"
-	"golang.org/x/arch/x86/x86asm"
+	"golang.org/x/sys/unix"
+)
+
+const (
+	// ImageHandle is
+	ImageHandle = 0x110000
+	// ImageHandleEnd is
+	ImageHandleEnd = 0x120000
+	// SystemTable is
+	SystemTable = 0x120000
+	// SystemTableEnd isn
+	SystemTableEnd = 0x130000
+	// FuncPointer is
+	FuncPointer = 0x140000
 )
 
 type msg func()
 
 var (
-	start = flag.Uint64("start", 0, "starting address -- default is from PE/COFF but you can override")
+	start    = flag.Uint64("start", 0, "starting address -- default is from PE/COFF but you can override")
+	optional = flag.Bool("optional", false, "Print optional registers")
+	offset   = flag.String("offset", "0", "offset for objcopy")
 )
 
 func any(f ...msg) {
@@ -43,7 +58,7 @@ func header(w io.Writer) error {
 	for _, r := range regsprint {
 		l += fmt.Sprintf("%s,", r.name)
 	}
-	_, err := fmt.Fprint(w, l + "\n")
+	_, err := fmt.Fprint(w, l+"\n")
 	return err
 }
 
@@ -85,7 +100,12 @@ func showone(w io.Writer, indent string, in interface{}) {
 
 	for i := 0; i < s.NumField(); i++ {
 		f := s.Field(i)
-		fmt.Printf(indent+"\t%s %s = %#x\n", typeOfT.Field(i).Name, f.Type(), f.Interface())
+		switch f.Kind() {
+		case reflect.String:
+			fmt.Printf(indent+"\t%s %s = %s\n", typeOfT.Field(i).Name, f.Type(), f.Interface())
+		default:
+			fmt.Printf(indent+"\t%s %s = %#x\n", typeOfT.Field(i).Name, f.Type(), f.Interface())
+		}
 	}
 
 }
@@ -101,14 +121,17 @@ func main() {
 	if len(a) != 1 {
 		log.Fatal("arg count")
 	}
+	if *optional {
+		regsprint = allregsprint
+	}
 	f, err := ioutil.TempFile("", "voodoo")
 	if err != nil {
 		log.Fatal(err)
 	}
 	n := f.Name()
-	o, err := exec.Command("objcopy", "--adjust-vma", "0x200000", "-O", "elf64-x86-64", a[0], n).CombinedOutput()
+	o, err := exec.Command("objcopy", "--adjust-vma", *offset, "-O", "elf64-x86-64", a[0], n).CombinedOutput()
 	if err != nil {
-		log.Fatal("objcopy to %s failed: %s %v", n, string(o), err)
+		log.Fatalf("objcopy to %s failed: %s %v", n, string(o), err)
 	}
 	f.Close()
 	e, err := elf.Open(n)
@@ -126,7 +149,7 @@ func main() {
 	any()
 	// For now, we do the PE/COFF externally. But leave this here ...
 	// you never know.
-	if false {
+	if true {
 		// Now fill it up
 		f, err := pe.Open(flag.Args()[0])
 		if err != nil {
@@ -160,9 +183,11 @@ func main() {
 			}
 		}
 		// For now we assume the entry point is the start of the first segment
-		eip = base + uintptr(f.Sections[0].VirtualAddress)
-		if *start != 0 {
-			eip = uintptr(*start)
+		if false {
+			eip = base + uintptr(f.Sections[0].VirtualAddress)
+			if *start != 0 {
+				eip = uintptr(*start)
+			}
 		}
 	}
 	log.Printf("Start at %#x", eip)
@@ -170,45 +195,66 @@ func main() {
 		log.Fatalf("Can't set IPtr to %#x: %v", eip, err)
 	}
 	log.Printf("IPtr is %#x, let's go.", eip)
+	if err := params(t, ImageHandle, SystemTable); err != nil {
+		log.Fatalf("Setting params: %v", err)
+	}
 	if err := header(os.Stdout); err != nil {
 		log.Fatal(err)
 	}
-		r, err := t.GetRegs()
-		if err != nil {
-			log.Printf("Could not get regs: %v", err)
-		}
-		if err := regs(os.Stderr, &r); err != nil {
-			log.Fatal(err)
-		}
-		p := r
+	r, err := t.GetRegs()
+	if err != nil {
+		log.Printf("Could not get regs: %v", err)
+	}
+	if err := regs(os.Stderr, &r); err != nil {
+		log.Fatal(err)
+	}
+	p := r
+	//type Siginfo struct {
+	//Signo  int // signal number
+	//Errno  int // An errno value
+	//Code   int // signal code
+	//Trapno int // trap number that caused hardware-generated signal
+
+	//Addr uintptr // Memory location which caused fault
 	for e := range t.Events() {
-		if false {
-			fmt.Printf("Event: %v, ", e)
+		i, err := t.GetSiginfo()
+		if err != nil {
+			log.Fatalf("%v,", err)
 		}
+		s := unix.Signal(i.Signo)
 		r, err := t.GetRegs()
 		if err != nil {
 			log.Printf("Could not get regs: %v", err)
+		}
+		switch s {
+		default:
+			log.Fatalf("Can't do %v", unix.SignalName(s))
+		case unix.SIGSEGV:
+			if err := segv(t, i); err != nil {
+				showone(os.Stderr, "", &r)
+				log.Fatal(err)
+			}
+		case unix.SIGTRAP:
+		}
+
+		if false {
+			fmt.Printf("Event: %v,", e)
+			i, err := t.GetSiginfo()
+			if err != nil {
+				log.Printf("%v,", err)
+			} else {
+				log.Printf("%v,", i)
+			}
 		}
 		if err := regdiff(os.Stderr, &r, &p); err != nil {
 			log.Fatal(err)
 		}
 		p = r
-		pc, err := t.GetIPtr()
-		if err != nil {
-			log.Printf("Could not get pc: %v", err)
+		if s, err := disasm(t); err != nil {
+			log.Fatal(err)
+		} else {
+			fmt.Println(s)
 		}
-		// We know the PC; grab a bunch of bytes there, then decode and print
-		insn := make([]byte, 16)
-		if err := t.Read(pc, insn); err != nil {
-			log.Printf("Can' read PC at #%x, err %v", pc, err)
-			continue
-		}
-		d, err := x86asm.Decode(insn, 64)
-		if err != nil {
-			log.Printf("Can't decode %#02x: %v", insn, err)
-			continue
-		}
-		fmt.Println(x86asm.GNUSyntax(d, uint64(pc), nil))
 		any()
 		if err := t.SingleStep(); err != nil {
 			log.Print(err)
