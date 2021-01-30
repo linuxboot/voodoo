@@ -19,7 +19,7 @@ import (
 	"reflect"
 	"syscall"
 
-	"github.com/tfogal/ptrace"
+	"github.com/linuxboot/voodoo/ptrace"
 	"golang.org/x/sys/unix"
 )
 
