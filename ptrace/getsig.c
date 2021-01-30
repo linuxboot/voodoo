@@ -13,25 +13,25 @@ int
 main() {
 	siginfo_t si;
 	printf("package ptrace\n");
-	printf("type siginfo [%ld]byte\n", sizeof(si));
+	printf("import \"golang.org/x/sys/unix\"\n");
+	printf("var si[%ld]byte\n", sizeof(si));
 	printf("func GetSigInfo(pid int) (*unix.SignalfdSiginfo, error) {\n"
 		"var info = &unix.SignalfdSiginfo{}\n"
-		"r1, r2, err := syscall.Syscall6(unix.PTRACE, unix.PTRACE_GETSIGINFO, pid ,0, unsafe.Pointer(&si[0], 0))\n"
-		"if err != nil {\n"
-		"return nil, fmt.Errorf(\"PTRACE_GETSIGINFO FAILED  (%%v, %%v, %%v)\", r1, r2, err);\n"
+		"r1, r2, errno := syscall.Syscall6(unix.SYS_PTRACE, unix.PTRACE_GETSIGINFO, uintptr(pid),0, uintptr(unsafe.Pointer(&si[0])), 0, 0)\n"
+		"if errno != 0 {\n"
+		"return nil, fmt.Errorf(\"PTRACE_GETSIGINFO FAILED  (%%v, %%v, %%v)\", r1, r2, errno);\n"
 		"}\n");
-	printf("var n int\n");
-	printf("info.Signo, n = binary.Uvarint(si[%ld:%ld])\n", offsetof(siginfo_t, si_addr), offsetof(siginfo_t, si_addr)+ sizeof(si.si_signo));
-	printf("if n < %ld {\nreturn nil, nil, fmt.Errorf(\"info.Signo: only got %%ld bytes\", n)\n}\n", sizeof(si.si_signo));
-	printf("info.Errno, n = binary.Uvarint(si[%ld:%ld])\n", offsetof(siginfo_t, si_errno), offsetof(siginfo_t, si_errno) + sizeof(si.si_errno));
-	printf("if n < %ld {\nreturn nil, fmt.Errorf(\"info.Errno: only got %%ld bytes\", n)\n}\n", sizeof(si.si_errno));
+	printf("_64, n := binary.Uvarint(si[%ld:%ld])\n", offsetof(siginfo_t, si_addr), offsetof(siginfo_t, si_addr)+ sizeof(si.si_signo));
+	printf("if n < %ld {\nreturn  nil, fmt.Errorf(\"info.Signo: only got %%d bytes\", n)\n}\ninfo.Signo = uint32(_64)\n", sizeof(si.si_signo));
+	printf("_64, n = binary.Uvarint(si[%ld:%ld])\n", offsetof(siginfo_t, si_errno), offsetof(siginfo_t, si_errno) + sizeof(si.si_errno));
+	printf("if n < %ld {\nreturn nil, fmt.Errorf(\"info.Errno: only got %%d bytes\", n)\ninfo.Errno = int32(_64)\n}\n", sizeof(si.si_errno));
 
-	printf("info.Code, n = binary.Uvarint(si[%ld:%ld])\n", offsetof(siginfo_t, si_code), offsetof(siginfo_t, si_code) + sizeof(si.si_code));
-	printf("if n < %ld {\nreturn nil, fmt.Errorf(\"info.Code: only got %%ld bytes\", n)\n}\n", sizeof(si.si_code));
+	printf("_64, n = binary.Uvarint(si[%ld:%ld])\n", offsetof(siginfo_t, si_code), offsetof(siginfo_t, si_code) + sizeof(si.si_code));
+	printf("if n < %ld {\nreturn nil, fmt.Errorf(\"info.Code: only got %%d bytes\", n)\n}\ninfo.Code = int32(_64)\n", sizeof(si.si_code));
 	
 	printf("info.Addr, n = binary.Uvarint(si[%ld:%ld])\n", offsetof(siginfo_t, si_addr), offsetof(siginfo_t, si_addr) + sizeof(si.si_addr));
-	printf("if n < %ld {\nreturn nil, fmt.Errorf(\"info.Addr: only got %%ld bytes\", n)\n}\n", sizeof(si.si_addr));
-	printf("}\n");
+	printf("if n < %ld {\nreturn nil, fmt.Errorf(\"info.Addr: only got %%d bytes\", n)\n}\n", sizeof(si.si_addr));
+	printf("return info, nil\n}\n");
 
 }
 #if 0

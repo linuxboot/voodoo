@@ -8,6 +8,8 @@ import (
 	"os"
 	"runtime"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -134,7 +136,7 @@ func (t *Tracee) Syscall() error {
 		err := syscall.PtraceSyscall(t.proc.Pid, 0)
 		errchan <- err
 	}
-	return <- errchan
+	return <-errchan
 }
 
 // Sends the given signal to the tracee.
@@ -150,7 +152,7 @@ func (t *Tracee) SendSignal(sig syscall.Signal) error {
 func peek(pid int, address uintptr) (uint64, error) {
 	word := make([]byte, 8 /* 8 should really be sizeof(uintptr)... */)
 	nbytes, err := syscall.PtracePeekData(pid, address, word)
-	if err != nil || nbytes != 8/*sizeof(uintptr)*/ {
+	if err != nil || nbytes != 8 /*sizeof(uintptr)*/ {
 		return 0, err
 	}
 	v := uint64(0x2Bc0ffee)
@@ -163,7 +165,7 @@ func (t *Tracee) ReadWord(address uintptr) (uint64, error) {
 	err := make(chan error, 1)
 	value := make(chan uint64, 1)
 	if t.do(func() {
-		v, e := peek(t.proc.Pid, address);
+		v, e := peek(t.proc.Pid, address)
 		value <- v
 		err <- e
 	}) {
@@ -173,21 +175,23 @@ func (t *Tracee) ReadWord(address uintptr) (uint64, error) {
 }
 
 // grabs a word at the given address.
-func poke(pid int, address uintptr, word uint64) (error) {
+func poke(pid int, address uintptr, word uint64) error {
 	/* convert the word into the byte array that PtracePokeData needs. */
 	buf := new(bytes.Buffer)
 	err := binary.Write(buf, binary.LittleEndian, word)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	nbytes, err := syscall.PtracePokeData(pid, address, buf.Bytes())
-	if err != nil || nbytes != 8/*sizeof(uint64)*/ {
+	if err != nil || nbytes != 8 /*sizeof(uint64)*/ {
 		return err
 	}
 	return nil
 }
 
 // Writes the given word into the inferior's address space.
-func (t *Tracee) WriteWord(address uintptr, word uint64) (error) {
+func (t *Tracee) WriteWord(address uintptr, word uint64) error {
 	err := make(chan error, 1)
 	if t.do(func() { err <- poke(t.proc.Pid, address, word) }) {
 		return <-err
@@ -195,31 +199,31 @@ func (t *Tracee) WriteWord(address uintptr, word uint64) (error) {
 	return TraceeExited
 }
 
-func (t *Tracee) Write(address uintptr, data []byte) (error) {
+func (t *Tracee) Write(address uintptr, data []byte) error {
 	err := make(chan error, 1)
 	if t.do(func() {
-	  _, e := syscall.PtracePokeData(t.proc.Pid, address, data)
-	  err <- e
+		_, e := syscall.PtracePokeData(t.proc.Pid, address, data)
+		err <- e
 	}) {
-	  return <-err
+		return <-err
 	}
 	return TraceeExited
 }
 
 // Read grabs memory starting at the given address, for len(data) bytes.
 func (t *Tracee) Read(address uintptr, data []byte) error {
-  err := make(chan error, 1)
-  if t.do(func() {
-    _, e := syscall.PtracePeekData(t.proc.Pid, address, data)
-    err <- e
-  }) {
-    return <-err
-  }
-  return TraceeExited
+	err := make(chan error, 1)
+	if t.do(func() {
+		_, e := syscall.PtracePeekData(t.proc.Pid, address, data)
+		err <- e
+	}) {
+		return <-err
+	}
+	return TraceeExited
 }
 
 // read the registers from the inferior.
-func (t* Tracee) GetRegs() (syscall.PtraceRegs, error) {
+func (t *Tracee) GetRegs() (syscall.PtraceRegs, error) {
 	errchan := make(chan error, 1)
 	value := make(chan syscall.PtraceRegs, 1)
 	if t.do(func() {
@@ -234,7 +238,7 @@ func (t* Tracee) GetRegs() (syscall.PtraceRegs, error) {
 }
 
 // reads the instruction pointer from the inferior and returns it.
-func (t* Tracee) GetIPtr() (uintptr, error) {
+func (t *Tracee) GetIPtr() (uintptr, error) {
 	errchan := make(chan error, 1)
 	value := make(chan uintptr, 1)
 	if t.do(func() {
@@ -249,12 +253,15 @@ func (t* Tracee) GetIPtr() (uintptr, error) {
 	return 0, TraceeExited
 }
 
-func (t* Tracee) SetIPtr(addr uintptr) error {
+func (t *Tracee) SetIPtr(addr uintptr) error {
 	errchan := make(chan error, 1)
 	if t.do(func() {
 		var regs syscall.PtraceRegs
 		err := syscall.PtraceGetRegs(t.proc.Pid, &regs)
-		if err != nil { errchan <- err; return }
+		if err != nil {
+			errchan <- err
+			return
+		}
 		regs.Rip = uint64(addr)
 		err = syscall.PtraceSetRegs(t.proc.Pid, &regs)
 		errchan <- err
@@ -264,7 +271,7 @@ func (t* Tracee) SetIPtr(addr uintptr) error {
 	return TraceeExited
 }
 
-func (t* Tracee) SetRegs(regs syscall.PtraceRegs) error {
+func (t *Tracee) SetRegs(regs syscall.PtraceRegs) error {
 	errchan := make(chan error, 1)
 	if t.do(func() {
 		err := syscall.PtraceSetRegs(t.proc.Pid, &regs)
@@ -277,17 +284,17 @@ func (t* Tracee) SetRegs(regs syscall.PtraceRegs) error {
 
 // Reads the signal information for the signal that stopped the inferior.  Only
 // valid if the inferior is stopped due to a signal.
-func (t *Tracee) GetSiginfo() (Siginfo, error) {
+func (t *Tracee) GetSiginfo() (*unix.SignalfdSiginfo, error) {
 	errchan := make(chan error, 1)
-	value := make(chan Siginfo, 1)
+	value := make(chan *unix.SignalfdSiginfo, 1)
 	if t.do(func() {
-		si, err := get_siginfo(t.proc.Pid)
+		si, err := GetSigInfo(t.proc.Pid)
 		errchan <- err
 		value <- si
 	}) {
 		return <-value, <-errchan
 	}
-	return Siginfo{}, TraceeExited
+	return nil, TraceeExited
 }
 
 // Clears the last signal the inferior received.  This could allow the inferior
