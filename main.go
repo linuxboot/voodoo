@@ -221,6 +221,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("%v,", err)
 		}
+		log.Printf("%v", i)
 		s := unix.Signal(i.Signo)
 		r, err := t.GetRegs()
 		if err != nil {
@@ -228,7 +229,7 @@ func main() {
 		}
 		switch s {
 		default:
-			log.Fatalf("Can't do %v", unix.SignalName(s))
+			log.Fatalf("Can't do %#x(%v)", i.Signo, unix.SignalName(s))
 		case unix.SIGSEGV:
 			if err := segv(t, i); err != nil {
 				showone(os.Stderr, "", &r)

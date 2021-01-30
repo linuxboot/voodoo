@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/tfogal/ptrace"
+	"github.com/linuxboot/voodoo/ptrace"
 	"golang.org/x/arch/x86/x86asm"
 	"golang.org/x/sys/unix"
 )
@@ -92,11 +92,11 @@ func disasm(t *ptrace.Tracee) (string, error) {
 }
 
 // InfoString prints a nice format of a ptrace.SigInfo
-func InfoString(i ptrace.Siginfo) string {
+func InfoString(i *unix.SignalfdSiginfo) string {
 	return fmt.Sprintf("%s Errno %d Code %#x Trapno %d Addr %#x", unix.SignalName(unix.Signal(i.Signo)), i.Errno, i.Code, i.Trapno, i.Addr)
 }
 
-func segv(p *ptrace.Tracee, i ptrace.Siginfo) error {
+func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 	// The pattern is a destination register.
 	// This is sleazy and easy, so do it.
 	addr := i.Addr
