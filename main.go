@@ -218,10 +218,12 @@ func main() {
 
 	//Addr uintptr // Memory location which caused fault
 	for e := range t.Events() {
+		// Sometimes it fails with ESRCH but the process is there.
 		i, err := t.GetSiginfo()
-		if err != nil {
-			log.Fatalf("%v,", err)
-			any()
+		for err != nil {
+			log.Printf("%v,", err)
+			i, err = t.GetSiginfo()
+			any("Waiting for ^C")
 		}
 		log.Printf("%v", i)
 		s := unix.Signal(i.Signo)
