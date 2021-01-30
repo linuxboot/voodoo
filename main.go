@@ -142,6 +142,10 @@ func main() {
 	e.Close()
 
 	t, err := ptrace.Exec(n, []string{n})
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Process started with PID %d", t.PID())
 	any()
 	if err := t.SingleStep(); err != nil {
 		log.Printf("First single step: %v", err)
