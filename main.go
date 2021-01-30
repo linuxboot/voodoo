@@ -220,6 +220,7 @@ func main() {
 		i, err := t.GetSiginfo()
 		if err != nil {
 			log.Fatalf("%v,", err)
+			any()
 		}
 		log.Printf("%v", i)
 		s := unix.Signal(i.Signo)
