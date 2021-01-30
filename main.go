@@ -44,10 +44,10 @@ var (
 	offset   = flag.String("offset", "0", "offset for objcopy")
 )
 
-func any(f ...msg) {
+func any(f ...string) {
 	var b [1]byte
 	for _, ff := range f {
-		ff()
+		log.Println(ff)
 	}
 	log.Printf("hit the any key")
 	os.Stdin.Read(b[:])
@@ -174,10 +174,7 @@ func main() {
 			}
 			if false {
 				if err := t.Write(addr, dat); err != nil {
-					f := func() {
-						log.Printf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err)
-					}
-					any(f)
+					any(fmt.Sprintf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err))
 					log.Fatalf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err)
 				}
 			}
