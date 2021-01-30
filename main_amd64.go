@@ -104,6 +104,10 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 	if err != nil {
 		return err
 	}
+	r, err := p.GetRegs()
+	if err != nil {
+		return err
+	}
 	if (addr >= ImageHandle) && (addr <= ImageHandleEnd) {
 		l := fmt.Sprintf("%#x, %s[", pc, InfoString(i))
 		for _, a := range inst.Args {
@@ -120,10 +124,6 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 		l += "]"
 		switch inst.Args[0] {
 		case x86asm.RCX:
-			r, err := p.GetRegs()
-			if err != nil {
-				return err
-			}
 			r.Rcx = uint64(addr) + 0x10000
 			r.Rip += uint64(inst.Len)
 			if err := p.SetRegs(r); err != nil {
@@ -131,10 +131,6 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			}
 			return nil
 		case x86asm.RAX:
-			r, err := p.GetRegs()
-			if err != nil {
-				return err
-			}
 			r.Rax = uint64(addr) + 0x10000
 			r.Rip += uint64(inst.Len)
 			if err := p.SetRegs(r); err != nil {
@@ -151,7 +147,7 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			var b [8]byte
 			err := p.Read(uintptr(x86asm.RDX), b[:])
 			if err != nil {
-				return err
+				return fmt.Errorf("Reading %#x: %v", r.Rdx, err)
 			}
 
 			fmt.Printf("%#x", b)
