@@ -145,6 +145,21 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			return fmt.Errorf("Can't handle dest %v", inst.Args[0])
 		}
 	}
+	if (addr >= SystemTableEnd) && (addr <= SystemTableEnd+0x10000) {
+		switch addr & 0xffff {
+		case 0xf8:
+			var b [8]byte
+			err := p.Read(uintptr(x86asm.RDX), b[:])
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("%#x", b)
+			return nil
+		default:
+			return fmt.Errorf("Don't know what to do with %v", addr)
+		}
+	}
 	l := fmt.Sprintf("%#x, %s[", pc, InfoString(i))
 	for _, a := range inst.Args {
 		l += fmt.Sprintf("%v,", a)
