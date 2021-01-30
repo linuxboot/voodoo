@@ -233,11 +233,17 @@ func main() {
 		}
 		switch s {
 		default:
-			log.Fatalf("Can't do %#x(%v)", i.Signo, unix.SignalName(s))
+			log.Printf("Can't do %#x(%v)", i.Signo, unix.SignalName(s))
+			for {
+				any("Waiting for ^C")
+			}
 		case unix.SIGSEGV:
 			if err := segv(t, i); err != nil {
 				showone(os.Stderr, "", &r)
-				log.Fatal(err)
+				log.Printf("Can't do %#x(%v)", i.Signo, unix.SignalName(s))
+				for {
+					any("Waiting for ^C")
+				}
 			}
 		case unix.SIGTRAP:
 		}
