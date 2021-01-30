@@ -13,9 +13,9 @@ import (
 )
 
 var (
-	// TraceeExited is returned when a command is executed on a tracee
+	// ErrTraceeExited is returned when a command is executed on a tracee
 	// that has already exited.
-	TraceeExited = errors.New("tracee exited")
+	ErrTraceeExited = errors.New("tracee exited")
 )
 
 // An Event is sent on a Tracee's event channel whenever it changes state.
@@ -29,6 +29,7 @@ type Tracee struct {
 	cmds   chan func()
 }
 
+// PID returns the PID for a Tracee.
 func (t *Tracee) PID() int { return t.proc.Pid }
 
 // Events returns the events channel for the tracee.
@@ -68,7 +69,7 @@ func Exec(name string, argv []string) (*Tracee, error) {
 	return t, <-err
 }
 
-// Attaches to the given process.
+// Attach attaches to the given process.
 func Attach(pid int) (*Tracee, error) {
 	t := &Tracee{
 		events: make(chan Event, 1),
@@ -102,7 +103,7 @@ func (t *Tracee) Detach() error {
 	if t.do(func() { err <- syscall.PtraceDetach(t.proc.Pid) }) {
 		return <-err
 	}
-	return TraceeExited
+	return ErrTraceeExited
 }
 
 // SingleStep continues the tracee for one instruction.
@@ -111,10 +112,10 @@ func (t *Tracee) SingleStep() error {
 	if t.do(func() { err <- syscall.PtraceSingleStep(t.proc.Pid) }) {
 		return <-err
 	}
-	return TraceeExited
+	return ErrTraceeExited
 }
 
-// Makes the tracee execute unmanaged by the tracer.  Most commands are not
+// Continue makes the tracee execute unmanaged by the tracer.  Most commands are not
 // possible in this state, with the notable exception of sending a
 // syscall.SIGSTOP signal.
 func (t *Tracee) Continue() error {
@@ -123,13 +124,13 @@ func (t *Tracee) Continue() error {
 	if t.do(func() { err <- syscall.PtraceCont(t.proc.Pid, sig) }) {
 		return <-err
 	}
-	return TraceeExited
+	return ErrTraceeExited
 }
 
-// Executes the inferior until it hits, or returns from, a system call.
+// Syscall runs the inferior until it hits, or returns from, a system call.
 func (t *Tracee) Syscall() error {
 	if t.cmds == nil {
-		return TraceeExited
+		return ErrTraceeExited
 	}
 	errchan := make(chan error, 1)
 	t.cmds <- func() {
@@ -139,13 +140,13 @@ func (t *Tracee) Syscall() error {
 	return <-errchan
 }
 
-// Sends the given signal to the tracee.
+// SendSignal sends the given signal to the tracee.
 func (t *Tracee) SendSignal(sig syscall.Signal) error {
 	err := make(chan error, 1)
 	if t.do(func() { err <- syscall.Kill(t.proc.Pid, sig) }) {
 		return <-err
 	}
-	return TraceeExited
+	return ErrTraceeExited
 }
 
 // grabs a word at the given address.
@@ -160,7 +161,7 @@ func peek(pid int, address uintptr) (uint64, error) {
 	return v, err
 }
 
-// Reads the given word from the inferior's address space.
+// ReadWord reads the given word from the inferior's address space.
 func (t *Tracee) ReadWord(address uintptr) (uint64, error) {
 	err := make(chan error, 1)
 	value := make(chan uint64, 1)
@@ -171,7 +172,7 @@ func (t *Tracee) ReadWord(address uintptr) (uint64, error) {
 	}) {
 		return <-value, <-err
 	}
-	return 0, errors.New("unreachable.")
+	return 0, errors.New("ReadWord: Unreachable")
 }
 
 // grabs a word at the given address.
@@ -190,13 +191,13 @@ func poke(pid int, address uintptr, word uint64) error {
 	return nil
 }
 
-// Writes the given word into the inferior's address space.
+// WriteWord writes the given word into the inferior's address space.
 func (t *Tracee) WriteWord(address uintptr, word uint64) error {
 	err := make(chan error, 1)
 	if t.do(func() { err <- poke(t.proc.Pid, address, word) }) {
 		return <-err
 	}
-	return TraceeExited
+	return ErrTraceeExited
 }
 
 func (t *Tracee) Write(address uintptr, data []byte) error {
@@ -207,7 +208,7 @@ func (t *Tracee) Write(address uintptr, data []byte) error {
 	}) {
 		return <-err
 	}
-	return TraceeExited
+	return ErrTraceeExited
 }
 
 // Read grabs memory starting at the given address, for len(data) bytes.
@@ -219,10 +220,10 @@ func (t *Tracee) Read(address uintptr, data []byte) error {
 	}) {
 		return <-err
 	}
-	return TraceeExited
+	return ErrTraceeExited
 }
 
-// read the registers from the inferior.
+// GetRegs reads the registers from the inferior.
 func (t *Tracee) GetRegs() (syscall.PtraceRegs, error) {
 	errchan := make(chan error, 1)
 	value := make(chan syscall.PtraceRegs, 1)
@@ -234,10 +235,10 @@ func (t *Tracee) GetRegs() (syscall.PtraceRegs, error) {
 	}) {
 		return <-value, <-errchan
 	}
-	return syscall.PtraceRegs{}, errors.New("unreachable.")
+	return syscall.PtraceRegs{}, errors.New("GetRegs: Unreachable")
 }
 
-// reads the instruction pointer from the inferior and returns it.
+// GetIPtr reads the instruction pointer from the inferior and returns it.
 func (t *Tracee) GetIPtr() (uintptr, error) {
 	errchan := make(chan error, 1)
 	value := make(chan uintptr, 1)
@@ -250,9 +251,10 @@ func (t *Tracee) GetIPtr() (uintptr, error) {
 	}) {
 		return <-value, <-errchan
 	}
-	return 0, TraceeExited
+	return 0, ErrTraceeExited
 }
 
+// SetIPtr sets the instruction pointer for a Tracee.
 func (t *Tracee) SetIPtr(addr uintptr) error {
 	errchan := make(chan error, 1)
 	if t.do(func() {
@@ -268,9 +270,10 @@ func (t *Tracee) SetIPtr(addr uintptr) error {
 	}) {
 		return <-errchan
 	}
-	return TraceeExited
+	return ErrTraceeExited
 }
 
+// SetRegs sets regs for a Tracee.
 func (t *Tracee) SetRegs(regs syscall.PtraceRegs) error {
 	errchan := make(chan error, 1)
 	if t.do(func() {
@@ -279,11 +282,11 @@ func (t *Tracee) SetRegs(regs syscall.PtraceRegs) error {
 	}) {
 		return <-errchan
 	}
-	return TraceeExited
+	return ErrTraceeExited
 }
 
-// Reads the signal information for the signal that stopped the inferior.  Only
-// valid if the inferior is stopped due to a signal.
+// GetSiginfo reads the signal information for the signal that stopped the inferior.  Only
+// valid on Unix if the inferior is stopped due to a signal.
 func (t *Tracee) GetSiginfo() (*unix.SignalfdSiginfo, error) {
 	errchan := make(chan error, 1)
 	value := make(chan *unix.SignalfdSiginfo, 1)
@@ -294,19 +297,20 @@ func (t *Tracee) GetSiginfo() (*unix.SignalfdSiginfo, error) {
 	}) {
 		return <-value, <-errchan
 	}
-	return nil, TraceeExited
+	return nil, ErrTraceeExited
 }
 
-// Clears the last signal the inferior received.  This could allow the inferior
+// ClearSignal clears the last signal the inferior received.
+// This could allow the inferior
 // to continue after a segfault, for example.
 func (t *Tracee) ClearSignal() error {
 	errchan := make(chan error, 1)
 	if t.do(func() {
-		errchan <- clear_signals(int(t.proc.Pid))
+		errchan <- ClearSignals(int(t.proc.Pid))
 	}) {
 		return <-errchan
 	}
-	return TraceeExited
+	return ErrTraceeExited
 }
 
 // Sends the command to the tracer go routine.	Returns whether the command
@@ -319,6 +323,7 @@ func (t *Tracee) do(f func()) bool {
 	return false
 }
 
+// Close closes a Tracee.
 func (t *Tracee) Close() error {
 	var err error
 	select {

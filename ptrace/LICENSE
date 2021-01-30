@@ -1,0 +1,5 @@
+// This is forked from tfogal's ptrace package, which was forked
+// from eaburns ptrace package. These were last modified in 2014.
+// They had no license file.
+// This code has been changed to make it more idiomatic, remove
+// the C dependency, and use more modern Unix packages.

@@ -4,11 +4,12 @@ import (
 	"fmt"
 )
 
-func clear_signals(pid int) error {
+// ClearSignals clears all pending signals for a Tracee.
+func ClearSignals(pid int) error {
 	//  errno := C.clearsignal(C.long(pid))
 	errnum := 1 //int(errno)
 	if errnum != 0 {
-		return fmt.Errorf("could not clear signals, err=%d\n", errnum)
+		return fmt.Errorf("Could not clear signals for pid %d: %v", pid, errnum)
 	}
 	return nil
 }

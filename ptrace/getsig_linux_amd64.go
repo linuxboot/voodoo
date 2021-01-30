@@ -11,6 +11,7 @@ import (
 
 var si [128]byte
 
+// GetSigInfo gets the signal info for a pid into a *unix.SignalfdSiginfo
 func GetSigInfo(pid int) (*unix.SignalfdSiginfo, error) {
 	var info = &unix.SignalfdSiginfo{}
 	r1, r2, errno := syscall.Syscall6(unix.SYS_PTRACE, unix.PTRACE_GETSIGINFO, uintptr(pid), 0, uintptr(unsafe.Pointer(&si[0])), 0, 0)
