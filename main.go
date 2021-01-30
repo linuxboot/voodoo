@@ -266,7 +266,7 @@ func main() {
 		} else {
 			fmt.Println(s)
 		}
-		any()
+		//any()
 		if err := t.SingleStep(); err != nil {
 			log.Print(err)
 		}
