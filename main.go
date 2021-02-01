@@ -39,9 +39,11 @@ const (
 type msg func()
 
 var (
-	start    = flag.Uint64("start", 0, "starting address -- default is from PE/COFF but you can override")
-	optional = flag.Bool("optional", false, "Print optional registers")
-	offset   = flag.String("offset", "0", "offset for objcopy")
+	start      = flag.Uint64("start", 0, "starting address -- default is from PE/COFF but you can override")
+	optional   = flag.Bool("optional", false, "Print optional registers")
+	offset     = flag.String("offset", "0", "offset for objcopy")
+	singlestep = flag.Bool("singlestep", false, "single step instructions")
+	step       = func(...string) {}
 )
 
 func any(f ...string) {
@@ -124,6 +126,9 @@ func main() {
 	if *optional {
 		regsprint = allregsprint
 	}
+	if *singlestep {
+		step = any
+	}
 	f, err := ioutil.TempFile("", "voodoo")
 	if err != nil {
 		log.Fatal(err)
@@ -146,11 +151,11 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Printf("Process started with PID %d", t.PID())
-	any()
+	step()
 	if err := t.SingleStep(); err != nil {
 		log.Printf("First single step: %v", err)
 	}
-	any()
+	step()
 	// For now, we do the PE/COFF externally. But leave this here ...
 	// you never know.
 	if true {
@@ -223,7 +228,7 @@ func main() {
 		for err != nil {
 			log.Printf("%v,", err)
 			i, err = t.GetSiginfo()
-			any("Waiting for ^C")
+			any("Waiting for ^C, or hit return to try GetSigInfo again")
 		}
 		log.Printf("%v", i)
 		s := unix.Signal(i.Signo)
@@ -238,6 +243,8 @@ func main() {
 				any("Waiting for ^C")
 			}
 		case unix.SIGSEGV:
+			showone(os.Stderr, "", &r)
+			any(fmt.Sprintf("Handle the segv at %#x", i.Addr))
 			if err := segv(t, i); err != nil {
 				showone(os.Stderr, "", &r)
 				log.Printf("Can't do %#x(%v)", i.Signo, unix.SignalName(s))
@@ -245,6 +252,15 @@ func main() {
 					any("Waiting for ^C")
 				}
 			}
+			if err := t.ClearSignal(); err != nil {
+				log.Printf("ClearSignal failed; %v", err)
+				for {
+					any("Waiting for ^C")
+				}
+			}
+			showone(os.Stderr, "", &r)
+			any("move along")
+
 		case unix.SIGTRAP:
 		}
 
@@ -266,7 +282,7 @@ func main() {
 		} else {
 			fmt.Println(s)
 		}
-		//any()
+		step()
 		if err := t.SingleStep(); err != nil {
 			log.Print(err)
 		}
