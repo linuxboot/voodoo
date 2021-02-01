@@ -96,7 +96,8 @@ func regdiff(w io.Writer, r, p *syscall.PtraceRegs) error {
 	return err
 }
 
-func showone(w io.Writer, indent string, in interface{}) {
+func showone(indent string, in interface{}) string {
+	var ret string
 	s := reflect.ValueOf(in).Elem()
 	typeOfT := s.Type()
 
@@ -104,17 +105,19 @@ func showone(w io.Writer, indent string, in interface{}) {
 		f := s.Field(i)
 		switch f.Kind() {
 		case reflect.String:
-			fmt.Printf(indent+"\t%s %s = %s\n", typeOfT.Field(i).Name, f.Type(), f.Interface())
+			ret += fmt.Sprintf(indent+"\t%s %s = %s\n", typeOfT.Field(i).Name, f.Type(), f.Interface())
 		default:
-			fmt.Printf(indent+"\t%s %s = %#x\n", typeOfT.Field(i).Name, f.Type(), f.Interface())
+			ret += fmt.Sprintf(indent+"\t%s %s = %#x\n", typeOfT.Field(i).Name, f.Type(), f.Interface())
 		}
 	}
-
+	return ret
 }
-func show(w io.Writer, indent string, l ...interface{}) {
+func show(indent string, l ...interface{}) string {
+	var ret string
 	for _, i := range l {
-		showone(w, indent, i)
+		ret += showone(indent, i)
 	}
+	return ret
 }
 
 func main() {
@@ -164,7 +167,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		show(os.Stderr, "", &f.FileHeader)
+		log.Print(show("", &f.FileHeader))
 		// UEFI provides no symbols, of course. Why would it?
 		log.Printf("%v:\n%d syms", f, len(f.COFFSymbols))
 		for _, s := range f.COFFSymbols {
@@ -175,7 +178,7 @@ func main() {
 		base := uintptr(0x400000)
 		for i, s := range f.Sections {
 			fmt.Fprintf(os.Stderr, "Section %d", i)
-			show(os.Stderr, "\t", &s.SectionHeader)
+			fmt.Fprintf(os.Stderr, show("\t", &s.SectionHeader))
 			addr := base + uintptr(s.VirtualAddress)
 			dat, err := s.Data()
 			if err != nil {
@@ -243,23 +246,23 @@ func main() {
 				any("Waiting for ^C")
 			}
 		case unix.SIGSEGV:
-			showone(os.Stderr, "", &r)
-			any(fmt.Sprintf("Handle the segv at %#x", i.Addr))
+			//showone(os.Stderr, "", &r)
+			//any(fmt.Sprintf("Handle the segv at %#x", i.Addr))
 			if err := segv(t, i); err != nil {
-				showone(os.Stderr, "", &r)
-				log.Printf("Can't do %#x(%v)", i.Signo, unix.SignalName(s))
+				//showone(os.Stderr, "", &r)
+				log.Printf("Can't do %#x(%v): %v", i.Signo, unix.SignalName(s), err)
 				for {
 					any("Waiting for ^C")
 				}
 			}
 			if err := t.ClearSignal(); err != nil {
-				log.Printf("ClearSignal failed; %v", err)
+				//log.Printf("ClearSignal failed; %v", err)
 				for {
 					any("Waiting for ^C")
 				}
 			}
-			showone(os.Stderr, "", &r)
-			any("move along")
+			//showone(os.Stderr, "", &r)
+			//any("move along")
 
 		case unix.SIGTRAP:
 		}

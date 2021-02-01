@@ -302,6 +302,14 @@ func InfoString(i *unix.SignalfdSiginfo) string {
 	return fmt.Sprintf("%s Errno %d Code %#x Trapno %d Addr %#x", unix.SignalName(unix.Signal(i.Signo)), i.Errno, i.Code, i.Trapno, i.Addr)
 }
 
+func callinfo(s *unix.SignalfdSiginfo, inst *x86asm.Inst, r syscall.PtraceRegs) string {
+	l := fmt.Sprintf("%s, %s[", show("", &r), InfoString(s))
+	for _, a := range inst.Args {
+		l += fmt.Sprintf("%v,", a)
+	}
+	l += "]"
+	return l
+}
 func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 	// The pattern is a destination register.
 	// This is sleazy and easy, so do it.
@@ -354,9 +362,13 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			return err
 		}
 		op := addr & 0xffff
-		log.Printf("opcode area op is %#x, arg type %T, args %#x", op, inst.Args, inst.Args)
+		op -= BootServicesOffset
+		//log.Printf("%s(%#x), arg type %T, args %#x", bootServicesNames[int(op)], op, inst.Args, inst.Args)
 		switch op {
-		case 0xf8:
+		case HandleProtocol:
+			return fmt.Errorf("Can't handle HandleProtocol: %s", callinfo(i, inst, r))
+			// we think this is a print function? no idea
+		case 0xfffe:
 			arg0, err := GetReg(&r, x86asm.RDX)
 			if err != nil {
 				return fmt.Errorf("Can't get RDX: %v", err)
@@ -419,10 +431,5 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			return fmt.Errorf("opcode %#x addr %v: unknonw opcode", op, addr)
 		}
 	}
-	l := fmt.Sprintf("%#x, %s[", pc, InfoString(i))
-	for _, a := range inst.Args {
-		l += fmt.Sprintf("%v,", a)
-	}
-	l += "]"
-	return fmt.Errorf("Don't know what to do with %v", l)
+	return fmt.Errorf("Don't know what to do with %v", callinfo(i, inst, r))
 }
