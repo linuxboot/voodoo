@@ -9,7 +9,9 @@ import (
 	"log"
 	"syscall"
 
+	"github.com/linuxboot/voodoo/protocol"
 	"github.com/linuxboot/voodoo/ptrace"
+	"github.com/u-root/u-root/pkg/uefivars"
 	"golang.org/x/arch/x86/x86asm"
 	"golang.org/x/sys/unix"
 )
@@ -307,9 +309,24 @@ func callinfo(s *unix.SignalfdSiginfo, inst *x86asm.Inst, r syscall.PtraceRegs) 
 	for _, a := range inst.Args {
 		l += fmt.Sprintf("%v,", a)
 	}
-	l += "]"
+	l += fmt.Sprintf("(%#x, %#x, %#x, %#x)", r.Rcx, r.Rdx, r.R8, r.R9)
 	return l
 }
+
+func args(r *syscall.PtraceRegs, nargs int) []uintptr {
+	switch nargs {
+	case 4:
+		return []uintptr{uintptr(r.Rcx), uintptr(r.Rdx), uintptr(r.R8), uintptr(r.R9)}
+	case 3:
+		return []uintptr{uintptr(r.Rcx), uintptr(r.Rdx), uintptr(r.R8)}
+	case 2:
+		return []uintptr{uintptr(r.Rcx), uintptr(r.Rdx)}
+	case 1:
+		return []uintptr{uintptr(r.Rcx)}
+	}
+	return []uintptr{}
+}
+
 func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 	// The pattern is a destination register.
 	// This is sleazy and easy, so do it.
@@ -366,8 +383,17 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 		//log.Printf("%s(%#x), arg type %T, args %#x", bootServicesNames[int(op)], op, inst.Args, inst.Args)
 		switch op {
 		case HandleProtocol:
-			return fmt.Errorf("Can't handle HandleProtocol: %s", callinfo(i, inst, r))
-			// we think this is a print function? no idea
+			// The arguments are rcx, rdx, r9
+			args := args(&r, 3)
+			var g uefivars.MixedGUID
+			if err := p.Read(args[1], g[:]); err != nil {
+				return fmt.Errorf("Can't read guid at #%x, err %v", args[1], err)
+			}
+			log.Printf("HandleProtocol: GUID %s", g)
+			if err := protocol.Srv(&g, args...); err != nil {
+				return fmt.Errorf("Can't handle HandleProtocol: %s: %v", callinfo(i, inst, r), err)
+			}
+			return nil
 		case 0xfffe:
 			arg0, err := GetReg(&r, x86asm.RDX)
 			if err != nil {
