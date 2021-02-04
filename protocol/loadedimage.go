@@ -1,5 +1,10 @@
 package protocol
 
+import (
+	"bytes"
+	"encoding/binary"
+)
+
 /* from the belly of the EFI best.
 #define EFI_LOADED_IMAGE_PROTOCOL_GUID \
   { \
@@ -46,9 +51,58 @@ typedef struct {
 } EFI_LOADED_IMAGE_PROTOCOL
 */
 
-import "github.com/linuxboot/fiano/pkg/guid"
+// LoadedImage is for the Loaded Image Protocol.
+type LoadedImage struct {
+	Revision uint32
+	Parent   Handle
+	System   Table
 
-var LoadedImageProtocol = guid.MustParse("5B1B31A1-9562-11D2-8E3F-00A0C969723B")
+	//
+	// Source location of image
+	//
+	Device   Handle
+	FilePath uintptr
+	_        uintptr
+
+	//
+	// Images load options
+	//
+	LoadOptionsSize uint32
+	LoadOptions     uintptr
+
+	//
+	// Location of where image was loaded
+	//
+	ImageBase     uintptr
+	ImageSize     uint64
+	ImageCodeType MemoryType
+	ImageDataType MemoryType
+
+	//
+	// If the driver image supports a dynamic unload request
+	//
+	/*EFI_IMAGE_UNLOAD*/
+	Unload uintptr
+}
+
+var LoadedImageProtocol = "5B1B31A1-9562-11D2-8E3F-00A0C969723B"
+
+var _ TableMarshaler = LoadedImage{}
+
+func (i LoadedImage) Marshal() ([]byte, error) {
+	var (
+		w = &bytes.Buffer{}
+		f = func(i ...interface{}) ([]byte, error) {
+			for _, v := range i {
+				if err := binary.Write(w, binary.LittleEndian, v); err != nil {
+					return nil, err
+				}
+			}
+			return w.Bytes(), nil
+		}
+	)
+	return f(i.Revision, uint64(i.Parent), uint64(i.System), uint64(i.Device), uint64(i.FilePath), uint64(0), uint64(i.LoadOptions), uint64(i.ImageBase), uint64(i.ImageSize), uint64(i.ImageCodeType), uint64(i.ImageDataType), uint64(i.Unload))
+}
 
 // NewLoadedImage returns a filled-in LoadedImage struct. As to correctness, we have no idea.
 func NewLoadedImage() (*LoadedImage, error) {

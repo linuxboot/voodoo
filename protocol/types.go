@@ -17,36 +17,6 @@ type (
 	Path uintptr
 )
 
-// LoadedImage is for the Loaded Image Protocol.
-type LoadedImage struct {
-	Revision uint32
-	Parent   Handle
-	System   Table
-
-	//
-	// Source location of image
-	//
-	Device   Handle
-	FilePath uintptr
-	_        uintptr
-
-	//
-	// Images load options
-	//
-	LoadOptionsSize uint32
-	LoadOptions     uintptr
-
-	//
-	// Location of where image was loaded
-	//
-	ImageBase     uintptr
-	ImageSize     uint64
-	ImageCodeType MemoryType
-	ImageDataType MemoryType
-
-	//
-	// If the driver image supports a dynamic unload request
-	//
-	/*EFI_IMAGE_UNLOAD*/
-	Unload uintptr
+type TableMarshaler interface {
+	Marshal() ([]byte, error)
 }

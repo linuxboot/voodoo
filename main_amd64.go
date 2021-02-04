@@ -389,7 +389,7 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 				return fmt.Errorf("Can't read guid at #%x, err %v", args[1], err)
 			}
 			log.Printf("HandleProtocol: GUID %s", g)
-			if err := Srv(&g, args...); err != nil {
+			if err := Srv(p, &g, args...); err != nil {
 				return fmt.Errorf("Can't handle HandleProtocol: %s: %v", callinfo(i, inst, r), err)
 			}
 			return nil

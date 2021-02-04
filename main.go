@@ -44,7 +44,7 @@ var (
 	offset     = flag.String("offset", "0", "offset for objcopy")
 	singlestep = flag.Bool("singlestep", false, "single step instructions")
 	step       = func(...string) {}
-	mem        = flag.Uint64("bump", 0x80000000, "where to put dynamic stuff for UEFI")
+	dat        uintptr
 )
 
 func any(f ...string) {
@@ -219,6 +219,13 @@ func main() {
 		log.Fatal(err)
 	}
 	p := r
+	// Reserve space for structs that we will place into the memory.
+	// For now, just drop the stack 1m and use that as a bump pointer.
+	dat = uintptr(r.Rsp)
+	r.Rsp -= 0x100000
+	if err := t.SetRegs(r); err != nil {
+		log.Fatalf("Can't set stack to %#x: %v", dat, err)
+	}
 	//type Siginfo struct {
 	//Signo  int // signal number
 	//Errno  int // An errno value
