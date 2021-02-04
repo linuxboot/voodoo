@@ -44,6 +44,7 @@ var (
 	offset     = flag.String("offset", "0", "offset for objcopy")
 	singlestep = flag.Bool("singlestep", false, "single step instructions")
 	step       = func(...string) {}
+	mem        = flag.Uint64("bump", 0x80000000, "where to put dynamic stuff for UEFI")
 )
 
 func any(f ...string) {

@@ -5,6 +5,7 @@ package protocol
   { \
     0x5B1B31A1, 0x9562, 0x11d2, {0x8E, 0x3F, 0x00, 0xA0, 0xC9, 0x69, 0x72, 0x3B} \
   }
+2021/02/04 13:31:45 HandleProtocol: GUID 5B1B31A1-9562-11D2-8E3F-00A0C969723B
 
 //
 // EFI_SYSTEM_TABLE & EFI_IMAGE_UNLOAD are defined in EfiApi.h
@@ -44,6 +45,10 @@ typedef struct {
 
 } EFI_LOADED_IMAGE_PROTOCOL
 */
+
+import "github.com/linuxboot/fiano/pkg/guid"
+
+var LoadedImageProtocol = guid.MustParse("5B1B31A1-9562-11D2-8E3F-00A0C969723B")
 
 // NewLoadedImage returns a filled-in LoadedImage struct. As to correctness, we have no idea.
 func NewLoadedImage() (*LoadedImage, error) {
