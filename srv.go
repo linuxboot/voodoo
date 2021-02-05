@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"github.com/linuxboot/fiano/pkg/guid"
@@ -16,6 +17,9 @@ func Srv(p *ptrace.Tracee, g *guid.GUID, args ...uintptr) error {
 
 	switch s {
 	case protocol.LoadedImageProtocol:
+		if len(args) < 3 {
+			return fmt.Errorf("protocol.LoadedImageProtocol needs 3 args, got %d", len(args))
+		}
 		i, err := protocol.NewLoadedImage()
 		if err != nil {
 			return err
@@ -27,6 +31,12 @@ func Srv(p *ptrace.Tracee, g *guid.GUID, args ...uintptr) error {
 		}
 		if err := p.Write(dat, b); err != nil {
 			return fmt.Errorf("Can't write %d bytes to %#x: %v", len(b), dat, err)
+		}
+		// Store the return pointer through arg3.
+		var bb [8]byte
+		binary.LittleEndian.PutUint64(bb[:], uint64(dat))
+		if err := p.Write(args[2], bb[:]); err != nil {
+			return fmt.Errorf("Can't write %d bytes to %#x: %v", len(bb), dat, err)
 		}
 		dat += uintptr(len(b))
 		return nil
