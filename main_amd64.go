@@ -378,8 +378,9 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			return err
 		}
 		op := addr & 0xffff
+		log.Printf("Services: %s(%#x), arg type %T, args %v", bootServicesNames[int(op)], op, inst.Args, inst.Args)
 		op -= BootServicesOffset
-		//log.Printf("%s(%#x), arg type %T, args %#x", bootServicesNames[int(op)], op, inst.Args, inst.Args)
+		log.Printf("Boot services: %s(%#x), arg type %T, args %v", bootServicesNames[int(op)], op, inst.Args, inst.Args)
 		switch op {
 		case HandleProtocol:
 			// The arguments are rcx, rdx, r9
@@ -392,6 +393,12 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			if err := Srv(p, &g, args...); err != nil {
 				return fmt.Errorf("Can't handle HandleProtocol: %s: %v", callinfo(i, inst, r), err)
 			}
+			return nil
+		case ConnectController:
+			// The arguments are rcx, rdx, r9, r8
+			args := args(&r, 4)
+			log.Printf("ConnectController: %#x", args)
+			// Just pretend it worked.
 			return nil
 		case 0xfffe:
 			arg0, err := GetReg(&r, x86asm.RDX)
