@@ -45,6 +45,7 @@ var (
 	singlestep = flag.Bool("singlestep", false, "single step instructions")
 	step       = func(...string) {}
 	dat        uintptr
+	line       int
 )
 
 func any(f ...string) {
@@ -59,7 +60,7 @@ func any(f ...string) {
 func header(w io.Writer) error {
 	var l string
 	for _, r := range regsprint {
-		l += fmt.Sprintf("%s,", r.name)
+		l += fmt.Sprintf("%s%s,", r.name, r.extra)
 	}
 	_, err := fmt.Fprint(w, l+"\n")
 	return err
@@ -71,7 +72,7 @@ func regs(w io.Writer, r *syscall.PtraceRegs) error {
 	var l string
 	for _, rp := range regsprint {
 		rf := rr.FieldByName(rp.name)
-		l += fmt.Sprintf(rp.format+",", rf.Interface())
+		l += fmt.Sprintf("\""+rp.format+"\",", rf.Interface())
 	}
 	_, err := fmt.Fprint(w, l)
 	return err
@@ -89,7 +90,7 @@ func regdiff(w io.Writer, r, p *syscall.PtraceRegs) error {
 		rv := fmt.Sprintf(rp.format, rf.Interface())
 		pv := fmt.Sprintf(rp.format, pf.Interface())
 		if rv != pv {
-			l += rv
+			l += "\"" + rv + "\""
 		}
 		l += ","
 	}
@@ -211,11 +212,12 @@ func main() {
 	if err := header(os.Stdout); err != nil {
 		log.Fatal(err)
 	}
+	line++
 	r, err := t.GetRegs()
 	if err != nil {
-		log.Printf("Could not get regs: %v", err)
+		log.Fatalf("Could not get regs: %v", err)
 	}
-	if err := regs(os.Stderr, &r); err != nil {
+	if err := regs(os.Stdout, &r); err != nil {
 		log.Fatal(err)
 	}
 	p := r
@@ -234,6 +236,10 @@ func main() {
 
 	//Addr uintptr // Memory location which caused fault
 	for e := range t.Events() {
+		if line%25 == 0 {
+			header(os.Stdout)
+		}
+		line++
 		// Sometimes it fails with ESRCH but the process is there.
 		i, err := t.GetSiginfo()
 		for err != nil {
@@ -256,6 +262,9 @@ func main() {
 		case unix.SIGSEGV:
 			//showone(os.Stderr, "", &r)
 			//any(fmt.Sprintf("Handle the segv at %#x", i.Addr))
+			if err := regs(os.Stdout, &r); err != nil {
+				log.Fatal(err)
+			}
 			if err := segv(t, i); err != nil {
 				//showone(os.Stderr, "", &r)
 				log.Printf("Can't do %#x(%v): %v", i.Signo, unix.SignalName(s), err)
@@ -284,14 +293,14 @@ func main() {
 				log.Printf("%v,", i)
 			}
 		}
-		if err := regdiff(os.Stderr, &r, &p); err != nil {
+		if err := regdiff(os.Stdout, &r, &p); err != nil {
 			log.Fatal(err)
 		}
 		p = r
 		if s, err := disasm(t); err != nil {
 			log.Fatal(err)
 		} else {
-			fmt.Println(s)
+			fmt.Println("\"" + s + "\"")
 		}
 		step()
 		if err := t.SingleStep(); err != nil {

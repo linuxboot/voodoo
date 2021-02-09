@@ -18,40 +18,41 @@ import (
 type rprint struct {
 	name   string
 	format string
+	extra string
 }
 
 var (
 	genregsprint = []rprint{
-		{"Rip", "%#x"},
-		{"R15", "%016x"},
-		{"R14", "%016x"},
-		{"R13", "%016x"},
-		{"R12", "%016x"},
-		{"Rbp", "%016x"},
-		{"Rbx", "%016x"},
-		{"R11", "%016x"},
-		{"R10", "%016x"},
-		{"R9", "%016x"},
-		{"R8", "%016x"},
-		{"Rax", "%016x"},
-		{"Rcx", "%016x"},
-		{"Rdx", "%016x"},
-		{"Rsi", "%016x"},
-		{"Rdi", "%016x"},
-		{"Orig_rax", "%016x"},
-		{"Eflags", "%08x"},
-		{"Rsp", "%016x"},
+		{name:"Rip",format: "%#x"},
+		{name:"R15",format: "%016x"},
+		{name:"R14",format: "%016x"},
+		{name:"R13",format: "%016x"},
+		{name:"R12",format: "%016x"},
+		{name:"Rbp",format: "%016x"},
+		{name:"Rbx",format: "%016x"},
+		{name:"R11",format: "%016x"},
+		{name:"R10",format: "%016x"},
+		{name:"R9",format: "%016x", extra: "/A3",},
+		{name:"R8",format: "%016x", extra: "/A2",},
+		{name:"Rax",format: "%016x"},
+		{name:"Rcx",format: "%016x", extra: "/A0",},
+		{name:"Rdx",format: "%016x", extra: "/A1",},
+		{name:"Rsi",format: "%016x"},
+		{name:"Rdi",format: "%016x"},
+		{name:"Orig_rax",format: "%016x"},
+		{name:"Eflags",format: "%08x"},
+		{name:"Rsp",format: "%016x"},
 	}
 	allregsprint = append(regsprint,
 		[]rprint{
-			{"Fs_base", "%016x"},
-			{"Gs_base", "%016x"},
-			{"Cs", "%04x"},
-			{"Ds", "%04x"},
-			{"Es", "%04x"},
-			{"Fs", "%04x"},
-			{"Gs", "%04x"},
-			{"Ss", "%04x"},
+			{name:"Fs_base",format: "%016x"},
+			{name:"Gs_base",format: "%016x"},
+			{name:"Cs",format: "%04x"},
+			{name:"Ds",format: "%04x"},
+			{name:"Es",format: "%04x"},
+			{name:"Fs",format: "%04x"},
+			{name:"Gs",format: "%04x"},
+			{name:"Ss",format: "%04x"},
 		}...)
 	regsprint = genregsprint
 )
@@ -383,6 +384,9 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 		log.Printf("Boot services: %s(%#x), arg type %T, args %v", bootServicesNames[int(op)], op, inst.Args, inst.Args)
 		switch op {
 		case HandleProtocol:
+			// There. All on one line. Not 7. So, UEFI, did that really hurt so much? 
+			// typedef EFI_STATUS (EFIAPI *EFI_HANDLE_PROTOCOL) (IN EFI_HANDLE Handle, IN EFI_GUID *Protocol, OUT VOID **Interface);
+
 			// The arguments are rcx, rdx, r9
 			args := args(&r, 3)
 			var g guid.GUID
@@ -390,6 +394,21 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 				return fmt.Errorf("Can't read guid at #%x, err %v", args[1], err)
 			}
 			log.Printf("HandleProtocol: GUID %s", g)
+			if err := Srv(p, &g, args...); err != nil {
+				return fmt.Errorf("Can't handle HandleProtocol: %s: %v", callinfo(i, inst, r), err)
+			}
+			return nil
+		case PCHandleProtocol:
+			// There. All on one line. Not 7. So, UEFI, did that really hurt so much? 
+			// typedef EFI_STATUS (EFIAPI *EFI_HANDLE_PROTOCOL) (IN EFI_HANDLE Handle, IN EFI_GUID *Protocol, OUT VOID **Interface);
+
+			// The arguments are rcx, rdx, r9
+			args := args(&r, 3)
+			var g guid.GUID
+			if err := p.Read(args[1], g[:]); err != nil {
+				return fmt.Errorf("Can't read guid at #%x, err %v", args[1], err)
+			}
+			log.Printf("PCHandleProtocol: GUID %s", g)
 			if err := Srv(p, &g, args...); err != nil {
 				return fmt.Errorf("Can't handle HandleProtocol: %s: %v", callinfo(i, inst, r), err)
 			}

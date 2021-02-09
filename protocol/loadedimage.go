@@ -105,8 +105,23 @@ func (i LoadedImage) Marshal() ([]byte, error) {
 }
 
 // NewLoadedImage returns a filled-in LoadedImage struct. As to correctness, we have no idea.
+// General rule: never leave anything with the zero value. It makes debugging much harder.
+// Unless there are stupid UEFI reasons to make it zero, i.e. they have some default "type"
+// and zero is a valid value. note: a valid value of zero is always a mistake. See Unix file open.
 func NewLoadedImage() (*LoadedImage, error) {
 	return &LoadedImage{
 		Revision: LoadedImageRevision,
+		// Parent damn. zero valie.
+		// System damn.
+		Device: 0x1cafe00000000,
+		// FilePath damn.
+		// LoadOptionsSize damn.
+		// LoadOptions   damn.
+		ImageBase: 0x200000,
+		ImageSize: 0x400000,
+		// ImageCodeType damn
+		// ImageDataType damn.
+		/*EFI_IMAGE_UNLOAD*/
+		// Unload damn.
 	}, nil
 }
