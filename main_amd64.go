@@ -11,6 +11,7 @@ import (
 
 	"github.com/linuxboot/fiano/pkg/guid"
 	"github.com/linuxboot/voodoo/ptrace"
+	"github.com/linuxboot/voodoo/table"
 	"golang.org/x/arch/x86/x86asm"
 	"golang.org/x/sys/unix"
 )
@@ -18,41 +19,41 @@ import (
 type rprint struct {
 	name   string
 	format string
-	extra string
+	extra  string
 }
 
 var (
 	genregsprint = []rprint{
-		{name:"Rip",format: "%#x"},
-		{name:"R15",format: "%016x"},
-		{name:"R14",format: "%016x"},
-		{name:"R13",format: "%016x"},
-		{name:"R12",format: "%016x"},
-		{name:"Rbp",format: "%016x"},
-		{name:"Rbx",format: "%016x"},
-		{name:"R11",format: "%016x"},
-		{name:"R10",format: "%016x"},
-		{name:"R9",format: "%016x", extra: "/A3",},
-		{name:"R8",format: "%016x", extra: "/A2",},
-		{name:"Rax",format: "%016x"},
-		{name:"Rcx",format: "%016x", extra: "/A0",},
-		{name:"Rdx",format: "%016x", extra: "/A1",},
-		{name:"Rsi",format: "%016x"},
-		{name:"Rdi",format: "%016x"},
-		{name:"Orig_rax",format: "%016x"},
-		{name:"Eflags",format: "%08x"},
-		{name:"Rsp",format: "%016x"},
+		{name: "Rip", format: "%#x"},
+		{name: "R15", format: "%016x"},
+		{name: "R14", format: "%016x"},
+		{name: "R13", format: "%016x"},
+		{name: "R12", format: "%016x"},
+		{name: "Rbp", format: "%016x"},
+		{name: "Rbx", format: "%016x"},
+		{name: "R11", format: "%016x"},
+		{name: "R10", format: "%016x"},
+		{name: "R9", format: "%016x", extra: "/A3"},
+		{name: "R8", format: "%016x", extra: "/A2"},
+		{name: "Rax", format: "%016x"},
+		{name: "Rcx", format: "%016x", extra: "/A0"},
+		{name: "Rdx", format: "%016x", extra: "/A1"},
+		{name: "Rsi", format: "%016x"},
+		{name: "Rdi", format: "%016x"},
+		{name: "Orig_rax", format: "%016x"},
+		{name: "Eflags", format: "%08x"},
+		{name: "Rsp", format: "%016x"},
 	}
 	allregsprint = append(regsprint,
 		[]rprint{
-			{name:"Fs_base",format: "%016x"},
-			{name:"Gs_base",format: "%016x"},
-			{name:"Cs",format: "%04x"},
-			{name:"Ds",format: "%04x"},
-			{name:"Es",format: "%04x"},
-			{name:"Fs",format: "%04x"},
-			{name:"Gs",format: "%04x"},
-			{name:"Ss",format: "%04x"},
+			{name: "Fs_base", format: "%016x"},
+			{name: "Gs_base", format: "%016x"},
+			{name: "Cs", format: "%04x"},
+			{name: "Ds", format: "%04x"},
+			{name: "Es", format: "%04x"},
+			{name: "Fs", format: "%04x"},
+			{name: "Gs", format: "%04x"},
+			{name: "Ss", format: "%04x"},
 		}...)
 	regsprint = genregsprint
 )
@@ -339,6 +340,7 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 	if err != nil {
 		return err
 	}
+	log.Printf("Segv: addr %#x: %s", addr, showone("\t", &r))
 	if (addr >= ImageHandle) && (addr <= ImageHandleEnd) {
 		l := fmt.Sprintf("%#x, %s[", pc, InfoString(i))
 		for _, a := range inst.Args {
@@ -353,16 +355,22 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			l += fmt.Sprintf("%v,", a)
 		}
 		l += "]"
+		op := addr & 0xffff
+		n, ok := table.SystemTableNames[op]
+		if !ok {
+			return fmt.Errorf("No system table entry for offset %#x: %s\n", op, l)
+		}
+		log.Printf("System table: %#x, %s", op, n.N)
 		switch inst.Args[0] {
 		case x86asm.RCX:
-			r.Rcx = uint64(addr) + 0x10000
+			r.Rcx = n.Val
 			r.Rip += uint64(inst.Len)
 			if err := p.SetRegs(r); err != nil {
 				return err
 			}
 			return nil
 		case x86asm.RAX:
-			r.Rax = uint64(addr) + 0x10000
+			r.Rax = n.Val
 			r.Rip += uint64(inst.Len)
 			if err := p.SetRegs(r); err != nil {
 				return err
@@ -384,7 +392,7 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 		log.Printf("Boot services: %s(%#x), arg type %T, args %v", bootServicesNames[int(op)], op, inst.Args, inst.Args)
 		switch op {
 		case HandleProtocol:
-			// There. All on one line. Not 7. So, UEFI, did that really hurt so much? 
+			// There. All on one line. Not 7. So, UEFI, did that really hurt so much?
 			// typedef EFI_STATUS (EFIAPI *EFI_HANDLE_PROTOCOL) (IN EFI_HANDLE Handle, IN EFI_GUID *Protocol, OUT VOID **Interface);
 
 			// The arguments are rcx, rdx, r9
@@ -399,7 +407,7 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			}
 			return nil
 		case PCHandleProtocol:
-			// There. All on one line. Not 7. So, UEFI, did that really hurt so much? 
+			// There. All on one line. Not 7. So, UEFI, did that really hurt so much?
 			// typedef EFI_STATUS (EFIAPI *EFI_HANDLE_PROTOCOL) (IN EFI_HANDLE Handle, IN EFI_GUID *Protocol, OUT VOID **Interface);
 
 			// The arguments are rcx, rdx, r9

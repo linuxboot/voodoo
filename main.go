@@ -34,6 +34,8 @@ const (
 	SystemTableEnd = 0x130000
 	// FuncPointer is
 	FuncPointer = 0x140000
+	// LoadedImage is where the loadimage protocol struct is
+	LoadedImage = 0x150000
 )
 
 type msg func()
