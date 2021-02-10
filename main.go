@@ -20,6 +20,7 @@ import (
 	"syscall"
 
 	"github.com/linuxboot/voodoo/ptrace"
+	"github.com/linuxboot/voodoo/table"
 	"golang.org/x/sys/unix"
 )
 
@@ -36,6 +37,10 @@ const (
 	FuncPointer = 0x140000
 	// LoadedImage is where the loadimage protocol struct is
 	LoadedImage = 0x150000
+	// Runtime is where we get runtime services
+	Runtime = 0x160000
+	// Boot is where we get Boot Services
+	Boot = 0x170000
 )
 
 type msg func()
@@ -130,6 +135,9 @@ func main() {
 	if len(a) != 1 {
 		log.Fatal("arg count")
 	}
+	table.SystemTableNames[table.RuntimeServices].Val = Runtime
+	table.SystemTableNames[table.BootServices].Val = Boot
+
 	if *optional {
 		regsprint = allregsprint
 	}

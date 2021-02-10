@@ -380,15 +380,13 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			return fmt.Errorf("Can't handle dest %v", inst.Args[0])
 		}
 	}
-	if (addr >= SystemTableEnd) && (addr <= SystemTableEnd+0x10000) {
+	if (addr >= Boot) && (addr <= Boot+0x10000) {
 		// No matter what happpens, move to the next one.
 		r.Rip += uint64(inst.Len)
 		if err := p.SetRegs(r); err != nil {
 			return err
 		}
 		op := addr & 0xffff
-		log.Printf("Services: %s(%#x), arg type %T, args %v", bootServicesNames[int(op)], op, inst.Args, inst.Args)
-		op -= BootServicesOffset
 		log.Printf("Boot services: %s(%#x), arg type %T, args %v", bootServicesNames[int(op)], op, inst.Args, inst.Args)
 		switch op {
 		case HandleProtocol:
