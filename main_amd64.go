@@ -542,6 +542,19 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 		op := addr & 0xffff
 		log.Printf("Runtime services: %v(%#x), arg type %T, args %v", table.RuntimeServicesNames[op], op, inst.Args, inst.Args)
 		switch op {
+		case table.RTGetVariable:
+			// There. All on one line. Not 7. So, UEFI, did that really hurt so much?
+			// GetVariable (L"ExampleConfiguration", &gEfiExampleConfigurationVariableGuid);
+			args := args(&r, 2)
+			var g guid.GUID
+			if err := p.Read(args[0], g[:]); err != nil {
+				return fmt.Errorf("Can't read guid at #%x, err %v", args[1], err)
+			}
+			log.Printf("HandleProtocol: GUID %s", g)
+			if err := Srv(p, &g, args...); err != nil {
+				return fmt.Errorf("Can't handle HandleProtocol: %s: %v", callinfo(i, inst, r), err)
+			}
+			return nil
 		default:
 			return fmt.Errorf("opcode %#x addr %v: unknonw opcode", op, addr)
 		}
