@@ -403,6 +403,25 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			return fmt.Errorf("No system table entry for offset %#x: %s\n", op, l)
 		}
 		log.Printf("System table: %#x, %s", op, n.N)
+		// code expects to return a value of a thing, or call that thing.
+		// So consistent.
+		switch op {
+		case table.ConOut:
+			args := args(p, &r, 6)
+			log.Printf("Conout args %#x", args)
+			ptr := args[3]
+			n, err := p.ReadStupidString(ptr)
+			if err != nil {
+				return fmt.Errorf("Can't read StupidString at #%x, err %v", ptr, err)
+			}
+			log.Printf("ConOut: %s", n)
+			r.Rax = EFI_SUCCESS
+			r.Rip += uint64(inst.Len)
+			if err := p.SetRegs(r); err != nil {
+				return err
+			}
+			return nil
+		}
 		switch inst.Args[0] {
 		case x86asm.RCX:
 			r.Rcx = n.Val
@@ -487,6 +506,12 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 				return fmt.Errorf("Can't write %d bytes to %#x: %v", len(bb), dat, err)
 			}
 			dat += args[1]
+			return nil
+		case FreePool:
+			// Status = gBS->FreePool (Device);
+			args := args(p, &r, 1)
+			// Free? Forget it.
+			log.Printf("FreePool: %#x", args[0])
 			return nil
 		case LocateHandle:
 			// EFI_STATUS LocateHandle (IN EFI_LOCATE_SEARCH_TYPE SearchType, IN EFI_GUID *Protocol OPTIONAL, IN VOID *SearchKey OPTIONAL,IN OUT UINTN *NoHandles,  OUT EFI_HANDLE **Buffer);

@@ -1,9 +1,12 @@
-all: runtime loadedimage systemtable getsig protocol
+all: io runtime loadedimage systemtable getsig protocol
 GNUEFI_DIR?=/home/rminnich/foofi/uefi-simple/gnu-efi/
 GNUEFI_ARCH?=x86_64
 CFLAGS         += -fno-stack-protector -Wshadow -Wall -Wunused -Werror-implicit-function-declaration
 CFLAGS         += -I$(GNUEFI_DIR)/inc -I$(GNUEFI_DIR)/inc/$(GNUEFI_ARCH) -I$(GNUEFI_DIR)/inc/protocol
 CFLAGS         += -DCONFIG_$(GNUEFI_ARCH) -D__MAKEWITH_GNUEFI -DGNU_EFI_USE_MS_ABI
+
+io: io.c
+	cc $(CFLAGS) -o $@ $<
 
 runtime: runtime.c
 	cc $(CFLAGS) -o $@ $<
