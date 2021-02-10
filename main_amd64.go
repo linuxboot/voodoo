@@ -5,6 +5,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 	"log"
 	"syscall"
@@ -475,6 +476,28 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 		op := addr & 0xffff
 		log.Printf("Boot services: %s(%#x), arg type %T, args %v", bootServicesNames[int(op)], op, inst.Args, inst.Args)
 		switch op {
+		case AllocatePool:
+			// Status = gBS->AllocatePool (EfiBootServicesData, sizeof (EXAMPLE_DEVICE), (VOID **)&Device);
+			args := args(p, &r, 3)
+			// ignore arg 0 for now.
+			log.Printf("AllocatePool: %d bytes", args[1])
+			var bb [8]byte
+			binary.LittleEndian.PutUint64(bb[:], uint64(dat))
+			if err := p.Write(args[2], bb[:]); err != nil {
+				return fmt.Errorf("Can't write %d bytes to %#x: %v", len(bb), dat, err)
+			}
+			dat += args[1]
+			return nil
+		case LocateHandle:
+			// EFI_STATUS LocateHandle (IN EFI_LOCATE_SEARCH_TYPE SearchType, IN EFI_GUID *Protocol OPTIONAL, IN VOID *SearchKey OPTIONAL,IN OUT UINTN *NoHandles,  OUT EFI_HANDLE **Buffer);
+			args := args(p, &r, 5)
+			no := args[3]
+			var bb [8]byte
+			// just fail.
+			if err := p.Write(no, bb[:]); err != nil {
+				return fmt.Errorf("Can't write %d bytes to %#x: %v", len(bb), dat, err)
+			}
+			return nil
 		case HandleProtocol:
 			// There. All on one line. Not 7. So, UEFI, did that really hurt so much?
 			// typedef EFI_STATUS (EFIAPI *EFI_HANDLE_PROTOCOL) (IN EFI_HANDLE Handle, IN EFI_GUID *Protocol, OUT VOID **Interface);
