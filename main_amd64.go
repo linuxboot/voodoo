@@ -380,6 +380,51 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			return fmt.Errorf("Can't handle dest %v", inst.Args[0])
 		}
 	}
+	if (addr >= LoadedImage) && (addr <= LoadedImage+0x10000) {
+		l := fmt.Sprintf("%#x, %s[", pc, InfoString(i))
+		for _, a := range inst.Args {
+			l += fmt.Sprintf("%v,", a)
+		}
+		l += "]"
+		op := addr & 0xffff
+		n, ok := table.LoadedImageTableNames[op]
+		if !ok {
+			return fmt.Errorf("No loaded image entry for offset %#x: %s\n", op, l)
+		}
+		log.Printf("loaded image table: %#x, %s", op, n.N)
+		switch inst.Args[0] {
+		case x86asm.EDX:
+			r.Rdx = n.Val
+			r.Rip += uint64(inst.Len)
+			if err := p.SetRegs(r); err != nil {
+				return err
+			}
+			return nil
+		case x86asm.RDX:
+			r.Rdx = n.Val
+			r.Rip += uint64(inst.Len)
+			if err := p.SetRegs(r); err != nil {
+				return err
+			}
+			return nil
+		case x86asm.RCX:
+			r.Rcx = n.Val
+			r.Rip += uint64(inst.Len)
+			if err := p.SetRegs(r); err != nil {
+				return err
+			}
+			return nil
+		case x86asm.RAX:
+			r.Rax = n.Val
+			r.Rip += uint64(inst.Len)
+			if err := p.SetRegs(r); err != nil {
+				return err
+			}
+			return nil
+		default:
+			return fmt.Errorf("Can't handle dest %v", inst.Args[0])
+		}
+	}
 	if (addr >= Boot) && (addr <= Boot+0x10000) {
 		// No matter what happpens, move to the next one.
 		r.Rip += uint64(inst.Len)
@@ -484,6 +529,19 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			//}
 			//return fmt.Errorf("Wrong type of 0xf8? %T but should be %T", inst.Args[0], x86asm.Mem)
 			return nil
+		default:
+			return fmt.Errorf("opcode %#x addr %v: unknonw opcode", op, addr)
+		}
+	}
+	if (addr >= Runtime) && (addr <= Runtime+0x10000) {
+		// No matter what happpens, move to the next one.
+		r.Rip += uint64(inst.Len)
+		if err := p.SetRegs(r); err != nil {
+			return err
+		}
+		op := addr & 0xffff
+		log.Printf("Runtime services: %v(%#x), arg type %T, args %v", table.RuntimeServicesNames[op], op, inst.Args, inst.Args)
+		switch op {
 		default:
 			return fmt.Errorf("opcode %#x addr %v: unknonw opcode", op, addr)
 		}
