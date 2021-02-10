@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
 	}
 	if (argc > 1)
 		f = stdout;
-	fprintf(f, "const (\n");
+	fprintf(f, "package table\n\nconst (\n");
 	fprintf(f, "LIRevision = %#lx\n", offsetof(EFI_LOADED_IMAGE, Revision));
 	fprintf(f, "LIParentHandle = %#lx\n", offsetof(EFI_LOADED_IMAGE, ParentHandle));
 	fprintf(f, "LISystemTable = %#lx\n", offsetof(EFI_LOADED_IMAGE, SystemTable));

@@ -1,3 +1,5 @@
+package table
+
 const (
 	LIRevision        = 0
 	LIParentHandle    = 0x8
