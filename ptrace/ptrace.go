@@ -223,6 +223,24 @@ func (t *Tracee) Read(address uintptr, data []byte) error {
 	return ErrTraceeExited
 }
 
+// ReadStupidString reads a UEFI-style string, i.e. one composed of words, not bytes.
+// We're gonna party like it's 1899.
+func (t *Tracee) ReadStupidString(address uintptr) (string, error) {
+	var s string
+	var w [2]byte
+	for {
+		if err := t.Read(address, w[:]); err != nil {
+			return "", err
+		}
+		if w[0] == 0 && w[1] == 0 {
+			break
+		}
+		s = s + string(w[:1])
+		address += 2
+	}
+	return s, nil
+}
+
 // GetRegs reads the registers from the inferior.
 func (t *Tracee) GetRegs() (syscall.PtraceRegs, error) {
 	errchan := make(chan error, 1)

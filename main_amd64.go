@@ -58,6 +58,10 @@ var (
 	regsprint = genregsprint
 )
 
+func EfiErr(e EFIError) uintptr {
+	return uintptr(1<<63) | uintptr(e)
+}
+
 // GetReg gets a register value from the Tracee.
 // This code does not do any ptrace calls to get registers.
 // It returns a pointer so the register can be read and modified.
@@ -314,8 +318,16 @@ func callinfo(s *unix.SignalfdSiginfo, inst *x86asm.Inst, r syscall.PtraceRegs) 
 	return l
 }
 
-func args(r *syscall.PtraceRegs, nargs int) []uintptr {
+func args(t *ptrace.Tracee, r *syscall.PtraceRegs, nargs int) []uintptr {
+	sp := uintptr(r.Rsp)
 	switch nargs {
+	case 6:
+		w1, _ := t.ReadWord(sp + 0x20)
+		w2, _ := t.ReadWord(sp + 0x28)
+		return []uintptr{uintptr(r.Rcx), uintptr(r.Rdx), uintptr(r.R8), uintptr(r.R9), uintptr(w1), uintptr(w2)}
+	case 5:
+		w1, _ := t.ReadWord(sp + 0x20)
+		return []uintptr{uintptr(r.Rcx), uintptr(r.Rdx), uintptr(r.R8), uintptr(r.R9), uintptr(w1)}
 	case 4:
 		return []uintptr{uintptr(r.Rcx), uintptr(r.Rdx), uintptr(r.R8), uintptr(r.R9)}
 	case 3:
@@ -326,6 +338,35 @@ func args(r *syscall.PtraceRegs, nargs int) []uintptr {
 		return []uintptr{uintptr(r.Rcx)}
 	}
 	return []uintptr{}
+}
+
+func pointer(inst *x86asm.Inst, r *syscall.PtraceRegs, arg int) (uintptr, error) {
+	m := inst.Args[arg].(x86asm.Mem)
+	// A Mem is a memory reference.
+	// The general form is Segment:[Base+Scale*Index+Disp].
+	/*
+		type Mem struct {
+			Segment Reg
+			Base    Reg
+			Scale   uint8
+			Index   Reg
+			Disp    int64
+		}
+	*/
+	log.Printf("ARG[%d] %q m is %#x", inst.Args[arg], m)
+	b, err := GetReg(r, m.Base)
+	if err != nil {
+		any("FUCKED BASE")
+		return 0, fmt.Errorf("Can't get Base reg %v in %v", m.Base, m)
+	}
+	addr := *b + uint64(m.Disp)
+	x, err := GetReg(r, m.Index)
+	if err == nil {
+		addr += uint64(m.Scale) * (*x)
+	}
+	//if v, ok := inst.Args[0].(*x86asm.Mem); ok {
+	log.Printf("computed addr is %#x", addr)
+	return uintptr(addr), nil
 }
 
 func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
@@ -439,7 +480,7 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			// typedef EFI_STATUS (EFIAPI *EFI_HANDLE_PROTOCOL) (IN EFI_HANDLE Handle, IN EFI_GUID *Protocol, OUT VOID **Interface);
 
 			// The arguments are rcx, rdx, r9
-			args := args(&r, 3)
+			args := args(p, &r, 3)
 			var g guid.GUID
 			if err := p.Read(args[1], g[:]); err != nil {
 				return fmt.Errorf("Can't read guid at #%x, err %v", args[1], err)
@@ -454,7 +495,7 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			// typedef EFI_STATUS (EFIAPI *EFI_HANDLE_PROTOCOL) (IN EFI_HANDLE Handle, IN EFI_GUID *Protocol, OUT VOID **Interface);
 
 			// The arguments are rcx, rdx, r9
-			args := args(&r, 3)
+			args := args(p, &r, 3)
 			var g guid.GUID
 			if err := p.Read(args[1], g[:]); err != nil {
 				return fmt.Errorf("Can't read guid at #%x, err %v", args[1], err)
@@ -466,7 +507,7 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			return nil
 		case ConnectController:
 			// The arguments are rcx, rdx, r9, r8
-			args := args(&r, 4)
+			args := args(p, &r, 4)
 			log.Printf("ConnectController: %#x", args)
 			// Just pretend it worked.
 			return nil
@@ -543,17 +584,27 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 		log.Printf("Runtime services: %v(%#x), arg type %T, args %v", table.RuntimeServicesNames[op], op, inst.Args, inst.Args)
 		switch op {
 		case table.RTGetVariable:
-			// There. All on one line. Not 7. So, UEFI, did that really hurt so much?
-			// GetVariable (L"ExampleConfiguration", &gEfiExampleConfigurationVariableGuid);
-			args := args(&r, 2)
+			args := args(p, &r, 5)
+			log.Printf("table.RTGetVariable args %#x", args)
+			ptr := args[0]
+			n, err := p.ReadStupidString(ptr)
+			if err != nil {
+				return fmt.Errorf("Can't read StupidString at #%x, err %v", ptr, err)
+			}
 			var g guid.GUID
-			if err := p.Read(args[0], g[:]); err != nil {
+			if err := p.Read(args[1], g[:]); err != nil {
 				return fmt.Errorf("Can't read guid at #%x, err %v", args[1], err)
 			}
-			log.Printf("HandleProtocol: GUID %s", g)
-			if err := Srv(p, &g, args...); err != nil {
-				return fmt.Errorf("Can't handle HandleProtocol: %s: %v", callinfo(i, inst, r), err)
+			log.Printf("PCHandleProtocol: find %s %s", n, g)
+			v, err := ReadVariable(n, g)
+			if err != nil {
+				r.Rax = EFI_NOT_FOUND
+				if err := p.SetRegs(r); err != nil {
+					return err
+				}
 			}
+			log.Printf("%s:%s: v is %v", n, g, v)
+			r.Rax = EFI_SUCCESS
 			return nil
 		default:
 			return fmt.Errorf("opcode %#x addr %v: unknonw opcode", op, addr)
