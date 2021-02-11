@@ -405,23 +405,6 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 		log.Printf("System table: %#x, %s", op, n.N)
 		// code expects to return a value of a thing, or call that thing.
 		// So consistent.
-		switch op {
-		case table.ConOut:
-			args := args(p, &r, 6)
-			log.Printf("Conout args %#x", args)
-			ptr := args[3]
-			n, err := p.ReadStupidString(ptr)
-			if err != nil {
-				return fmt.Errorf("Can't read StupidString at #%x, err %v", ptr, err)
-			}
-			log.Printf("ConOut: %s", n)
-			r.Rax = EFI_SUCCESS
-			r.Rip += uint64(inst.Len)
-			if err := p.SetRegs(r); err != nil {
-				return err
-			}
-			return nil
-		}
 		switch inst.Args[0] {
 		case x86asm.RCX:
 			r.Rcx = n.Val
@@ -432,6 +415,13 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			return nil
 		case x86asm.RAX:
 			r.Rax = n.Val
+			r.Rip += uint64(inst.Len)
+			if err := p.SetRegs(r); err != nil {
+				return err
+			}
+			return nil
+		case x86asm.R8:
+			r.R8 = n.Val
 			r.Rip += uint64(inst.Len)
 			if err := p.SetRegs(r); err != nil {
 				return err
@@ -653,6 +643,34 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			}
 			log.Printf("%s:%s: v is %v", n, g, v)
 			r.Rax = EFI_SUCCESS
+			return nil
+		default:
+			return fmt.Errorf("opcode %#x addr %v: unknonw opcode", op, addr)
+		}
+	}
+	if (addr >= ConOut) && (addr <= ConOut+0x10000) {
+		// No matter what happpens, move to the next one.
+		r.Rip += uint64(inst.Len)
+		if err := p.SetRegs(r); err != nil {
+			return err
+		}
+		op := addr & 0xffff
+		log.Printf("Runtime services: %v(%#x), arg type %T, args %v", table.RuntimeServicesNames[op], op, inst.Args, inst.Args)
+		switch op {
+		case table.STOutputString:
+			args := args(p, &r, 6)
+			log.Printf("Conout args %#x", args)
+			ptr := args[3]
+			n, err := p.ReadStupidString(ptr)
+			if err != nil {
+				return fmt.Errorf("Can't read StupidString at #%x, err %v", ptr, err)
+			}
+			log.Printf("ConOut: %s", n)
+			r.Rax = EFI_SUCCESS
+			r.Rip += uint64(inst.Len)
+			if err := p.SetRegs(r); err != nil {
+				return err
+			}
 			return nil
 		default:
 			return fmt.Errorf("opcode %#x addr %v: unknonw opcode", op, addr)

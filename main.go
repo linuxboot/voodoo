@@ -41,6 +41,8 @@ const (
 	Runtime = 0x160000
 	// Boot is where we get Boot Services
 	Boot = 0x170000
+	// ConOut is where we get ConOut Services
+	ConOut = 0x180000
 )
 
 type msg func()
@@ -137,6 +139,7 @@ func main() {
 	}
 	table.SystemTableNames[table.RuntimeServices].Val = Runtime
 	table.SystemTableNames[table.BootServices].Val = Boot
+	table.SystemTableNames[table.ConOut].Val = ConOut
 
 	if *optional {
 		regsprint = allregsprint
