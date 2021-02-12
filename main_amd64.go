@@ -371,9 +371,40 @@ func pointer(inst *x86asm.Inst, r *syscall.PtraceRegs, arg int) (uintptr, error)
 }
 
 func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
-	// The pattern is a destination register.
-	// This is sleazy and easy, so do it.
 	addr := i.Addr
+	// We may be here with a bogus PC, in the case of a call.
+	// That means we have args in the usual places.
+	// We need to the args, etc., pop the stack to get return address,
+	// bla bla bla.
+	// We first need to see if it's a call that got us here.
+	// So if the inst() fails, we'll need to look at (rsp) and get the inst from there.
+	// For now, we're gonna hack it out. If the failing addr is in the range
+	// of funcs we assume function call.
+	/*	if addr >= StartFuncs && addr < EndFuncs {
+			// Assume it's a call. We can switch on the addr. We're going to want to pop the
+			// stack when done.
+			op := addr & 0xffff
+			log.Printf("functions: %v(%#x), arg type %T, args %v", table.RuntimeServicesNames[op], op, inst.Args, inst.Args)
+			switch op {
+			case table.STOutputString:
+				args := args(p, &r, 6)
+				log.Printf("StOutputString args %#x", args)
+				r.Rax = EFI_SUCCESS
+				if err := p.SetRegs(r); err != nil {
+					return err
+				}
+				return nil
+			default:
+				log.Printf("conout op opcode %#x addr %v: unknonw opcode", op, addr)
+				r.Rax = EFI_SUCCESS
+				if err := p.SetRegs(r); err != nil {
+					return err
+				}
+				return nil
+			}
+		}
+
+		}*/
 	inst, pc, err := inst(p)
 	if err != nil {
 		return err
@@ -649,31 +680,40 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 		}
 	}
 	if (addr >= ConOut) && (addr <= ConOut+0x10000) {
-		// No matter what happpens, move to the next one.
-		r.Rip += uint64(inst.Len)
-		if err := p.SetRegs(r); err != nil {
-			return err
+		l := fmt.Sprintf("%#x, %s[", pc, InfoString(i))
+		for _, a := range inst.Args {
+			l += fmt.Sprintf("%v,", a)
 		}
-		op := addr & 0xffff
-		log.Printf("Runtime services: %v(%#x), arg type %T, args %v", table.RuntimeServicesNames[op], op, inst.Args, inst.Args)
-		switch op {
-		case table.STOutputString:
-			args := args(p, &r, 6)
-			log.Printf("Conout args %#x", args)
-			ptr := args[3]
-			n, err := p.ReadStupidString(ptr)
-			if err != nil {
-				return fmt.Errorf("Can't read StupidString at #%x, err %v", ptr, err)
+		l += "]"
+		op := addr & 0xfff
+		n := STOut + op
+		log.Printf("ConOut table: %#x, %#x", op, n)
+		// code expects to return a value of a thing, or call that thing.
+		// So consistent.
+		switch inst.Args[0] {
+		case x86asm.RCX:
+			r.Rcx = n
+			r.Rip += uint64(inst.Len)
+			if err := p.SetRegs(r); err != nil {
+				return err
 			}
-			log.Printf("ConOut: %s", n)
-			r.Rax = EFI_SUCCESS
+			return nil
+		case x86asm.RAX:
+			r.Rax = n
+			r.Rip += uint64(inst.Len)
+			if err := p.SetRegs(r); err != nil {
+				return err
+			}
+			return nil
+		case x86asm.R8:
+			r.R8 = n
 			r.Rip += uint64(inst.Len)
 			if err := p.SetRegs(r); err != nil {
 				return err
 			}
 			return nil
 		default:
-			return fmt.Errorf("opcode %#x addr %v: unknonw opcode", op, addr)
+			return fmt.Errorf("ConOut Can't handle dest %v", inst.Args[0])
 		}
 	}
 	return fmt.Errorf("Don't know what to do with %v", callinfo(i, inst, r))

@@ -43,6 +43,16 @@ const (
 	Boot = 0x170000
 	// ConOut is where we get ConOut Services
 	ConOut = 0x180000
+	// ConIn is where we get ConIn Services
+	ConIn = 0x190000
+	// StartFuncs starts the area of functions pointers.
+	StartFuncs = 0x1a0000
+	// STOut are output functions
+	STOut = 0x1a0000
+	// STIn are output functions
+	STIn = 0x1a0000
+	// EndFuncs is the end of functions we call
+	EndFuncs = 0x1b0000
 )
 
 type msg func()
