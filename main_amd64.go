@@ -686,7 +686,12 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 		}
 		l += "]"
 		op := addr & 0xfff
-		n := STOut + op
+		// pretend it's a deref
+		var n uint64
+		if op <= table.STMode {
+			n = STOut + op
+		}
+
 		log.Printf("ConOut table: %#x, %#x", op, n)
 		// code expects to return a value of a thing, or call that thing.
 		// So consistent.
