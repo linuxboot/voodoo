@@ -150,6 +150,7 @@ func main() {
 	table.SystemTableNames[table.RuntimeServices].Val = Runtime
 	table.SystemTableNames[table.BootServices].Val = Boot
 	table.SystemTableNames[table.ConOut].Val = ConOut
+	table.SystemTableNames[table.ConIn].Val = ConIn
 
 	if *optional {
 		regsprint = allregsprint
