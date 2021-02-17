@@ -279,30 +279,63 @@ func params(p *ptrace.Tracee, ImageHandle, SystemTable uint64) error {
 	return p.SetRegs(r)
 }
 
-func inst(p *ptrace.Tracee) (*x86asm.Inst, uintptr, error) {
-	pc, err := p.GetIPtr()
+func inst(p *ptrace.Tracee) (*x86asm.Inst, *syscall.PtraceRegs, error) {
+	r, err := p.GetRegs()
 	if err != nil {
-		return nil, 0, fmt.Errorf("Could not get pc: %v", err)
+		return nil, nil, err
+	}
+	pc := r.Rip
+	sp := r.Rsp
+	// We maintain all the function pointers in non-addressable space for now.
+	if r.Rip < 0x200000 {
+		cpc, err := p.ReadWord(uintptr(sp))
+		if err != nil {
+			return nil, nil, err
+		}
+		log.Printf("cpc is %#x from sp", cpc)
+		var call [5]byte
+		if err := p.Read(uintptr(cpc-5), call[:]); err != nil {
+			log.Printf("Can' read PC at #%x, err %v", pc, err)
+			return nil, nil, err
+		}
+
+		// It's simple, if call[0] is 0xff, it's 5 bytes, else if call[2] is 0xff, it's 3,
+		// else we're screwed.
+		switch {
+		case call[0] == 0xff:
+			cpc -= 5
+		case call[2] == 0xff:
+			cpc -= 3
+		case call[3] == 0xff:
+			cpc -= 2
+		default:
+			return nil, nil, fmt.Errorf("Can't interpret call @ %#x: %#x", cpc-5, call)
+		}
+		pc = cpc
 	}
 	// We know the PC; grab a bunch of bytes there, then decode and print
 	insn := make([]byte, 16)
-	if err := p.Read(pc, insn); err != nil {
+	if err := p.Read(uintptr(pc), insn); err != nil {
 		log.Printf("Can' read PC at #%x, err %v", pc, err)
-		return nil, 0, err
+		return nil, nil, err
 	}
 	d, err := x86asm.Decode(insn, 64)
 	if err != nil {
-		return nil, 0, fmt.Errorf("Can't decode %#02x: %v", insn, err)
+		return nil, nil, fmt.Errorf("Can't decode %#02x: %v", insn, err)
 	}
-	return &d, pc, nil
+	return &d, r, nil
 }
 
 func disasm(t *ptrace.Tracee) (string, error) {
-	d, pc, err := inst(t)
+	d, r, err := inst(t)
 	if err != nil {
 		return "", fmt.Errorf("Can't decode %#02x: %v", d, err)
 	}
-	return x86asm.GNUSyntax(*d, uint64(pc), nil), nil
+	return x86asm.GNUSyntax(*d, uint64(r.Rip), nil), nil
+}
+
+func asm(d *x86asm.Inst, pc uint64) string {
+	return "\"" + x86asm.GNUSyntax(*d, pc, nil) + "\""
 }
 
 // InfoString prints a nice format of a ptrace.SigInfo
@@ -310,8 +343,8 @@ func InfoString(i *unix.SignalfdSiginfo) string {
 	return fmt.Sprintf("%s Errno %d Code %#x Trapno %d Addr %#x", unix.SignalName(unix.Signal(i.Signo)), i.Errno, i.Code, i.Trapno, i.Addr)
 }
 
-func callinfo(s *unix.SignalfdSiginfo, inst *x86asm.Inst, r syscall.PtraceRegs) string {
-	l := fmt.Sprintf("%s, %s[", show("", &r), InfoString(s))
+func callinfo(s *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.PtraceRegs) string {
+	l := fmt.Sprintf("%s, %s[", show("", r), InfoString(s))
 	for _, a := range inst.Args {
 		l += fmt.Sprintf("%v,", a)
 	}
@@ -370,12 +403,22 @@ func pointer(inst *x86asm.Inst, r *syscall.PtraceRegs, arg int) (uintptr, error)
 	return uintptr(addr), nil
 }
 
-func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
+func pop(p *ptrace.Tracee, r *syscall.PtraceRegs) (uint64, error) {
+	cpc, err := p.ReadWord(uintptr(r.Rsp))
+	if err != nil {
+		return 0, err
+	}
+	r.Rsp += 8
+	return cpc, nil
+}
+
+func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.PtraceRegs) error {
 	addr := i.Addr
-	// We may be here with a bogus PC, in the case of a call.
-	// That means we have args in the usual places.
-	// We need to the args, etc., pop the stack to get return address,
-	// bla bla bla.
+	pc := r.Rip
+	log.Printf("================={SEGV START FUNCTION @ %#x", addr)
+	defer log.Printf("===========} done SEGV @ %#x", addr)
+	// That means we have args in the usual places, and all is the same *save* that we will
+	// implement a function, not shuffle data around.
 	// We first need to see if it's a call that got us here.
 	// So if the inst() fails, we'll need to look at (rsp) and get the inst from there.
 	// For now, we're gonna hack it out. If the failing addr is in the range
@@ -405,15 +448,52 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 		}
 
 		}*/
-	inst, pc, err := inst(p)
-	if err != nil {
+
+	log.Printf("Segv: addr %#x: %s", addr, showone("\t", r))
+	if pc < 0x200000 {
+		var err error
+		// Just grab them all
+		args := args(p, r, 6)
+		l := fmt.Sprintf("%#x, %s[", addr, InfoString(i))
+		for _, a := range inst.Args {
+			l += fmt.Sprintf("%v,", a)
+		}
+		l += "]"
+		op := addr & 0xfff
+		// This is a mess: the eip is actually at the instruction
+		// after the call. dammit. variable length instructions.
+		// likely a 5 byte call but ... dammit.
+		switch addr & ^uint64(0xffff) {
+		case STOut:
+			switch op {
+			case table.STOutputString:
+				log.Printf("StOutputString args %#x", args)
+				ptr := args[1]
+				n, err := p.ReadStupidString(ptr)
+				if err != nil {
+					err = fmt.Errorf("Can't read StupidString at #%x, err %v", ptr, err)
+				}
+				fmt.Printf("%s\n", n)
+				r.Rax = EFI_SUCCESS
+				if err := p.SetRegs(r); err != nil {
+					return err
+				}
+			}
+		default:
+			err = fmt.Errorf("Can't handle dest %v", inst.Args[0])
+		}
+		// pop the stack, then set the EIP, then setregs.
+		r.Rip, err = pop(p, r)
+		if err != nil {
+			return err
+		}
+
+		if err := p.SetRegs(r); err != nil {
+			return err
+		}
 		return err
 	}
-	r, err := p.GetRegs()
-	if err != nil {
-		return err
-	}
-	log.Printf("Segv: addr %#x: %s", addr, showone("\t", &r))
+
 	if (addr >= ImageHandle) && (addr <= ImageHandleEnd) {
 		l := fmt.Sprintf("%#x, %s[", pc, InfoString(i))
 		for _, a := range inst.Args {
@@ -518,7 +598,7 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 		switch op {
 		case AllocatePool:
 			// Status = gBS->AllocatePool (EfiBootServicesData, sizeof (EXAMPLE_DEVICE), (VOID **)&Device);
-			args := args(p, &r, 3)
+			args := args(p, r, 3)
 			// ignore arg 0 for now.
 			log.Printf("AllocatePool: %d bytes", args[1])
 			var bb [8]byte
@@ -530,13 +610,13 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			return nil
 		case FreePool:
 			// Status = gBS->FreePool (Device);
-			args := args(p, &r, 1)
+			args := args(p, r, 1)
 			// Free? Forget it.
 			log.Printf("FreePool: %#x", args[0])
 			return nil
 		case LocateHandle:
 			// EFI_STATUS LocateHandle (IN EFI_LOCATE_SEARCH_TYPE SearchType, IN EFI_GUID *Protocol OPTIONAL, IN VOID *SearchKey OPTIONAL,IN OUT UINTN *NoHandles,  OUT EFI_HANDLE **Buffer);
-			args := args(p, &r, 5)
+			args := args(p, r, 5)
 			no := args[3]
 			var bb [8]byte
 			// just fail.
@@ -549,7 +629,7 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			// typedef EFI_STATUS (EFIAPI *EFI_HANDLE_PROTOCOL) (IN EFI_HANDLE Handle, IN EFI_GUID *Protocol, OUT VOID **Interface);
 
 			// The arguments are rcx, rdx, r9
-			args := args(p, &r, 3)
+			args := args(p, r, 3)
 			var g guid.GUID
 			if err := p.Read(args[1], g[:]); err != nil {
 				return fmt.Errorf("Can't read guid at #%x, err %v", args[1], err)
@@ -564,7 +644,7 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			// typedef EFI_STATUS (EFIAPI *EFI_HANDLE_PROTOCOL) (IN EFI_HANDLE Handle, IN EFI_GUID *Protocol, OUT VOID **Interface);
 
 			// The arguments are rcx, rdx, r9
-			args := args(p, &r, 3)
+			args := args(p, r, 3)
 			var g guid.GUID
 			if err := p.Read(args[1], g[:]); err != nil {
 				return fmt.Errorf("Can't read guid at #%x, err %v", args[1], err)
@@ -576,12 +656,12 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			return nil
 		case ConnectController:
 			// The arguments are rcx, rdx, r9, r8
-			args := args(p, &r, 4)
+			args := args(p, r, 4)
 			log.Printf("ConnectController: %#x", args)
 			// Just pretend it worked.
 			return nil
 		case 0xfffe:
-			arg0, err := GetReg(&r, x86asm.RDX)
+			arg0, err := GetReg(r, x86asm.RDX)
 			if err != nil {
 				return fmt.Errorf("Can't get RDX: %v", err)
 			}
@@ -616,13 +696,13 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 				}
 			*/
 			log.Printf("ARG[0] %q m is %#x", inst.Args[0], m)
-			b, err := GetReg(&r, m.Base)
+			b, err := GetReg(r, m.Base)
 			if err != nil {
 				any("FUCKED BASE")
 				return fmt.Errorf("Can't get Base reg %v in %v", m.Base, m)
 			}
 			addr := *b + uint64(m.Disp)
-			x, err := GetReg(&r, m.Index)
+			x, err := GetReg(r, m.Index)
 			if err == nil {
 				addr += uint64(m.Scale) * (*x)
 			}
@@ -653,7 +733,7 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 		log.Printf("Runtime services: %v(%#x), arg type %T, args %v", table.RuntimeServicesNames[op], op, inst.Args, inst.Args)
 		switch op {
 		case table.RTGetVariable:
-			args := args(p, &r, 5)
+			args := args(p, r, 5)
 			log.Printf("table.RTGetVariable args %#x", args)
 			ptr := args[0]
 			n, err := p.ReadStupidString(ptr)
@@ -712,6 +792,48 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo) error {
 			return nil
 		case x86asm.R8:
 			r.R8 = n
+			r.Rip += uint64(inst.Len)
+			if err := p.SetRegs(r); err != nil {
+				return err
+			}
+			return nil
+		default:
+			return fmt.Errorf("ConOut Can't handle dest %v", inst.Args[0])
+		}
+	}
+	// like i give a shit about their stupid console
+	if (addr >= STOut+table.STMode) && (addr < STOut+table.STMode+0x1000) {
+		l := fmt.Sprintf("%#x, %s[", pc, InfoString(i))
+		for _, a := range inst.Args {
+			l += fmt.Sprintf("%v,", a)
+		}
+		l += "]"
+		// code expects to return a value of a thing, or call that thing.
+		// So consistent.
+		switch inst.Args[0] {
+		case x86asm.RCX:
+			r.Rcx = 0
+			r.Rip += uint64(inst.Len)
+			if err := p.SetRegs(r); err != nil {
+				return err
+			}
+			return nil
+		case x86asm.RDX:
+			r.Rdx = 0
+			r.Rip += uint64(inst.Len)
+			if err := p.SetRegs(r); err != nil {
+				return err
+			}
+			return nil
+		case x86asm.RAX:
+			r.Rax = 0
+			r.Rip += uint64(inst.Len)
+			if err := p.SetRegs(r); err != nil {
+				return err
+			}
+			return nil
+		case x86asm.R8:
+			r.R8 = 0
 			r.Rip += uint64(inst.Len)
 			if err := p.SetRegs(r); err != nil {
 				return err

@@ -242,18 +242,18 @@ func (t *Tracee) ReadStupidString(address uintptr) (string, error) {
 }
 
 // GetRegs reads the registers from the inferior.
-func (t *Tracee) GetRegs() (syscall.PtraceRegs, error) {
+func (t *Tracee) GetRegs() (*syscall.PtraceRegs, error) {
 	errchan := make(chan error, 1)
-	value := make(chan syscall.PtraceRegs, 1)
+	value := make(chan *syscall.PtraceRegs, 1)
 	if t.do(func() {
 		var regs syscall.PtraceRegs
 		err := syscall.PtraceGetRegs(t.proc.Pid, &regs)
-		value <- regs
+		value <- &regs
 		errchan <- err
 	}) {
 		return <-value, <-errchan
 	}
-	return syscall.PtraceRegs{}, errors.New("GetRegs: Unreachable")
+	return &syscall.PtraceRegs{}, errors.New("GetRegs: Unreachable")
 }
 
 // GetIPtr reads the instruction pointer from the inferior and returns it.

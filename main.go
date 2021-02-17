@@ -240,7 +240,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Could not get regs: %v", err)
 	}
-	if err := regs(os.Stdout, &r); err != nil {
+	if err := regs(os.Stdout, r); err != nil {
 		log.Fatal(err)
 	}
 	p := r
@@ -248,7 +248,7 @@ func main() {
 	// For now, just drop the stack 1m and use that as a bump pointer.
 	dat = uintptr(r.Rsp)
 	r.Rsp -= 0x100000
-	if err := t.SetRegs(&r); err != nil {
+	if err := t.SetRegs(r); err != nil {
 		log.Fatalf("Can't set stack to %#x: %v", dat, err)
 	}
 	//type Siginfo struct {
@@ -272,7 +272,7 @@ func main() {
 		}
 		log.Printf("%v", i)
 		s := unix.Signal(i.Signo)
-		r, err := t.GetRegs()
+		insn, r, err := inst(t)
 		if err != nil {
 			log.Printf("Could not get regs: %v", err)
 		}
@@ -285,10 +285,10 @@ func main() {
 		case unix.SIGSEGV:
 			//showone(os.Stderr, "", &r)
 			//any(fmt.Sprintf("Handle the segv at %#x", i.Addr))
-			if err := regs(os.Stdout, &r); err != nil {
+			if err := regs(os.Stdout, r); err != nil {
 				log.Fatal(err)
 			}
-			if err := segv(t, i); err != nil {
+			if err := segv(t, i, insn, r); err != nil {
 				//showone(os.Stderr, "", &r)
 				log.Printf("Can't do %#x(%v): %v", i.Signo, unix.SignalName(s), err)
 				for {
@@ -302,7 +302,7 @@ func main() {
 				}
 			}
 			//showone(os.Stderr, "", &r)
-			//any("move along")
+			any("move along")
 
 		case unix.SIGTRAP:
 		}
@@ -316,15 +316,11 @@ func main() {
 				log.Printf("%v,", i)
 			}
 		}
-		if err := regdiff(os.Stdout, &r, &p); err != nil {
+		if err := regdiff(os.Stdout, r, p); err != nil {
 			log.Fatal(err)
 		}
 		p = r
-		if s, err := disasm(t); err != nil {
-			log.Fatal(err)
-		} else {
-			fmt.Println("\"" + s + "\"")
-		}
+		fmt.Println(asm(insn, r.Rip))
 		step()
 		if err := t.SingleStep(); err != nil {
 			log.Print(err)
