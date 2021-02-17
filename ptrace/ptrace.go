@@ -292,10 +292,10 @@ func (t *Tracee) SetIPtr(addr uintptr) error {
 }
 
 // SetRegs sets regs for a Tracee.
-func (t *Tracee) SetRegs(regs syscall.PtraceRegs) error {
+func (t *Tracee) SetRegs(regs *syscall.PtraceRegs) error {
 	errchan := make(chan error, 1)
 	if t.do(func() {
-		err := syscall.PtraceSetRegs(t.proc.Pid, &regs)
+		err := syscall.PtraceSetRegs(t.proc.Pid, regs)
 		errchan <- err
 	}) {
 		return <-errchan

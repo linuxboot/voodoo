@@ -248,7 +248,7 @@ func main() {
 	// For now, just drop the stack 1m and use that as a bump pointer.
 	dat = uintptr(r.Rsp)
 	r.Rsp -= 0x100000
-	if err := t.SetRegs(r); err != nil {
+	if err := t.SetRegs(&r); err != nil {
 		log.Fatalf("Can't set stack to %#x: %v", dat, err)
 	}
 	//type Siginfo struct {
