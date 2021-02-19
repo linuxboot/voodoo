@@ -303,7 +303,7 @@ func main() {
 				}
 			}
 			//showone(os.Stderr, "", &r)
-			any("move along")
+			//any("move along")
 
 		case unix.SIGTRAP:
 		}

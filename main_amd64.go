@@ -466,12 +466,17 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *sysca
 		switch addr & ^uint64(0xffff) {
 		case STOut:
 			switch op {
-			case table.STOutputString:
+			case table.STOutOutputString:
 				log.Printf("StOutputString args %#x", args)
 				ptr := args[1]
-				n, err := p.ReadStupidString(ptr)
+				// it's an f'ing struct. The first element is This. Skip it.
+				str, err := p.ReadWord(uintptr(ptr + 8))
 				if err != nil {
-					err = fmt.Errorf("Can't read StupidString at #%x, err %v", ptr, err)
+					return fmt.Errorf("STOutputString: Reading char * at %#x failed", ptr+8)
+				}
+				n, err := p.ReadStupidString(uintptr(str))
+				if err != nil {
+					err = fmt.Errorf("Can't read StupidString at #%x, err %v", str, err)
 				}
 				fmt.Printf("%s\n", n)
 				r.Rax = EFI_SUCCESS
@@ -519,6 +524,13 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *sysca
 		switch inst.Args[0] {
 		case x86asm.RCX:
 			r.Rcx = n.Val
+			r.Rip += uint64(inst.Len)
+			if err := p.SetRegs(r); err != nil {
+				return err
+			}
+			return nil
+		case x86asm.RDX:
+			r.Rdx = n.Val
 			r.Rip += uint64(inst.Len)
 			if err := p.SetRegs(r); err != nil {
 				return err
@@ -660,6 +672,11 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *sysca
 			log.Printf("ConnectController: %#x", args)
 			// Just pretend it worked.
 			return nil
+		case WaitForEvent:
+			args := args(p, r, 3)
+			log.Printf("WaitForEvent: %#x", args)
+			// Just pretend it worked.
+			return nil
 		case 0xfffe:
 			arg0, err := GetReg(r, x86asm.RDX)
 			if err != nil {
@@ -759,6 +776,9 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *sysca
 			return fmt.Errorf("opcode %#x addr %v: unknonw opcode", op, addr)
 		}
 	}
+	// ConOut points to a simple text output interface. We got here from the
+	// System Table.
+	// We got here because         table.SystemTableNames[table.ConOut].Val = ConOut
 	if (addr >= ConOut) && (addr <= ConOut+0x10000) {
 		l := fmt.Sprintf("%#x, %s[", pc, InfoString(i))
 		for _, a := range inst.Args {
@@ -768,7 +788,8 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *sysca
 		op := addr & 0xfff
 		// pretend it's a deref
 		var n uint64
-		if op <= table.STMode {
+		// This should then point to a function, which we will call.
+		if op <= table.STOutMode {
 			n = STOut + op
 		}
 
@@ -801,8 +822,48 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *sysca
 			return fmt.Errorf("ConOut Can't handle dest %v", inst.Args[0])
 		}
 	}
+	if (addr >= ConIn) && (addr <= ConIn+0x10000) {
+		l := fmt.Sprintf("%#x, %s[", pc, InfoString(i))
+		for _, a := range inst.Args {
+			l += fmt.Sprintf("%v,", a)
+		}
+		l += "]"
+		op := addr & 0xfff
+		// pretend it's a deref
+		var n uint64
+		log.Printf("ConIn table: %#x, %#x", op, n)
+		n = STIn + op
+		// code expects to return a value of a thing, or call that thing.
+		// So consistent.
+		switch inst.Args[0] {
+		case x86asm.RCX:
+			r.Rcx = n
+			r.Rip += uint64(inst.Len)
+			if err := p.SetRegs(r); err != nil {
+				return err
+			}
+			return nil
+		case x86asm.RAX:
+			r.Rax = n
+			r.Rip += uint64(inst.Len)
+			if err := p.SetRegs(r); err != nil {
+				return err
+			}
+			return nil
+		case x86asm.R8:
+			r.R8 = n
+			r.Rip += uint64(inst.Len)
+			if err := p.SetRegs(r); err != nil {
+				return err
+			}
+			return nil
+		default:
+			return fmt.Errorf("ConOut Can't handle dest %v", inst.Args[0])
+		}
+	}
 	// like i give a shit about their stupid console
-	if (addr >= STOut+table.STMode) && (addr < STOut+table.STMode+0x1000) {
+	// This is setting variables 'n shit. Not functions.
+	if (addr >= STOut+table.STOutMode) && (addr < STOut+table.STOutMode+0x1000) {
 		l := fmt.Sprintf("%#x, %s[", pc, InfoString(i))
 		for _, a := range inst.Args {
 			l += fmt.Sprintf("%v,", a)

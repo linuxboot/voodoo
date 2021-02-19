@@ -1,27 +1,39 @@
 package table
 
 const (
-	STReset             = 0
-	STOutputString      = 0x8
-	STTestString        = 0x10
-	STQueryMode         = 0x18
-	STSetMode           = 0x20
-	STSetAttribute      = 0x28
-	STClearScreen       = 0x30
-	STSetCursorPosition = 0x38
-	STEnableCursor      = 0x40
-	STMode              = 0x48
+	STOutReset             = 0
+	STOutOutputString      = 0x8
+	STOutTestString        = 0x10
+	STOutQueryMode         = 0x18
+	STOutSetMode           = 0x20
+	STOutSetAttribute      = 0x28
+	STOutClearScreen       = 0x30
+	STOutSetCursorPosition = 0x38
+	STOutEnableCursor      = 0x40
+	STOutMode              = 0x48
 )
 
-var SimpleTextServicesNames = map[uint64]*val{
-	STReset:             &val{N: "Reset"},
-	STOutputString:      &val{N: "OutputString"},
-	STTestString:        &val{N: "TestString"},
-	STQueryMode:         &val{N: "QueryMode"},
-	STSetMode:           &val{N: "SetMode"},
-	STSetAttribute:      &val{N: "SetAttribute"},
-	STClearScreen:       &val{N: "ClearScreen"},
-	STSetCursorPosition: &val{N: "SetCursorPosition"},
-	STEnableCursor:      &val{N: "EnableCursor"},
-	STMode:              &val{N: "Mode"},
+var SimpleTextOutServicesNames = map[uint64]*val{
+	STOutReset:             &val{N: "Reset"},
+	STOutOutputString:      &val{N: "OutputString"},
+	STOutTestString:        &val{N: "TestString"},
+	STOutQueryMode:         &val{N: "QueryMode"},
+	STOutSetMode:           &val{N: "SetMode"},
+	STOutSetAttribute:      &val{N: "SetAttribute"},
+	STOutClearScreen:       &val{N: "ClearScreen"},
+	STOutSetCursorPosition: &val{N: "SetCursorPosition"},
+	STOutEnableCursor:      &val{N: "EnableCursor"},
+	STOutMode:              &val{N: "Mode"},
+}
+
+const (
+	STInReset         = 0
+	STInReadKeyStroke = 0x8
+	STInWaitForKey    = 0x10
+)
+
+var SimpleTextInServicesNames = map[uint64]*val{
+	STInReset:         &val{N: "Reset"},
+	STInReadKeyStroke: &val{N: "ReadKeyStroke"},
+	STInWaitForKey:    &val{N: "WaitForKey"},
 }
