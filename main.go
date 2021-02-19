@@ -20,40 +20,18 @@ import (
 	"syscall"
 
 	"github.com/linuxboot/voodoo/ptrace"
-	"github.com/linuxboot/voodoo/table"
+	//	"github.com/linuxboot/voodoo/table"
 	"golang.org/x/sys/unix"
 )
 
 const (
-	// ImageHandle is
-	ImageHandle = 0x110000
-	// ImageHandleEnd is
-	ImageHandleEnd = 0x120000
-	// SystemTable is
-	SystemTable = 0x120000
-	// SystemTableEnd isn
-	SystemTableEnd = 0x130000
-	// FuncPointer is
-	FuncPointer = 0x140000
-	// LoadedImage is where the loadimage protocol struct is
-	LoadedImage = 0x150000
-	// Runtime is where we get runtime services
-	Runtime = 0x160000
-	// Boot is where we get Boot Services
-	Boot = 0x170000
-	// ConOut is where we get ConOut Services
-	ConOut = 0x180000
-	// ConIn is where we get ConIn Services
-	ConIn = 0x190000
-	// StartFuncs starts the area of functions pointers.
-	StartFuncs = 0x1a0000
-	// STOut are output functions
-	STOut = 0x1a0000
-	// STIn are output functions
-	STIn = 0x1a0000
-	// EndFuncs is the end of functions we call
-	EndFuncs = 0x1b0000
+	memBase     = uint64(1 << 63)
+	allocAmt    = uint64(1 << 16)
+	ImageHandle = memBase
+	SystemTable = memBase + allocAmt
 )
+
+var bumpAllocate = SystemTable + allocAmt
 
 type msg func()
 
@@ -147,10 +125,10 @@ func main() {
 	if len(a) != 1 {
 		log.Fatal("arg count")
 	}
-	table.SystemTableNames[table.RuntimeServices].Val = Runtime
-	table.SystemTableNames[table.BootServices].Val = Boot
-	table.SystemTableNames[table.ConOut].Val = ConOut
-	table.SystemTableNames[table.ConIn].Val = ConIn
+	// table.SystemTableNames[table.RuntimeServices].Val = Runtime
+	// table.SystemTableNames[table.BootServices].Val = Boot
+	// table.SystemTableNames[table.ConOut].Val = ConOut
+	// table.SystemTableNames[table.ConIn].Val = ConIn
 
 	if *optional {
 		regsprint = allregsprint
