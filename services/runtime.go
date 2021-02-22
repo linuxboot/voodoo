@@ -1,10 +1,13 @@
 package services
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/linuxboot/voodoo/ptrace"
+)
 
 // RunTime implements Service
 type RunTime struct {
-	base uintptr
 }
 
 func init() {
@@ -12,12 +15,12 @@ func init() {
 }
 
 // NewRuntime returns a RunTime Service
-func NewRuntime(b uintptr) (Service, error) {
-	return &RunTime{base: b}, nil
+func NewRuntime() (Service, error) {
+	return &RunTime{}, nil
 }
 
 // Call implements service.Call
-func (r *RunTime) Call(f Func) error {
+func (r *RunTime) Call(t *ptrace.Tracee, f Func) error {
 	switch f {
 	default:
 		return fmt.Errorf("%#x is not supported", f)

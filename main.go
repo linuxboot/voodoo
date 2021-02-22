@@ -20,7 +20,7 @@ import (
 	"syscall"
 
 	"github.com/linuxboot/voodoo/ptrace"
-	//	"github.com/linuxboot/voodoo/table"
+	"github.com/linuxboot/voodoo/services"
 	"golang.org/x/sys/unix"
 )
 
@@ -125,6 +125,7 @@ func main() {
 	if len(a) != 1 {
 		log.Fatal("arg count")
 	}
+	if 
 	// table.SystemTableNames[table.RuntimeServices].Val = Runtime
 	// table.SystemTableNames[table.BootServices].Val = Boot
 	// table.SystemTableNames[table.ConOut].Val = ConOut
