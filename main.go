@@ -92,6 +92,7 @@ func main() {
 		st uint64
 	}{
 		{"runtime", table.RuntimeServices},
+		{"boot", table.BootServices},
 	} {
 		if err := services.Base(bumpAllocate, t.n); err != nil {
 			log.Fatal(err)
@@ -198,10 +199,12 @@ func main() {
 		log.Fatal(err)
 	}
 	p := r
+
 	// Reserve space for structs that we will place into the memory.
 	// For now, just drop the stack 1m and use that as a bump pointer.
-	dat = uintptr(r.Rsp)
+	services.SetAllocator(uintptr(r.Rsp-0x100000), uintptr(r.Rsp))
 	r.Rsp -= 0x100000
+
 	if err := t.SetRegs(r); err != nil {
 		log.Fatalf("Can't set stack to %#x: %v", dat, err)
 	}

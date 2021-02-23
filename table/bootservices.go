@@ -1,4 +1,4 @@
-package main
+package table
 
 // These are the offsets of various UEFI boot services.
 const (
@@ -49,7 +49,8 @@ const (
 	CreateEventEx                       = 0x170
 )
 
-var bootServicesNames = map[int]string{
+// BootServicesNames maps an int to a name
+var BootServicesNames = map[int]string{
 	RaiseTPL:                            "RaiseTPL ",
 	RestoreTPL:                          "RestoreTPL ",
 	AllocatePages:                       "AllocatePages ",
