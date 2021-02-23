@@ -3,8 +3,6 @@ package services
 import (
 	"fmt"
 	"log"
-
-	"github.com/linuxboot/voodoo/ptrace"
 )
 
 // Func is a function selector.
@@ -18,7 +16,7 @@ type ServBase uintptr
 // more than one process, we pass the Tracee in as
 // a parameter.
 type Service interface {
-	Call(f *Fault, f Func) error
+	Call(f *Fault, op Func) error
 }
 
 type serviceCreator func() (Service, error)
@@ -64,7 +62,7 @@ func splitBaseOp(a uintptr) (ServBase, Func) {
 // split into a base and 16-bit offset. The base is not
 // right-shifted or changed in any other way.
 func Dispatch(f *Fault) error {
-	a := F.Info.Addr
+	a := uintptr(f.Info.Addr)
 	b, op := splitBaseOp(a)
 	d, ok := dispatch[b]
 	if !ok {

@@ -11,13 +11,11 @@ import (
 	"debug/pe"
 	"flag"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"reflect"
-	"syscall"
 
 	"github.com/linuxboot/voodoo/ptrace"
 	"github.com/linuxboot/voodoo/services"
@@ -52,47 +50,6 @@ func any(f ...string) {
 	}
 	log.Printf("hit the any key")
 	os.Stdin.Read(b[:])
-}
-
-func header(w io.Writer) error {
-	var l string
-	for _, r := range regsprint {
-		l += fmt.Sprintf("%s%s,", r.name, r.extra)
-	}
-	_, err := fmt.Fprint(w, l+"\n")
-	return err
-}
-
-// print the regs
-func regs(w io.Writer, r *syscall.PtraceRegs) error {
-	rr := reflect.ValueOf(r).Elem()
-	var l string
-	for _, rp := range regsprint {
-		rf := rr.FieldByName(rp.name)
-		l += fmt.Sprintf("\""+rp.format+"\",", rf.Interface())
-	}
-	_, err := fmt.Fprint(w, l)
-	return err
-}
-
-// Only print things that differ.
-func regdiff(w io.Writer, r, p *syscall.PtraceRegs) error {
-	rr := reflect.ValueOf(r).Elem()
-	pp := reflect.ValueOf(p).Elem()
-
-	var l string
-	for _, rp := range regsprint {
-		rf := rr.FieldByName(rp.name)
-		pf := pp.FieldByName(rp.name)
-		rv := fmt.Sprintf(rp.format, rf.Interface())
-		pv := fmt.Sprintf(rp.format, pf.Interface())
-		if rv != pv {
-			l += "\"" + rv + "\""
-		}
-		l += ","
-	}
-	_, err := fmt.Fprint(w, l)
-	return err
 }
 
 func showone(indent string, in interface{}) string {
@@ -134,7 +91,7 @@ func main() {
 	// table.SystemTableNames[table.ConIn].Val = ConIn
 
 	if *optional {
-		regsprint = allregsprint
+		ptrace.RegsPrint = ptrace.AllregsPrint
 	}
 	if *singlestep {
 		step = any
@@ -211,10 +168,10 @@ func main() {
 		log.Fatalf("Can't set IPtr to %#x: %v", eip, err)
 	}
 	log.Printf("IPtr is %#x, let's go.", eip)
-	if err := params(t, ImageHandle, SystemTable); err != nil {
+	if err := t.Params(ImageHandle, SystemTable); err != nil {
 		log.Fatalf("Setting params: %v", err)
 	}
-	if err := header(os.Stdout); err != nil {
+	if err := ptrace.Header(os.Stdout); err != nil {
 		log.Fatal(err)
 	}
 	line++
@@ -222,7 +179,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Could not get regs: %v", err)
 	}
-	if err := regs(os.Stdout, r); err != nil {
+	if err := ptrace.Regs(os.Stdout, r); err != nil {
 		log.Fatal(err)
 	}
 	p := r
@@ -242,7 +199,7 @@ func main() {
 	//Addr uintptr // Memory location which caused fault
 	for e := range t.Events() {
 		if line%25 == 0 {
-			header(os.Stdout)
+			ptrace.Header(os.Stdout)
 		}
 		line++
 		// Sometimes it fails with ESRCH but the process is there.
@@ -254,7 +211,7 @@ func main() {
 		}
 		log.Printf("%v", i)
 		s := unix.Signal(i.Signo)
-		insn, r, err := inst(t)
+		insn, r, err := t.Inst()
 		if err != nil {
 			log.Printf("Could not get regs: %v", err)
 		}
@@ -267,7 +224,7 @@ func main() {
 		case unix.SIGSEGV:
 			//showone(os.Stderr, "", &r)
 			//any(fmt.Sprintf("Handle the segv at %#x", i.Addr))
-			if err := regs(os.Stdout, r); err != nil {
+			if err := ptrace.Regs(os.Stdout, r); err != nil {
 				log.Fatal(err)
 			}
 			if err := segv(t, i, insn, r); err != nil {
@@ -298,11 +255,11 @@ func main() {
 				log.Printf("%v,", i)
 			}
 		}
-		if err := regdiff(os.Stdout, r, p); err != nil {
+		if err := ptrace.RegDiff(os.Stdout, r, p); err != nil {
 			log.Fatal(err)
 		}
 		p = r
-		fmt.Println(asm(insn, r.Rip))
+		fmt.Println(ptrace.Asm(insn, r.Rip))
 		step()
 		if err := t.SingleStep(); err != nil {
 			log.Print(err)

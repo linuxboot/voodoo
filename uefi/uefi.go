@@ -1,4 +1,4 @@
-package main
+package uefi
 
 import (
 	"fmt"
@@ -133,4 +133,9 @@ func ReadVariable(n string, g guid.GUID) (*EFIVariable, error) {
 		return nil, fmt.Errorf("%s is not set", p)
 	}
 	return v, nil
+}
+
+// EfiErrUint returns a uintptr for an EFI Error
+func EFIErr(e EFIError) uintptr {
+	return uintptr(1<<63) | uintptr(e)
 }
