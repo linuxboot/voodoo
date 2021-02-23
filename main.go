@@ -19,6 +19,7 @@ import (
 
 	"github.com/linuxboot/voodoo/ptrace"
 	"github.com/linuxboot/voodoo/services"
+	"github.com/linuxboot/voodoo/table"
 	"golang.org/x/sys/unix"
 )
 
@@ -82,13 +83,27 @@ func main() {
 	if len(a) != 1 {
 		log.Fatal("arg count")
 	}
-	if err := services.Base(SystemTable, "runtime"); err != nil {
+	if err := services.Base(SystemTable, "systemtable"); err != nil {
 		log.Fatal(err)
 	}
-	// table.SystemTableNames[table.RuntimeServices].Val = Runtime
-	// table.SystemTableNames[table.BootServices].Val = Boot
-	// table.SystemTableNames[table.ConOut].Val = ConOut
-	// table.SystemTableNames[table.ConIn].Val = ConIn
+
+	for _, t := range []struct {
+		n  string
+		st uint64
+	}{
+		{"runtime", table.RuntimeServices},
+	} {
+		if err := services.Base(bumpAllocate, t.n); err != nil {
+			log.Fatal(err)
+		}
+		table.SystemTableNames[t.st].Val = uint64(bumpAllocate)
+		bumpAllocate += allocAmt
+	}
+
+	//table.SystemTableNames[table.RuntimeServices].Val = Runtime
+	//table.SystemTableNames[table.BootServices].Val = Boot
+	//table.SystemTableNames[table.ConOut].Val = ConOut
+	//table.SystemTableNames[table.ConIn].Val = ConIn
 
 	if *optional {
 		ptrace.RegsPrint = ptrace.AllregsPrint
