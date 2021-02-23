@@ -215,6 +215,8 @@ func main() {
 		if err != nil {
 			log.Printf("Could not get regs: %v", err)
 		}
+		fmt.Println(ptrace.Asm(insn, r.Rip))
+		step()
 		switch s {
 		default:
 			log.Printf("Can't do %#x(%v)", i.Signo, unix.SignalName(s))
@@ -264,8 +266,6 @@ func main() {
 			log.Fatal(err)
 		}
 		p = r
-		fmt.Println(ptrace.Asm(insn, r.Rip))
-		step()
 		if err := t.SingleStep(); err != nil {
 			log.Print(err)
 		}
