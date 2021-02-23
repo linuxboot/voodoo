@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/linuxboot/voodoo/ptrace"
+	"github.com/linuxboot/voodoo/services"
 	"golang.org/x/arch/x86/x86asm"
 	"golang.org/x/sys/unix"
 )
@@ -266,13 +267,13 @@ func GetReg(r *syscall.PtraceRegs, reg x86asm.Reg) (*uint64, error) {
 }
 
 // Set the params in %rcx, %rdx
-func params(p *ptrace.Tracee, ImageHandle, SystemTable uint64) error {
+func params(p *ptrace.Tracee, ImageHandle, SystemTable uintptr) error {
 	r, err := p.GetRegs()
 	if err != nil {
 		return err
 	}
-	r.Rcx = ImageHandle
-	r.Rdx = SystemTable
+	r.Rcx = uint64(ImageHandle)
+	r.Rdx = uint64(SystemTable)
 	return p.SetRegs(r)
 }
 
@@ -410,9 +411,12 @@ func pop(p *ptrace.Tracee, r *syscall.PtraceRegs) (uint64, error) {
 }
 
 func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.PtraceRegs) error {
-	addr := i.Addr
+	addr := uintptr(i.Addr)
 	//	pc := r.Rip
 	log.Printf("================={SEGV START FUNCTION @ %#x", addr)
 	defer log.Printf("===========} done SEGV @ %#x", addr)
-	return fmt.Errorf("Don't know what to do with %v", callinfo(i, inst, r))
+	if err := services.Dispatch(p, addr); err != nil {
+		return fmt.Errorf("Don't know what to do with %v: %v", callinfo(i, inst, r), err)
+	}
+	return nil
 }

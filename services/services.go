@@ -18,7 +18,7 @@ type ServBase uintptr
 // more than one process, we pass the Tracee in as
 // a parameter.
 type Service interface {
-	Call(t *ptrace.Tracee, f Func) error
+	Call(f *Fault, f Func) error
 }
 
 type serviceCreator func() (Service, error)
@@ -63,11 +63,12 @@ func splitBaseOp(a uintptr) (ServBase, Func) {
 // Dispatch is called with n address. The address is
 // split into a base and 16-bit offset. The base is not
 // right-shifted or changed in any other way.
-func Dispatch(t *ptrace.Tracee, a uintptr) error {
+func Dispatch(f *Fault) error {
+	a := F.Info.Addr
 	b, op := splitBaseOp(a)
 	d, ok := dispatch[b]
 	if !ok {
-		return fmt.Errorf("%#x: No such service", a)
+		return fmt.Errorf("%#x: No such service in %v", a, dispatch)
 	}
-	return d.Call(t, op)
+	return d.Call(f, op)
 }

@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	memBase     = uint64(1 << 63)
-	allocAmt    = uint64(1 << 16)
+	memBase     = 0x100000 // uintptr(1 << 63)
+	allocAmt    = uintptr(1 << 16)
 	ImageHandle = memBase
 	SystemTable = memBase + allocAmt
 )
@@ -125,7 +125,9 @@ func main() {
 	if len(a) != 1 {
 		log.Fatal("arg count")
 	}
-	if 
+	if err := services.Base(SystemTable, "runtime"); err != nil {
+		log.Fatal(err)
+	}
 	// table.SystemTableNames[table.RuntimeServices].Val = Runtime
 	// table.SystemTableNames[table.BootServices].Val = Boot
 	// table.SystemTableNames[table.ConOut].Val = ConOut
