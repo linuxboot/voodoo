@@ -234,6 +234,11 @@ func main() {
 					any("Waiting for ^C")
 				}
 			}
+			// The handlers will always change, at least, eip, so just blindly set them
+			// back. TODO: see if we need more granularity.
+			if err := t.SetRegs(r); err != nil {
+				log.Fatalf("Can't set stack to %#x: %v", dat, err)
+			}
 			if err := t.ClearSignal(); err != nil {
 				//log.Printf("ClearSignal failed; %v", err)
 				for {
