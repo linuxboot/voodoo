@@ -3,6 +3,7 @@ package protocol
 import (
 	"bytes"
 	"encoding/binary"
+	"log"
 )
 
 /* from the belly of the EFI best.
@@ -85,9 +86,22 @@ type LoadedImage struct {
 	Unload uintptr
 }
 
-var LoadedImageProtocol = "5B1B31A1-9562-11D2-8E3F-00A0C969723B"
+const LoadedImageProtocol = "5B1B31A1-9562-11D2-8E3F-00A0C969723B"
 
 var _ TableMarshaler = LoadedImage{}
+
+func init() {
+	// create a loaded image []byte, and install it into CopyableProtocols
+	l, err := NewLoadedImage()
+	if err != nil {
+		log.Fatal(err)
+	}
+	b, err := l.Marshal()
+	if err != nil {
+		log.Fatal(err)
+	}
+	CopyAble[LoadedImageProtocol] = &ProtocolHandle{GUID: LoadedImageProtocol, Data: b}
+}
 
 func (i LoadedImage) Marshal() ([]byte, error) {
 	var (
