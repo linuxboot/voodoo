@@ -1,7 +1,6 @@
 package services
 
 import (
-	"encoding/binary"
 	"fmt"
 
 	"github.com/linuxboot/fiano/pkg/guid"
@@ -15,38 +14,14 @@ func Srv(p *ptrace.Tracee, g *guid.GUID, args ...uintptr) error {
 	// just string it and go.
 	s := fmt.Sprintf("%s", g)
 
-	switch s {
-	case protocol.LoadedImageProtocol:
-		if len(args) < 3 {
-			return fmt.Errorf("protocol.LoadedImageProtocol needs 3 args, got %d", len(args))
-		}
-		// For now, we're not putting this out there.
-		// We will handle access via segv.
-		odat := dat
-		if false {
-			i, err := protocol.NewLoadedImage()
-			if err != nil {
-				return err
-			}
-
-			b, err := i.Marshal()
-			if err != nil {
-				return fmt.Errorf("Can't serialize %T: %v", i, err)
-			}
-			if err := p.Write(dat, b); err != nil {
-				return fmt.Errorf("Can't write %d bytes to %#x: %v", len(b), dat, err)
-			}
-			dat += uintptr(len(b))
-			// Store the return pointer through arg3.
-		}
-		var bb [8]byte
-		binary.LittleEndian.PutUint64(bb[:], uint64(LoadedImage))
-		if err := p.Write(args[2], bb[:]); err != nil {
-			return fmt.Errorf("Can't write %d bytes to %#x: %v", len(bb), odat, err)
-		}
-		return nil
-
-	default:
-		return fmt.Errorf("Unknown GUID: %s", s)
+	// See if it is copyable.
+	c, ok := protocol.CopyAble[s]
+	if !ok {
+		return fmt.Errorf("Srv %s:We only handle copyable protocol handles at present", s)
 	}
+	dst := Allocate(len(c.Data))
+	if err := p.Write(dst, c.Data); err != nil {
+		return fmt.Errorf("Can't write %d bytes to %#x: %v", len(c.Data), dst, err)
+	}
+	return nil
 }
