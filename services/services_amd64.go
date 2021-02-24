@@ -15,7 +15,7 @@ type Fault struct {
 	Info *unix.SignalfdSiginfo
 	Inst *x86asm.Inst
 	Regs *syscall.PtraceRegs
-	Args []uint64
+	Args []uintptr
 }
 
 func retval(f *Fault, val uintptr) error {
