@@ -68,7 +68,7 @@ func (r *Boot) Call(f *Fault, op Func) error {
 			return fmt.Errorf("Can't read guid at #%x, err %v", args[1], err)
 		}
 		log.Printf("HandleProtocol: GUID %s", g)
-		if err := Srv(f.Proc, &g, args...); err != nil {
+		if err := Srv(f, &g, args...); err != nil {
 			return fmt.Errorf("Can't handle HandleProtocol: %s: %v", ptrace.CallInfo(f.Info, f.Inst, f.Regs), err)
 		}
 		return nil
@@ -83,7 +83,7 @@ func (r *Boot) Call(f *Fault, op Func) error {
 			return fmt.Errorf("Can't read guid at #%x, err %v", args[1], err)
 		}
 		log.Printf("PCHandleProtocol: GUID %s", g)
-		if err := Srv(f.Proc, &g, args...); err != nil {
+		if err := Srv(f, &g, args...); err != nil {
 			return fmt.Errorf("Can't handle HandleProtocol: %s: %v", ptrace.CallInfo(f.Info, f.Inst, f.Regs), err)
 		}
 		return nil
