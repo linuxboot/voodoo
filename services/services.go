@@ -8,8 +8,13 @@ import (
 // Func is a function selector.
 type Func uint16
 
-// ServBase is the base address of a service in memory, e.g. a Protocol struct.
-type ServBase uintptr
+// ServBase is the base address of a service in memory, e.g. a Protocol struct,
+// with a nice prefix to make it a printable string, like unto string names
+// and GUIDs. Think of how git names stashes, with names that are still strings but
+// that are not real refs -- safe idea. This seems weird but it's very convenient.
+type ServBase string
+
+const servBaseFmt = "SB%#x"
 
 // Service is the interface to services.
 // In deference to the fact that we may be tracing
@@ -71,8 +76,12 @@ func Base(base uintptr, n string) error {
 	return nil
 }
 
+func servBaseName(a uintptr) ServBase {
+	return ServBase(fmt.Sprintf(servBaseFmt, a&^0xffff))
+}
+
 func splitBaseOp(a uintptr) (ServBase, Func) {
-	return ServBase(a &^ 0xffff), Func(a & 0xffff)
+	return servBaseName(a), Func(a & 0xffff)
 }
 
 // Dispatch is called with n address. The address is
