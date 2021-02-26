@@ -4,6 +4,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/linuxboot/voodoo/uefi"
 	"golang.org/x/arch/x86/x86asm"
 )
 

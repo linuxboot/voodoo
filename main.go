@@ -93,6 +93,7 @@ func main() {
 	}{
 		{"runtime", table.RuntimeServices},
 		{"boot", table.BootServices},
+		{"textout", table.ConOut},
 	} {
 		if err := services.Base(bumpAllocate, t.n); err != nil {
 			log.Fatal(err)

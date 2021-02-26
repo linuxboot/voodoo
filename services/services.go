@@ -14,6 +14,11 @@ type Func uint16
 // that are not real refs -- safe idea. This seems weird but it's very convenient.
 type ServBase string
 
+// String is a stringer for ServBase
+func (s ServBase) String() string {
+	return string(s)
+}
+
 const servBaseFmt = "SB%#x"
 
 // Service is the interface to services.
@@ -63,9 +68,9 @@ func Base(base uintptr, n string) error {
 	if !ok {
 		return fmt.Errorf("Service %q does not exist", n)
 	}
-	b := ServBase(base)
+	b := servBaseName(base)
 	if d, ok := dispatches[b]; ok {
-		return fmt.Errorf("Base %#x is in use by %v", base, d)
+		log.Panicf("Base %v for %s is in use by %v", b, n, d)
 	}
 	srv, err := s(b)
 	if err != nil {
