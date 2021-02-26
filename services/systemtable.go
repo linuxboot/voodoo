@@ -8,15 +8,21 @@ import (
 
 // RunTime implements Service
 type SystemTable struct {
+	u ServBase
 }
 
 func init() {
-	Register("systemtable", NewSystemtable)
+	RegisterCreator("systemtable", NewSystemtable)
 }
 
 // NewSystemtable returns a Systemtable Service
-func NewSystemtable() (Service, error) {
+func NewSystemtable(u ServBase) (Service, error) {
 	return &SystemTable{}, nil
+}
+
+// Base implements service.Base
+func (s *SystemTable) Base() ServBase {
+	return s.u
 }
 
 // Call implements service.Call

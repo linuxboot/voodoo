@@ -13,15 +13,21 @@ import (
 
 // Boot implements Service
 type Boot struct {
+	u ServBase
 }
 
 func init() {
-	Register("boot", NewBoot)
+	RegisterCreator("boot", NewBoot)
 }
 
 // NewBoot returns a Boot Service
-func NewBoot() (Service, error) {
-	return &Boot{}, nil
+func NewBoot(u ServBase) (Service, error) {
+	return &Boot{u: u}, nil
+}
+
+// Base implements service.Base
+func (r *Boot) Base() ServBase {
+	return r.u
 }
 
 // Call implements service.Call
@@ -68,8 +74,19 @@ func (r *Boot) Call(f *Fault, op Func) error {
 			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
 		}
 		log.Printf("HandleProtocol: GUID %s", g)
-		if err := Srv(f, &g); err != nil {
-			return fmt.Errorf("Can't handle HandleProtocol: %s: %v", ptrace.CallInfo(f.Info, f.Inst, f.Regs), err)
+		b, ok := dispatchService[g.String()]
+		if !ok {
+			return fmt.Errorf("No registered service for %s", g)
+		}
+
+		d, ok := dispatches[b]
+		if !ok {
+			return fmt.Errorf("Can't happen: no base for %s", g)
+		}
+		var bb [8]byte
+		binary.LittleEndian.PutUint64(bb[:], uint64(dat))
+		if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
+			return fmt.Errorf("Can't write %#x to %#x: %v", d, f.Args[2], err)
 		}
 		fmt.Printf("OK all done handleprotocol")
 		return nil
@@ -84,9 +101,7 @@ func (r *Boot) Call(f *Fault, op Func) error {
 			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
 		}
 		log.Printf("PCHandleProtocol: GUID %s", g)
-		if err := Srv(f, &g); err != nil {
-			return fmt.Errorf("Can't handle HandleProtocol: %s: %v", ptrace.CallInfo(f.Info, f.Inst, f.Regs), err)
-		}
+
 		return nil
 	case table.ConnectController:
 		// The arguments are rcx, rdx, r9, r8

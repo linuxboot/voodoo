@@ -17,19 +17,35 @@ type ServBase uintptr
 // a parameter.
 type Service interface {
 	Call(f *Fault, op Func) error
+	Base() ServBase
 }
 
-type serviceCreator func() (Service, error)
+// serviceCreator returns a service. The parameter, u,
+// is passed to it as an identifier.
+type serviceCreator func(u ServBase) (Service, error)
 
-var services = map[string]serviceCreator{}
-var dispatch = map[ServBase]Service{}
+var creators = map[string]serviceCreator{}
 
-// Register registers services.
-func Register(n string, s serviceCreator) {
-	if _, ok := services[n]; ok {
+//var services = map[string]Service
+var GUIDServices = []string{}
+
+type dispatch struct {
+	s    Service
+	base ServBase
+}
+
+// dispatch contains both the nice print name of a service ("runtime") as
+// well as GUID represented as strings.
+var dispatches = map[ServBase]*dispatch{}
+var dispatchService = map[string]ServBase{}
+
+// RegisterCreator registers a service creator.
+// Assumption: only called from init()
+func RegisterCreator(n string, s serviceCreator) {
+	if _, ok := creators[n]; ok {
 		log.Fatalf("Register: %s is already registered", n)
 	}
-	services[n] = s
+	creators[n] = s
 }
 
 // Base sets up a base address for a service. The base is chosen
@@ -38,19 +54,20 @@ func Register(n string, s serviceCreator) {
 // Note that because this uses a string, one might set up names based
 // on both a service name and a guid. Why, I have no idea.
 func Base(base uintptr, n string) error {
-	s, ok := services[n]
+	s, ok := creators[n]
 	if !ok {
 		return fmt.Errorf("Service %q does not exist", n)
 	}
 	b := ServBase(base)
-	if d, ok := dispatch[b]; ok {
+	if d, ok := dispatches[b]; ok {
 		return fmt.Errorf("Base %#x is in use by %v", base, d)
 	}
-	srv, err := s()
+	srv, err := s(b)
 	if err != nil {
 		return err
 	}
-	dispatch[b] = srv
+	dispatchService[n] = b
+	dispatches[b] = &dispatch{s: srv, base: b}
 	return nil
 }
 
@@ -64,9 +81,9 @@ func splitBaseOp(a uintptr) (ServBase, Func) {
 func Dispatch(f *Fault) error {
 	a := uintptr(f.Info.Addr)
 	b, op := splitBaseOp(a)
-	d, ok := dispatch[b]
+	d, ok := dispatches[b]
 	if !ok {
-		return fmt.Errorf("%#x: No such service in %v", a, dispatch)
+		return fmt.Errorf("%#x: No such service in %v", a, d)
 	}
-	return d.Call(f, op)
+	return d.s.Call(f, op)
 }

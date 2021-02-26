@@ -101,6 +101,16 @@ func main() {
 		bumpAllocate += allocAmt
 	}
 
+	// Now set up all the GUIDServices
+	for _, t := range services.GUIDServices {
+		if err := services.Base(bumpAllocate, t); err != nil {
+			log.Fatal(err)
+		}
+		bumpAllocate += allocAmt
+	}
+
+	// TODO: put GUID mappings to tables here. First example isloadedimagetable
+
 	//table.SystemTableNames[table.RuntimeServices].Val = Runtime
 	//table.SystemTableNames[table.BootServices].Val = Boot
 	//table.SystemTableNames[table.ConOut].Val = ConOut

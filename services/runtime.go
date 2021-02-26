@@ -12,15 +12,21 @@ import (
 
 // RunTime implements Service
 type RunTime struct {
+	u ServBase
 }
 
 func init() {
-	Register("runtime", NewRuntime)
+	RegisterCreator("runtime", NewRuntime)
 }
 
 // NewRuntime returns a RunTime Service
-func NewRuntime() (Service, error) {
-	return &RunTime{}, nil
+func NewRuntime(u ServBase) (Service, error) {
+	return &RunTime{u: u}, nil
+}
+
+// Base implements service.Base
+func (r *RunTime) Base() ServBase {
+	return r.u
 }
 
 // Call implements service.Call
