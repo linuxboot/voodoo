@@ -98,6 +98,7 @@ func main() {
 			log.Fatal(err)
 		}
 		table.SystemTableNames[t.st].Val = uint64(bumpAllocate)
+		log.Printf("-----------> Install service %s at %#x", t.n, bumpAllocate)
 		bumpAllocate += allocAmt
 	}
 

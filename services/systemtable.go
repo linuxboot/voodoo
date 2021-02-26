@@ -28,7 +28,7 @@ func (s *SystemTable) Base() ServBase {
 
 // Call implements service.Call
 func (r *SystemTable) Call(f *Fault, op Func) error {
-	log.Printf("SystemTable Service %v %#x", f, op)
+	log.Printf("SystemTable services: %v(%#x), arg type %T, args %v", table.SystemTableNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
 	val, ok := table.SystemTableNames[uint64(op)]
 	if ok {
 		return retval(f, uintptr(val.Val))
