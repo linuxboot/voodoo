@@ -31,6 +31,7 @@ func (r *RunTime) Base() ServBase {
 
 // Call implements service.Call
 func (r *RunTime) Call(f *Fault, op Func) error {
+	log.Printf("runtimeservices: %s(%#x), arg type %T, args %v", table.BootServicesNames[int(op)], op, f.Inst.Args, f.Inst.Args)
 	switch op {
 	case table.RTGetVariable:
 		args := ptrace.Args(f.Proc, f.Regs, 5)

@@ -31,6 +31,7 @@ func (l *LoadedImage) Base() ServBase {
 // Call implements service.Call
 func (l *LoadedImage) Call(f *Fault, op Func) error {
 	log.Printf("LoadedImage services: %#x, arg type %T, args %v", op, f.Inst.Args, f.Inst.Args)
+	log.Fatal("hi")
 	switch op {
 	default:
 		f.Regs.Rax = uefi.EFI_UNSUPPORTED
