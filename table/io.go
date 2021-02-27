@@ -37,3 +37,21 @@ var SimpleTextInServicesNames = map[uint64]*val{
 	STInReadKeyStroke: &val{N: "ReadKeyStroke"},
 	STInWaitForKey:    &val{N: "WaitForKey"},
 }
+
+const (
+	STModeMaxMode       = 0
+	STModeMode          = 0x4
+	STModeAttribute     = 0x8
+	STModeCursorColumn  = 0xc
+	STModeCursorRow     = 0x10
+	STModeCursorVisible = 0x14
+)
+
+var SimpleTextModeServicesNames = map[uint64]*val{
+	STModeMaxMode:       &val{N: "MaxMode"},
+	STModeMode:          &val{N: "Mode"},
+	STModeAttribute:     &val{N: "Attribute"},
+	STModeCursorColumn:  &val{N: "CursorColumn"},
+	STModeCursorRow:     &val{N: "CursorRow"},
+	STModeCursorVisible: &val{N: "CursorVisible"},
+}

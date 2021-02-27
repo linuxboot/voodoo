@@ -57,6 +57,28 @@ int main(int argc, char *argv[])
 	t(ReadKeyStroke);
 	t(WaitForKey);
 	fprintf(f, "}\n");
+
+#undef t
+#define t(x) fprintf(f, "STMode" #x " = %#lx\n", offsetof(SIMPLE_TEXT_OUTPUT_MODE, x));
+	fprintf(f, "const (\n");
+	t(MaxMode);
+	t(Mode);
+	t(Attribute);
+	t(CursorColumn);
+	t(CursorRow);
+	t(CursorVisible);
+	fprintf(f, ")\n");
 	
+#undef t
+#define t(x) fprintf(f, "STMode" #x ": &val{N: \"" #x "\"},\n");
+	fprintf(f, "var SimpleTextModeServicesNames = map[uint64]*val{\n");
+	t(MaxMode);
+	t(Mode);
+	t(Attribute);
+	t(CursorColumn);
+	t(CursorRow);
+	t(CursorVisible);
+	fprintf(f, "}\n");
+
 	pclose(f);
 }
