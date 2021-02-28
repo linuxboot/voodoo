@@ -86,7 +86,7 @@ func (r *Boot) Call(f *Fault, op Func) error {
 		var bb [8]byte
 		binary.LittleEndian.PutUint64(bb[:], uint64(dat))
 		if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
-			return fmt.Errorf("Can't write %#x to %#x: %v", d, f.Args[2], err)
+			return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[2], err)
 		}
 		fmt.Printf("OK all done handleprotocol")
 		return nil

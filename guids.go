@@ -5,7 +5,7 @@ import (
 	"github.com/linuxboot/fiano/pkg/knownguids"
 )
 
-// NameGUID is a mapping of name to GUID. It is built
+// NameToGUID is a mapping of name to GUID. It is built
 // at startup from knownguids.
 var NameToGUID = map[string]guid.GUID{}
 

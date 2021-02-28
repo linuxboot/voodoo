@@ -7,6 +7,8 @@ import (
 	"github.com/linuxboot/voodoo/table"
 )
 
+var ()
+
 // RunTime implements Service
 type SystemTable struct {
 	u ServBase
@@ -17,8 +19,34 @@ func init() {
 }
 
 // NewSystemtable returns a Systemtable Service
+// This must be the FIRST New called for a service.
 func NewSystemtable(u ServBase) (Service, error) {
-	return &SystemTable{}, nil
+	var st = &SystemTable{}
+
+	for _, t := range []struct {
+		n  string
+		st uint64
+	}{
+		{"textout", table.ConOut},
+		{"runtime", table.RuntimeServices},
+		{"boot", table.BootServices},
+	} {
+		r, err := Base(t.n)
+		if err != nil {
+			log.Fatal(err)
+		}
+		table.SystemTableNames[t.st].Val = uint64(r)
+		log.Printf("-----------> Install service %s at %#x", t.n, r)
+	}
+
+	// Now set up all the GUIDServices
+	for _, t := range GUIDServices {
+		if _, err := Base(t); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	return st, nil
 }
 
 // Base implements service.Base

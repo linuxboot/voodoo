@@ -3,6 +3,13 @@ package services
 import (
 	"fmt"
 	"log"
+	"sync"
+)
+
+const (
+	allocAmt = uintptr(1 << 16)
+	// ImageHandle is the ServBase of the UEFI Image Handle
+	ImageHandle = uintptr(0x100000)
 )
 
 // Func is a function selector.
@@ -13,6 +20,21 @@ type Func uint16
 // and GUIDs. Think of how git names stashes, with names that are still strings but
 // that are not real refs -- safe idea. This seems weird but it's very convenient.
 type ServBase string
+
+var (
+	// memBase is the default allocation base for UEFI structs.
+	memBase = ImageHandle + allocAmt
+	// resource allocation mutex.
+	malloc sync.Mutex
+)
+
+func bumpAllocate() uintptr {
+	malloc.Lock()
+	defer malloc.Unlock()
+	m := memBase
+	memBase += allocAmt
+	return m
+}
 
 // String is a stringer for ServBase
 func (s ServBase) String() string {
@@ -31,7 +53,8 @@ type Service interface {
 }
 
 // serviceCreator returns a service. The parameter, u,
-// is passed to it as an identifier.
+// is passed to it as an identifier. The serviceCreator
+// may itself call other serviceCreators.
 type serviceCreator func(u ServBase) (Service, error)
 
 var creators = map[string]serviceCreator{}
@@ -63,22 +86,23 @@ func RegisterCreator(n string, s serviceCreator) {
 // and then dispatch to the correct Call function.
 // Note that because this uses a string, one might set up names based
 // on both a service name and a guid. Why, I have no idea.
-func Base(base uintptr, n string) error {
+func Base(n string) (uintptr, error) {
 	s, ok := creators[n]
 	if !ok {
-		return fmt.Errorf("Service %q does not exist", n)
+		return 0, fmt.Errorf("Service %q does not exist", n)
 	}
+	base := bumpAllocate()
 	b := servBaseName(base)
 	if d, ok := dispatches[b]; ok {
 		log.Panicf("Base %v for %s is in use by %v", b, n, d)
 	}
 	srv, err := s(b)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	dispatchService[n] = b
 	dispatches[b] = &dispatch{s: srv, base: b}
-	return nil
+	return base, nil
 }
 
 func servBaseName(a uintptr) ServBase {
@@ -89,7 +113,18 @@ func splitBaseOp(a uintptr) (ServBase, Func) {
 	return servBaseName(a), Func(a & 0xffff)
 }
 
-// Dispatch is called with n address. The address is
+// Service returns a service given an addr.
+func AddrToService(addr uintptr) (Service, error) {
+	a := uintptr(addr)
+	b, _ := splitBaseOp(a)
+	d, ok := dispatches[b]
+	if !ok {
+		return nil, fmt.Errorf("%#x: No such service in %v", a, d)
+	}
+	return d.s, nil
+}
+
+// Dispatch is called with an address. The address is
 // split into a base and 16-bit offset. The base is not
 // right-shifted or changed in any other way.
 func Dispatch(f *Fault) error {

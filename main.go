@@ -19,18 +19,12 @@ import (
 
 	"github.com/linuxboot/voodoo/ptrace"
 	"github.com/linuxboot/voodoo/services"
-	"github.com/linuxboot/voodoo/table"
 	"golang.org/x/sys/unix"
 )
 
-const (
-	memBase     = 0x100000 // uintptr(1 << 63)
-	allocAmt    = uintptr(1 << 16)
-	ImageHandle = memBase
-	SystemTable = memBase + allocAmt
-)
+const ()
 
-var bumpAllocate = SystemTable + allocAmt
+var ()
 
 type msg func()
 
@@ -47,6 +41,7 @@ var (
 func any(f ...string) {
 	var b [1]byte
 	for _, ff := range f {
+
 		log.Println(ff)
 	}
 	log.Printf("hit the any key")
@@ -83,41 +78,11 @@ func main() {
 	if len(a) != 1 {
 		log.Fatal("arg count")
 	}
-	if err := services.Base(SystemTable, "systemtable"); err != nil {
+
+	st, err := services.Base("systemtable")
+	if err != nil {
 		log.Fatal(err)
 	}
-
-	for _, t := range []struct {
-		n  string
-		st uint64
-	}{
-		{"runtime", table.RuntimeServices},
-		{"boot", table.BootServices},
-		{"textout", table.ConOut},
-	} {
-		if err := services.Base(bumpAllocate, t.n); err != nil {
-			log.Fatal(err)
-		}
-		table.SystemTableNames[t.st].Val = uint64(bumpAllocate)
-		log.Printf("-----------> Install service %s at %#x", t.n, bumpAllocate)
-		bumpAllocate += allocAmt
-	}
-
-	// Now set up all the GUIDServices
-	for _, t := range services.GUIDServices {
-		if err := services.Base(bumpAllocate, t); err != nil {
-			log.Fatal(err)
-		}
-		bumpAllocate += allocAmt
-	}
-
-	// TODO: put GUID mappings to tables here. First example isloadedimagetable
-
-	//table.SystemTableNames[table.RuntimeServices].Val = Runtime
-	//table.SystemTableNames[table.BootServices].Val = Boot
-	//table.SystemTableNames[table.ConOut].Val = ConOut
-	//table.SystemTableNames[table.ConIn].Val = ConIn
-
 	if *optional {
 		ptrace.RegsPrint = ptrace.AllregsPrint
 	}
@@ -196,7 +161,7 @@ func main() {
 		log.Fatalf("Can't set IPtr to %#x: %v", eip, err)
 	}
 	log.Printf("IPtr is %#x, let's go.", eip)
-	if err := t.Params(ImageHandle, SystemTable); err != nil {
+	if err := t.Params(services.ImageHandle, st); err != nil {
 		log.Fatalf("Setting params: %v", err)
 	}
 	if err := ptrace.Header(os.Stdout); err != nil {
