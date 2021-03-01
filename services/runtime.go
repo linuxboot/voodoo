@@ -59,6 +59,7 @@ func (r *RunTime) Call(f *Fault, op Func) error {
 		f.Regs.Rax = uefi.EFI_SUCCESS
 		// whatever.
 	default:
+		log.Panic("fix me")
 		f.Regs.Rax = uefi.EFI_UNSUPPORTED
 	}
 	return nil
