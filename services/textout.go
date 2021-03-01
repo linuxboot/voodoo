@@ -11,7 +11,7 @@ import (
 // TextOut implements Service
 type TextOut struct {
 	u ServBase
-	t *TextMode
+	t ServBase
 }
 
 func init() {
@@ -21,7 +21,11 @@ func init() {
 // NewTextOut returns a TextOut Service
 func NewTextOut(u ServBase) (Service, error) {
 	// We need to get to the TextOutMode.
-	return &TextOut{u: u}, nil
+	tm, err := Base("textoutmode")
+	if err != nil {
+		return nil, err
+	}
+	return &TextOut{u: u, t: ServBase(tm)}, nil
 }
 
 // Base implements service.Base
@@ -49,7 +53,9 @@ func (t *TextOut) Call(f *Fault, op Func) error {
 	case table.STOutSetAttribute:
 		log.Printf("Fuck STOutSetAttribute")
 	case table.STOutMode:
-		log.Printf("FUCK table.STOutMode")
+		if err := retval(f, uintptr(t.t)); err != nil {
+			log.Panic(err)
+		}
 	default:
 		panic("unsup textout")
 		f.Regs.Rax = uefi.EFI_UNSUPPORTED

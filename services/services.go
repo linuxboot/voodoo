@@ -15,11 +15,7 @@ const (
 // Func is a function selector.
 type Func uint16
 
-// ServBase is the base address of a service in memory, e.g. a Protocol struct,
-// with a nice prefix to make it a printable string, like unto string names
-// and GUIDs. Think of how git names stashes, with names that are still strings but
-// that are not real refs -- safe idea. This seems weird but it's very convenient.
-type ServBase string
+type ServBase uintptr
 
 var (
 	// memBase is the default allocation base for UEFI structs.
@@ -106,7 +102,7 @@ func Base(n string) (uintptr, error) {
 }
 
 func servBaseName(a uintptr) ServBase {
-	return ServBase(fmt.Sprintf(servBaseFmt, a&^0xffff))
+	return ServBase(a &^ 0xffff)
 }
 
 func splitBaseOp(a uintptr) (ServBase, Func) {
