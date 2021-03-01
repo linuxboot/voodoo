@@ -8,7 +8,7 @@ func TestSplit(t *testing.T) {
 		b ServBase
 		o Func
 	}{
-		{0xfedca, ServBase("SB0xf0000"), 0xedca},
+		{0xfedca, ServBase(0xf0000), 0xedca},
 	}
 	for _, tt := range tests {
 		b, o := splitBaseOp(tt.a)
