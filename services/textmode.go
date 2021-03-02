@@ -35,7 +35,8 @@ func (t *TextMode) Base() ServBase {
 // Call implements service.Call
 // we don't care about textout mode. It's stupid.
 // just ignore and move on.
-func (t *TextMode) Call(f *Fault, op Func) error {
+func (t *TextMode) Call(f *Fault) error {
+	op := f.Op
 	log.Printf("TextMode services: %v(%#x), arg type %T, args %v", table.SimpleTextModeServicesNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
 	f.Regs.Rax = uefi.EFI_SUCCESS
 	switch op {
@@ -47,6 +48,30 @@ func (t *TextMode) Call(f *Fault, op Func) error {
 	case table.STModeCursorVisible:
 	default:
 		log.Panicf("textmode: what?")
+	}
+	return nil
+}
+
+// Load implements service.Load
+func (r *TextMode) Load(f *Fault) error {
+	op := f.Op
+	log.Printf("TextMode services: %v(%#x), arg type %T, args %v", table.SimpleTextModeServicesNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
+	switch op {
+	default:
+		log.Panic("unsupported TextMode load")
+		f.Regs.Rax = uefi.EFI_UNSUPPORTED
+	}
+	return nil
+}
+
+// Store implements service.Store
+func (r *TextMode) Store(f *Fault) error {
+	op := f.Op
+	log.Printf("TextMode services: %v(%#x), arg type %T, args %v", table.SimpleTextModeServicesNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
+	switch op {
+	default:
+		log.Panic("unsupported TextMode Store")
+		f.Regs.Rax = uefi.EFI_UNSUPPORTED
 	}
 	return nil
 }

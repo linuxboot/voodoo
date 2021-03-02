@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 )
 
@@ -44,7 +45,9 @@ const servBaseFmt = "SB%#x"
 // more than one process, we pass the Tracee in as
 // a parameter.
 type Service interface {
-	Call(f *Fault, op Func) error
+	Call(f *Fault) error
+	Load(f *Fault) error
+	Store(f *Fault) error
 	Base() ServBase
 }
 
@@ -124,11 +127,24 @@ func AddrToService(addr uintptr) (Service, error) {
 // split into a base and 16-bit offset. The base is not
 // right-shifted or changed in any other way.
 func Dispatch(f *Fault) error {
+	log.Printf("Dispatch %s", f.Asm)
 	a := uintptr(f.Info.Addr)
 	b, op := splitBaseOp(a)
 	d, ok := dispatches[b]
 	if !ok {
 		return fmt.Errorf("%#x: No such service in %v", a, d)
 	}
-	return d.s.Call(f, op)
+	f.Op = op
+	// Go (Plan 9) is CALL
+	// gnu is call
+	if strings.Contains(f.Asm, "CALL") || strings.Contains(f.Asm, "call") {
+		return d.s.Call(f)
+	}
+	log.Printf("Arg 0 is %v, %T", f.Inst.Args[0], f.Inst.Args[0])
+	switch f.Inst.Args[0].(type) {
+	case Register:
+		return d.s.Load(f)
+	}
+	return d.s.Store(f)
+
 }

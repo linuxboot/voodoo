@@ -204,13 +204,14 @@ func main() {
 			i, err = t.GetSiginfo()
 			any("Waiting for ^C, or hit return to try GetSigInfo again")
 		}
-		log.Printf("%v", i)
+		log.Printf("SIGNAL INFO: %#x", i)
 		s := unix.Signal(i.Signo)
 		insn, r, err := t.Inst()
 		if err != nil {
 			log.Printf("Could not get regs: %v", err)
 		}
-		fmt.Println(ptrace.Asm(insn, r.Rip))
+		asm := ptrace.Asm(insn, r.Rip)
+		fmt.Println(asm)
 		step()
 		switch s {
 		default:
@@ -219,12 +220,24 @@ func main() {
 				any("Waiting for ^C")
 			}
 		case unix.SIGSEGV:
+			// So far, there seem to be three things that can happen.
+			// Call, Load, and Store.
+			// We don't want to get into pulling apart instructions
+			// to figure out which it is; the Asm and other instructions
+			// can go a long way toward helping us instead.
+			// Figure out it is a Call is easy: does the assembly start with CALL?
+			// Done.
+			// Next is figuring out if it is a load or store and that
+			// is similarly easy. Is Arg[0] a memory address? Then it's a store.
+			// We know of no usage of memory-to-memory so we should be safe.
+			// Now don't use the miss the ARM already? We sure do. On that one
+			// it's easy.
 			//showone(os.Stderr, "", &r)
 			//any(fmt.Sprintf("Handle the segv at %#x", i.Addr))
 			if err := ptrace.Regs(os.Stdout, r); err != nil {
 				log.Fatal(err)
 			}
-			if err := segv(t, i, insn, r); err != nil {
+			if err := segv(t, i, insn, r, asm); err != nil {
 				//showone(os.Stderr, "", &r)
 				log.Printf("Can't do %#x(%v): %v", i.Signo, unix.SignalName(s), err)
 				for {

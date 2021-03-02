@@ -15,11 +15,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.PtraceRegs) error {
+func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.PtraceRegs, asm string) error {
 	addr := uintptr(i.Addr)
 	pc := r.Rip
 	log.Printf("================={SEGV START FUNCTION @ %#x", addr)
-	if err := services.Dispatch(&services.Fault{Proc: p, Info: i, Inst: inst, Regs: r}); err != nil {
+	if err := services.Dispatch(&services.Fault{Proc: p, Info: i, Inst: inst, Regs: r, Asm: asm}); err != nil {
 		return fmt.Errorf("Don't know what to do with %v: %v", ptrace.CallInfo(i, inst, r), err)
 	}
 	// Advance to the next instruction. This advance should only happen if the dispatch worked?

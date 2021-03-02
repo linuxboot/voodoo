@@ -9,13 +9,18 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+type Register = x86asm.Reg
+
 // Fault defines all we need to know on a fault and how to do it.
 type Fault struct {
 	Proc *ptrace.Tracee
 	Info *unix.SignalfdSiginfo
 	Inst *x86asm.Inst
 	Regs *syscall.PtraceRegs
+	// We use Asm to figure out instruction type.
+	Asm  string
 	Args []uintptr
+	Op   Func
 }
 
 func retval(f *Fault, val uintptr) error {

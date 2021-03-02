@@ -31,7 +31,8 @@ func (r *Boot) Base() ServBase {
 }
 
 // Call implements service.Call
-func (r *Boot) Call(f *Fault, op Func) error {
+func (r *Boot) Call(f *Fault) error {
+	op := f.Op
 	log.Printf("Boot services: %s(%#x), arg type %T, args %v", table.BootServicesNames[int(op)], op, f.Inst.Args, f.Inst.Args)
 	switch op {
 
@@ -116,6 +117,30 @@ func (r *Boot) Call(f *Fault, op Func) error {
 		return nil
 	default:
 		log.Panic("unsupported boot service")
+		f.Regs.Rax = uefi.EFI_UNSUPPORTED
+	}
+	return nil
+}
+
+// Load implements service.Load
+func (r *Boot) Load(f *Fault) error {
+	op := f.Op
+	log.Printf("Boot Load services: %s(%#x), arg type %T, args %v", table.BootServicesNames[int(op)], op, f.Inst.Args, f.Inst.Args)
+	switch op {
+	default:
+		log.Panic("unsupported Boot load")
+		f.Regs.Rax = uefi.EFI_UNSUPPORTED
+	}
+	return nil
+}
+
+// Store implements service.Store
+func (r *Boot) Store(f *Fault) error {
+	op := f.Op
+	log.Printf("Boot Store services: %s(%#x), arg type %T, args %v", table.BootServicesNames[int(op)], op, f.Inst.Args, f.Inst.Args)
+	switch op {
+	default:
+		log.Panic("unsupported Boot Store")
 		f.Regs.Rax = uefi.EFI_UNSUPPORTED
 	}
 	return nil

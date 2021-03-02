@@ -34,7 +34,8 @@ func (t *TextOut) Base() ServBase {
 }
 
 // Call implements service.Call
-func (t *TextOut) Call(f *Fault, op Func) error {
+func (t *TextOut) Call(f *Fault) error {
+	op := f.Op
 	log.Printf("TextOut services: %v(%#x), arg type %T, args %v", table.SimpleTextOutServicesNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
 	f.Regs.Rax = uefi.EFI_SUCCESS
 	switch op {
@@ -58,6 +59,31 @@ func (t *TextOut) Call(f *Fault, op Func) error {
 		}
 	default:
 		panic("unsup textout")
+		f.Regs.Rax = uefi.EFI_UNSUPPORTED
+	}
+	return nil
+}
+
+// Load implements service.Load
+func (r *TextOut) Load(f *Fault) error {
+	op := f.Op
+	log.Printf("TextOut Load services: %v(%#x), arg type %T, args %v", table.SimpleTextOutServicesNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
+
+	switch op {
+	default:
+		log.Panic("unsupported TextOut load")
+		f.Regs.Rax = uefi.EFI_UNSUPPORTED
+	}
+	return nil
+}
+
+// Store implements service.Store
+func (r *TextOut) Store(f *Fault) error {
+	op := f.Op
+	log.Printf("TextOut Store services: %v(%#x), arg type %T, args %v", table.SimpleTextOutServicesNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
+	switch op {
+	default:
+		log.Panic("unsupported TextOut Store")
 		f.Regs.Rax = uefi.EFI_UNSUPPORTED
 	}
 	return nil

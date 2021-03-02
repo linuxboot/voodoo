@@ -29,11 +29,36 @@ func (l *LoadedImage) Base() ServBase {
 }
 
 // Call implements service.Call
-func (l *LoadedImage) Call(f *Fault, op Func) error {
+func (l *LoadedImage) Call(f *Fault) error {
+	op := f.Op
 	log.Printf("LoadedImage services: %#x, arg type %T, args %v", op, f.Inst.Args, f.Inst.Args)
 	log.Fatal("hi")
 	switch op {
 	default:
+		f.Regs.Rax = uefi.EFI_UNSUPPORTED
+	}
+	return nil
+}
+
+// Load implements service.Load
+func (r *LoadedImage) Load(f *Fault) error {
+	op := f.Op
+	log.Printf("LoadedImage services: %#x, arg type %T, args %v", op, f.Inst.Args, f.Inst.Args)
+	switch op {
+	default:
+		log.Panic("unsupported LoadedImage load")
+		f.Regs.Rax = uefi.EFI_UNSUPPORTED
+	}
+	return nil
+}
+
+// Store implements service.Store
+func (r *LoadedImage) Store(f *Fault) error {
+	op := f.Op
+	log.Printf("LoadedImage services: %#x, arg type %T, args %v", op, f.Inst.Args, f.Inst.Args)
+	switch op {
+	default:
+		log.Panic("unsupported LoadedImage Store")
 		f.Regs.Rax = uefi.EFI_UNSUPPORTED
 	}
 	return nil

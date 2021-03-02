@@ -30,7 +30,8 @@ func (r *RunTime) Base() ServBase {
 }
 
 // Call implements service.Call
-func (r *RunTime) Call(f *Fault, op Func) error {
+func (r *RunTime) Call(f *Fault) error {
+	op := f.Op
 	log.Printf("runtimeservices: %s(%#x), arg type %T, args %v", table.BootServicesNames[int(op)], op, f.Inst.Args, f.Inst.Args)
 	switch op {
 	case table.RTGetVariable:
@@ -60,6 +61,30 @@ func (r *RunTime) Call(f *Fault, op Func) error {
 		// whatever.
 	default:
 		log.Panic("fix me")
+		f.Regs.Rax = uefi.EFI_UNSUPPORTED
+	}
+	return nil
+}
+
+// Load implements service.Load
+func (r *RunTime) Load(f *Fault) error {
+	op := f.Op
+	log.Printf("runtimeservices: %s(%#x), arg type %T, args %v", table.BootServicesNames[int(op)], op, f.Inst.Args, f.Inst.Args)
+	switch op {
+	default:
+		log.Panic("unsupported RunTime load")
+		f.Regs.Rax = uefi.EFI_UNSUPPORTED
+	}
+	return nil
+}
+
+// Store implements service.Store
+func (r *RunTime) Store(f *Fault) error {
+	op := f.Op
+	log.Printf("runtimeservices: %s(%#x), arg type %T, args %v", table.BootServicesNames[int(op)], op, f.Inst.Args, f.Inst.Args)
+	switch op {
+	default:
+		log.Panic("unsupported RunTime Store")
 		f.Regs.Rax = uefi.EFI_UNSUPPORTED
 	}
 	return nil
