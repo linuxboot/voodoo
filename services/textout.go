@@ -59,7 +59,7 @@ func (t *TextOut) Call(f *Fault) error {
 			log.Panic(err)
 		}
 	default:
-		panic("unsup textout")
+		log.Panicf("unsup textout Call: %#x", op)
 		f.Regs.Rax = uefi.EFI_UNSUPPORTED
 	}
 	return nil
