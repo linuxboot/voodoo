@@ -29,6 +29,7 @@ func NewSystemtable(u ServBase) (Service, error) {
 		st uint64
 	}{
 		{"textout", table.ConOut},
+		{"textin", table.ConIn},
 		{"runtime", table.RuntimeServices},
 		{"boot", table.BootServices},
 	} {

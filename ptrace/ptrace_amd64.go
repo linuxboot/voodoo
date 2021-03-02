@@ -290,6 +290,10 @@ func (t *Tracee) Inst() (*x86asm.Inst, *syscall.PtraceRegs, error) {
 			return nil, nil, err
 		}
 		log.Printf("cpc is %#x from sp", cpc)
+		// what a hack.
+		if cpc == 0x100000 {
+			return nil, nil, io.EOF
+		}
 		var call [5]byte
 		if err := t.Read(uintptr(cpc-5), call[:]); err != nil {
 			log.Printf("Can' read PC at #%x, err %v", pc, err)

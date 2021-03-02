@@ -11,6 +11,7 @@ import (
 	"debug/pe"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -208,7 +209,12 @@ func main() {
 		s := unix.Signal(i.Signo)
 		insn, r, err := t.Inst()
 		if err != nil {
+			if err == io.EOF {
+				fmt.Println("\n===:DXE Exits!")
+				os.Exit(0)
+			}
 			log.Printf("Could not get regs: %v", err)
+			os.Exit(1)
 		}
 		asm := ptrace.Asm(insn, r.Rip)
 		fmt.Println(asm)
@@ -238,6 +244,10 @@ func main() {
 				log.Fatal(err)
 			}
 			if err := segv(t, i, insn, r, asm); err != nil {
+				if err == io.EOF {
+					fmt.Println("\n===:DXE Exits!")
+					os.Exit(0)
+				}
 				//showone(os.Stderr, "", &r)
 				log.Printf("Can't do %#x(%v): %v", i.Signo, unix.SignalName(s), err)
 				for {

@@ -124,12 +124,16 @@ func (r *Boot) Call(f *Fault) error {
 
 // Load implements service.Load
 func (r *Boot) Load(f *Fault) error {
+	f.Regs.Rax = uefi.EFI_SUCCESS
 	op := f.Op
-	log.Printf("Boot Load services: %s(%#x), arg type %T, args %v", table.BootServicesNames[int(op)], op, f.Inst.Args, f.Inst.Args)
-	switch op {
-	default:
-		log.Panic("unsupported Boot load")
-		f.Regs.Rax = uefi.EFI_UNSUPPORTED
+	t, ok := table.BootServicesNames[int(op)]
+	if !ok {
+		log.Panicf("unsupported Boot Load of %#x", op)
+	}
+	ret := uintptr(op) + uintptr(r.u)
+	log.Printf("Boot Load services: %v(%#x), arg type %T, args %v return %#x", t, op, f.Inst.Args, f.Inst.Args, ret)
+	if err := retval(f, ret); err != nil {
+		log.Panic(err)
 	}
 	return nil
 }

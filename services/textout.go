@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/linuxboot/voodoo/ptrace"
@@ -47,7 +48,7 @@ func (t *TextOut) Call(f *Fault) error {
 		if err != nil {
 			return err
 		}
-		log.Printf("stupid is %q", n)
+		fmt.Printf("\n===:%s\n", n)
 		if err := f.Proc.SetRegs(f.Regs); err != nil {
 			return err
 		}
