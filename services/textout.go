@@ -25,6 +25,7 @@ func NewTextOut(u ServBase) (Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("NewTextOut: TextMode base is %#x %#x", tm, ServBase(tm))
 	return &TextOut{u: u, t: ServBase(tm)}, nil
 }
 
@@ -66,13 +67,21 @@ func (t *TextOut) Call(f *Fault) error {
 
 // Load implements service.Load
 func (r *TextOut) Load(f *Fault) error {
+	f.Regs.Rax = uefi.EFI_SUCCESS
 	op := f.Op
-	log.Printf("TextOut Load services: %v(%#x), arg type %T, args %v", table.SimpleTextOutServicesNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
-
+	t, ok := table.SimpleTextOutServicesNames[uint64(op)]
+	if !ok {
+		log.Panicf("unsupported TextOut Load of %#x", op)
+	}
+	ret := uintptr(op) + uintptr(r.u)
 	switch op {
 	default:
-		log.Panic("unsupported TextOut load")
-		f.Regs.Rax = uefi.EFI_UNSUPPORTED
+	case table.STOutMode:
+		ret = uintptr(r.t)
+	}
+	log.Printf("TextOut Load services: %v(%#x), arg type %T, args %v return %#x", t, op, f.Inst.Args, f.Inst.Args, ret)
+	if err := retval(f, ret); err != nil {
+		log.Panic(err)
 	}
 	return nil
 }
