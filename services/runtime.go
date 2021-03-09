@@ -32,7 +32,11 @@ func (r *RunTime) Base() ServBase {
 // Call implements service.Call
 func (r *RunTime) Call(f *Fault) error {
 	op := f.Op
-	log.Printf("runtimeservices: %s(%#x), arg type %T, args %v", table.BootServicesNames[int(op)], op, f.Inst.Args, f.Inst.Args)
+	t, ok := table.RuntimeServicesNames[uint64(op)]
+	if !ok {
+		log.Panicf("runtimeservices Call No such op %#x", op)
+	}
+	log.Printf("runtimeservices Call: %s(%#x), arg type %T, args %v", t, op, f.Inst.Args, f.Inst.Args)
 	switch op {
 	case table.RTGetVariable:
 		args := ptrace.Args(f.Proc, f.Regs, 5)
@@ -69,11 +73,15 @@ func (r *RunTime) Call(f *Fault) error {
 // Load implements service.Load
 func (r *RunTime) Load(f *Fault) error {
 	op := f.Op
-	log.Printf("runtimeservices: %s(%#x), arg type %T, args %v", table.BootServicesNames[int(op)], op, f.Inst.Args, f.Inst.Args)
-	switch op {
-	default:
-		log.Panic("unsupported RunTime load")
-		f.Regs.Rax = uefi.EFI_UNSUPPORTED
+	f.Regs.Rax = uefi.EFI_SUCCESS
+	t, ok := table.RuntimeServicesNames[uint64(op)]
+	if !ok {
+		log.Panicf("runtimeservices Load: No such op %#x", op)
+	}
+	log.Printf("runtimeservices Load: %s(%#x), arg type %T, args %v", t, op, f.Inst.Args, f.Inst.Args)
+	ret := uintptr(op) + uintptr(r.u)
+	if err := retval(f, ret); err != nil {
+		log.Panic(err)
 	}
 	return nil
 }
@@ -81,7 +89,11 @@ func (r *RunTime) Load(f *Fault) error {
 // Store implements service.Store
 func (r *RunTime) Store(f *Fault) error {
 	op := f.Op
-	log.Printf("runtimeservices: %s(%#x), arg type %T, args %v", table.BootServicesNames[int(op)], op, f.Inst.Args, f.Inst.Args)
+	t, ok := table.RuntimeServicesNames[uint64(op)]
+	if !ok {
+		log.Panicf("runtimeservices Store: No such op %#x", op)
+	}
+	log.Printf("runtimeservices Load: %s(%#x), arg type %T, args %v", t, op, f.Inst.Args, f.Inst.Args)
 	switch op {
 	default:
 		log.Panic("unsupported RunTime Store")
