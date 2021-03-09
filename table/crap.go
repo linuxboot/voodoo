@@ -2,7 +2,7 @@ package table
 
 // All the crap that goes nowhere else.
 
-type uint32 EFI_LOCATE_SEARCH_TYPE
+type EFI_LOCATE_SEARCH_TYPE uint32
 
 const (
 	AllHandles       EFI_LOCATE_SEARCH_TYPE = 0
@@ -10,7 +10,7 @@ const (
 	ByProtocol       EFI_LOCATE_SEARCH_TYPE = 2
 )
 
-var BootServicesNames = map[EFI_LOCATE_SEARCH_TYPE]string{
+var SearchTypeNames = map[EFI_LOCATE_SEARCH_TYPE]string{
 	AllHandles:       "AllHandles",
 	ByRegisterNotify: "ByRegisterNotify",
 	ByProtocol:       "ByProtocol",

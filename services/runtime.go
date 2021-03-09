@@ -10,8 +10,8 @@ import (
 	"github.com/linuxboot/voodoo/uefi"
 )
 
-// RunTime implements Service
-type RunTime struct {
+// Runtime implements Service
+type Runtime struct {
 	u ServBase
 }
 
@@ -19,18 +19,18 @@ func init() {
 	RegisterCreator("runtime", NewRuntime)
 }
 
-// NewRuntime returns a RunTime Service
+// NewRuntime returns a Runtime Service
 func NewRuntime(u ServBase) (Service, error) {
-	return &RunTime{u: u}, nil
+	return &Runtime{u: u}, nil
 }
 
 // Base implements service.Base
-func (r *RunTime) Base() ServBase {
+func (r *Runtime) Base() ServBase {
 	return r.u
 }
 
 // Call implements service.Call
-func (r *RunTime) Call(f *Fault) error {
+func (r *Runtime) Call(f *Fault) error {
 	op := f.Op
 	t, ok := table.RuntimeServicesNames[uint64(op)]
 	if !ok {
@@ -71,7 +71,7 @@ func (r *RunTime) Call(f *Fault) error {
 }
 
 // Load implements service.Load
-func (r *RunTime) Load(f *Fault) error {
+func (r *Runtime) Load(f *Fault) error {
 	op := f.Op
 	f.Regs.Rax = uefi.EFI_SUCCESS
 	t, ok := table.RuntimeServicesNames[uint64(op)]
@@ -87,7 +87,7 @@ func (r *RunTime) Load(f *Fault) error {
 }
 
 // Store implements service.Store
-func (r *RunTime) Store(f *Fault) error {
+func (r *Runtime) Store(f *Fault) error {
 	op := f.Op
 	t, ok := table.RuntimeServicesNames[uint64(op)]
 	if !ok {
@@ -96,7 +96,7 @@ func (r *RunTime) Store(f *Fault) error {
 	log.Printf("runtimeservices Load: %s(%#x), arg type %T, args %v", t, op, f.Inst.Args, f.Inst.Args)
 	switch op {
 	default:
-		log.Panic("unsupported RunTime Store")
+		log.Panic("unsupported Runtime Store")
 		f.Regs.Rax = uefi.EFI_UNSUPPORTED
 	}
 	return nil

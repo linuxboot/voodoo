@@ -58,6 +58,12 @@ func (r *Boot) Call(f *Fault) error {
 		// EFI_STATUS LocateHandle (IN EFI_LOCATE_SEARCH_TYPE SearchType, IN EFI_GUID *Protocol OPTIONAL, IN VOID *SearchKey OPTIONAL,IN OUT UINTN *NoHandles,  OUT EFI_HANDLE **Buffer);
 		f.Args = ptrace.Args(f.Proc, f.Regs, 5)
 		no := f.Args[3]
+		var g guid.GUID
+		if err := f.Proc.Read(f.Args[1], g[:]); err != nil {
+			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
+		}
+
+		log.Printf("BootServices Call LocateHandle(type %s, guid %s, searchkey %#x, nohandles %#x, EFIHANDLE %#x", table.SearchTypeNames[table.EFI_LOCATE_SEARCH_TYPE(f.Args[0])], g, f.Args[2], f.Args[3], f.Args[4])
 		var bb [8]byte
 		// just fail.
 		if err := f.Proc.Write(no, bb[:]); err != nil {

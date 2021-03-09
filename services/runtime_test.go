@@ -12,7 +12,7 @@ import (
 func TestNew(t *testing.T) {
 	r, err := NewRuntime(servBaseName(0x1abcde))
 	if err != nil {
-		t.Fatalf("NewRunTime: got %v, want nil", err)
+		t.Fatalf("NewRuntime: got %v, want nil", err)
 	}
 	f := &Fault{Args: []uintptr{1, 2, 3}, Regs: &syscall.PtraceRegs{}, Inst: &x86asm.Inst{Args: x86asm.Args{}}, Op: table.RTSetVariable, Asm: "CALL x"}
 

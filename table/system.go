@@ -49,6 +49,11 @@ type val struct {
 	Val uint64
 }
 
+// String is a stringer for val
+func (v *val) String() string {
+	return v.N
+}
+
 // SystemTableNames provide names and values for system table entries.
 var SystemTableNames = map[uint64]*val{
 	Hdr:                  &val{N: "Hdr"},

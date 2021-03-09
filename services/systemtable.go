@@ -10,7 +10,7 @@ import (
 
 var ()
 
-// RunTime implements Service
+// Runtime implements Service
 type SystemTable struct {
 	u ServBase
 }
