@@ -27,6 +27,8 @@ func retval(f *Fault, val uintptr) error {
 	var err error
 	v := uint64(val)
 	switch f.Inst.Args[0] {
+	case x86asm.RSI:
+		f.Regs.Rsi = v
 	case x86asm.RCX:
 		f.Regs.Rcx = v
 	case x86asm.RDX:
