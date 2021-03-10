@@ -41,8 +41,8 @@ func (r *Boot) Call(f *Fault) error {
 		f.Args = ptrace.Args(f.Proc, f.Regs, 5)
 		// ignore arg 0 for now.
 		log.Printf("AllocatePool: %d bytes", f.Args[1])
-		var bb [8]byte
-		binary.LittleEndian.PutUint64(bb[:], uint64(dat))
+		var bb [4]byte
+		binary.LittleEndian.PutUint32(bb[:], uint32(dat))
 		if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
 			return fmt.Errorf("Can't write %d bytes to %#x: %v", len(bb), dat, err)
 		}
@@ -58,24 +58,33 @@ func (r *Boot) Call(f *Fault) error {
 		// EFI_STATUS LocateHandle (IN EFI_LOCATE_SEARCH_TYPE SearchType, IN EFI_GUID *Protocol OPTIONAL, IN VOID *SearchKey OPTIONAL,IN OUT UINTN *NoHandles,  OUT EFI_HANDLE **Buffer);
 		// We had hoped to ignore this nonsense, but ... we can't
 		f.Args = ptrace.Args(f.Proc, f.Regs, 5)
-		no := f.Args[3]
+
 		var g guid.GUID
 		if err := f.Proc.Read(f.Args[1], g[:]); err != nil {
 			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
 		}
 
 		log.Printf("BootServices Call LocateHandle(type %s, guid %s, searchkey %#x, nohandles %#x, EFIHANDLE %#x", table.SearchTypeNames[table.EFI_LOCATE_SEARCH_TYPE(f.Args[0])], g, f.Args[2], f.Args[3], f.Args[4])
-		switch g.String() {
-		default:
-			log.Panicf("You need to add %s", g)
+		// This is probably done wrong, the way we do this. Oh well.
+		// I think ServBase should just be a string.
+		b, ok := dispatchService[g.String()]
+		if !ok {
+			return fmt.Errorf("No registered service for %s", g)
 		}
-		var bb [0]byte
-		// just fail.
-		if err := f.Proc.Write(no, bb[:]); err != nil {
-			return fmt.Errorf("Can't write %d bytes to %#x: %v", len(bb), dat, err)
+
+		d, ok := dispatches[b]
+		if !ok {
+			log.Panicf("Can't happen: no base for %s", g)
 		}
+		log.Printf("Writing %#x to args[4]", d.base)
+		var bb [4]byte
+		binary.LittleEndian.PutUint64(bb[:], uint64(d.base))
 		if err := f.Proc.Write(f.Args[4], bb[:]); err != nil {
-			return fmt.Errorf("Can't write %d bytes to %#x: %v", len(bb), dat, err)
+			return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[4], err)
+		}
+		binary.LittleEndian.PutUint64(bb[:], uint64(1))
+		if err := f.Proc.Write(f.Args[3], bb[:]); err != nil {
+			return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[3], err)
 		}
 		return nil
 	case table.HandleProtocol:
@@ -98,8 +107,8 @@ func (r *Boot) Call(f *Fault) error {
 		if !ok {
 			return fmt.Errorf("Can't happen: no base for %s", g)
 		}
-		var bb [8]byte
-		binary.LittleEndian.PutUint64(bb[:], uint64(dat))
+		var bb [4]byte
+		binary.LittleEndian.PutUint32(bb[:], uint32(dat))
 		if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
 			return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[2], err)
 		}

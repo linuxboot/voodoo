@@ -14,8 +14,7 @@ type LoadedImage struct {
 }
 
 func init() {
-	RegisterCreator(LoadedImageProtocol, NewLoadedImage)
-	GUIDServices = append(GUIDServices, LoadedImageProtocol)
+	RegisterGUIDCreator(LoadedImageProtocol, NewLoadedImage)
 }
 
 // NewLoadedImage returns a LoadedImage Service

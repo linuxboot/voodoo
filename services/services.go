@@ -80,6 +80,13 @@ func RegisterCreator(n string, s serviceCreator) {
 	creators[n] = s
 }
 
+// RegisterGUIDService registers a service named by a GUID.
+// Assumption: only called from init()
+func RegisterGUIDCreator(n string, s serviceCreator) {
+	RegisterCreator(n, s)
+	GUIDServices = append(GUIDServices, n)
+}
+
 // Base sets up a base address for a service. The base is chosen
 // externally. When a DXE segvs, Dispatch will look up the Base
 // and then dispatch to the correct Call function.

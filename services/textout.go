@@ -89,6 +89,7 @@ func (r *TextOut) Load(f *Fault) error {
 
 // Store implements service.Store
 func (r *TextOut) Store(f *Fault) error {
+	f.Regs.Rax = uefi.EFI_SUCCESS
 	op := f.Op
 	log.Printf("TextOut Store services: %v(%#x), arg type %T, args %v", table.SimpleTextOutServicesNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
 	switch op {
