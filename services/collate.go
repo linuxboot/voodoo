@@ -19,6 +19,7 @@ func init() {
 
 // NewCollate returns a Collate Service
 func NewCollate(u ServPtr) (Service, error) {
+	log.Printf("NewCollate %T %v", u, u)
 	return &Collate{u: u.Base(), up: u}, nil
 }
 

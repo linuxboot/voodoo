@@ -162,7 +162,7 @@ func main() {
 		log.Fatalf("Can't set IPtr to %#x: %v", eip, err)
 	}
 	log.Printf("IPtr is %#x, let's go.", eip)
-	if err := t.Params(services.ImageHandle, uintptr(st)); err != nil {
+	if err := t.Params(uintptr(services.ImageHandle), uintptr(st)); err != nil {
 		log.Fatalf("Setting params: %v", err)
 	}
 	if err := ptrace.Header(os.Stdout); err != nil {

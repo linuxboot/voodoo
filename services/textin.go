@@ -10,10 +10,8 @@ import (
 
 // TextIn implements Service
 type TextIn struct {
-	u   ServBase
-	up  ServPtr
-	t   ServBase
-	tup ServPtr
+	u  ServBase
+	up ServPtr
 }
 
 var _ Service = &TextIn{}
@@ -24,13 +22,7 @@ func init() {
 
 // NewTextIn returns a TextIn Service
 func NewTextIn(u ServPtr) (Service, error) {
-	// We need to get to the TextInMode.
-	tm, err := Base("textoutmode")
-	if err != nil {
-		return nil, err
-	}
-	log.Printf("NewTextIn: TextMode base is %#x %#x", tm, ServBase(tm))
-	return &TextIn{u: ServBase(u.String()), up: u, t: ServBase(tm), tup: ServPtr(tm)}, nil
+	return &TextIn{u: ServBase(u.String()), up: u}, nil
 }
 
 // Base implements service.Base
@@ -76,11 +68,6 @@ func (r *TextIn) Load(f *Fault) error {
 		log.Panicf("unsupported TextIn Load of %#x", op)
 	}
 	ret := uintptr(op) + uintptr(r.up)
-	switch op {
-	default:
-	case table.STOutMode:
-		ret = uintptr(r.tup)
-	}
 	log.Printf("TextIn Load services: %v(%#x), arg type %T, args %v return %#x", t, op, f.Inst.Args, f.Inst.Args, ret)
 	if err := retval(f, ret); err != nil {
 		log.Panic(err)

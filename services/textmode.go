@@ -27,6 +27,7 @@ func init() {
 
 // NewTextMode returns a TextMode Service
 func NewTextMode(u ServPtr) (Service, error) {
+	log.Printf("NewTextMode %#x", u)
 	return &TextMode{u: u.Base(), up: u}, nil
 }
 

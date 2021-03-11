@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	allocAmt = uintptr(1 << 16)
+	allocAmt = ServPtr(1 << 16)
 	// ImageHandle is the ServBase of the UEFI Image Handle
-	ImageHandle = uintptr(0x100000)
+	ImageHandle = ServPtr(0x100000)
 	servBaseFmt = "SB%#x"
 )
 
@@ -32,7 +32,7 @@ func bumpAllocate() ServPtr {
 	defer malloc.Unlock()
 	m := memBase
 	memBase += allocAmt
-	return ServPtr(m)
+	return m
 }
 
 // String is a stringer for ServBase
@@ -42,7 +42,7 @@ func (p ServPtr) String() string {
 
 // String is a stringer for ServBase
 func (p ServPtr) Base() ServBase {
-	return ServBase(fmt.Sprintf(servBaseFmt, p))
+	return ServBase(p.String())
 }
 
 // Service is the interface to services.
@@ -72,6 +72,10 @@ type dispatch struct {
 	up ServPtr
 }
 
+func (d*dispatch)String() string {
+	return fmt.Sprintf("%v %#x", d.s, d.up)
+}
+
 // dispatch contains both the nice print name of a service ("runtime") as
 // well as GUID represented as strings.
 var dispatches = map[ServBase]*dispatch{}
@@ -99,11 +103,16 @@ func RegisterGUIDCreator(n string, s serviceCreator) {
 // on both a service name and a guid. Why, I have no idea.
 func Base(n string) (ServPtr, error) {
 	s, ok := creators[n]
+	log.Printf("Base for %s: %v, %v", n, s, ok)
 	if !ok {
 		return 0, fmt.Errorf("Service %q does not exist", n)
 	}
+	if d, ok := dispatches[ServBase(n)]; ok {
+		log.Panicf(" %s is in use by %v", n, d)
+	}
 	base := bumpAllocate()
 	b := base.Base()
+	log.Printf("Base: base is %#x %s", base, b)
 	if d, ok := dispatches[b]; ok {
 		log.Panicf("Base %v for %s is in use by %v", b, n, d)
 	}
@@ -111,7 +120,10 @@ func Base(n string) (ServPtr, error) {
 	if err != nil {
 		return 0, err
 	}
-	dispatches[b] = &dispatch{s: srv, up: ServPtr(base)}
+	d := &dispatch{s: srv, up: ServPtr(base)}
+	log.Printf("Set up Dispatch for [%v,%v]: %s", b, n, d)
+	dispatches[b] = d
+	dispatches[ServBase(n)] = d
 	return base, nil
 }
 
