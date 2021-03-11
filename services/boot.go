@@ -47,8 +47,8 @@ func (r *Boot) Call(f *Fault) error {
 		f.Args = ptrace.Args(f.Proc, f.Regs, 5)
 		// ignore arg 0 for now.
 		log.Printf("AllocatePool: %d bytes", f.Args[1])
-		var bb [4]byte
-		binary.LittleEndian.PutUint32(bb[:], uint32(dat))
+		var bb [8]byte
+		binary.LittleEndian.PutUint64(bb[:], uint64(dat))
 		if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
 			return fmt.Errorf("Can't write %d bytes to %#x: %v", len(bb), dat, err)
 		}
@@ -104,9 +104,9 @@ func (r *Boot) Call(f *Fault) error {
 		if !ok {
 			return fmt.Errorf("Can't happen: no base for %s", g)
 		}
-		var bb [4]byte
-		log.Printf("Address is %#x", uint32(d.up))
-		binary.LittleEndian.PutUint32(bb[:], uint32(d.up))
+		var bb [8]byte
+		log.Printf("Address is %#x", d.up)
+		binary.LittleEndian.PutUint64(bb[:], uint64(d.up))
 		if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
 			return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[2], err)
 		}
