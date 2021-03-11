@@ -156,9 +156,10 @@ func main() {
 		}
 		// For now we assume the entry point is the start of the first segment
 		eip = base + uintptr(f.Sections[0].VirtualAddress)
-		if *start != 0 {
-			eip = uintptr(*start)
-		}
+	}
+	// *start overrides it all.
+	if *start != 0 {
+		eip = uintptr(*start)
 	}
 	log.Printf("Start at %#x", eip)
 	if err := t.SetIPtr(uintptr(eip)); err != nil {
@@ -186,6 +187,7 @@ func main() {
 	services.SetAllocator(uintptr(r.Rsp-0x100000), uintptr(r.Rsp))
 	r.Rsp -= 0x100000
 
+	log.Printf("Set stack to %#x", r.Rsp)
 	if err := t.SetRegs(r); err != nil {
 		log.Fatalf("Can't set stack to %#x: %v", dat, err)
 	}
