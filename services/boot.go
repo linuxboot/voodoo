@@ -13,7 +13,8 @@ import (
 
 // Boot implements Service
 type Boot struct {
-	u ServBase
+	u  ServBase
+	up ServPtr
 }
 
 func init() {
@@ -21,13 +22,18 @@ func init() {
 }
 
 // NewBoot returns a Boot Service
-func NewBoot(u ServBase) (Service, error) {
-	return &Boot{u: u}, nil
+func NewBoot(u ServPtr) (Service, error) {
+	return &Boot{u: u.Base(), up: u}, nil
 }
 
 // Base implements service.Base
 func (r *Boot) Base() ServBase {
 	return r.u
+}
+
+// Base implements service.Ptr
+func (b *Boot) Ptr() ServPtr {
+	return b.up
 }
 
 // Call implements service.Call
@@ -67,18 +73,13 @@ func (r *Boot) Call(f *Fault) error {
 		log.Printf("BootServices Call LocateHandle(type %s, guid %s, searchkey %#x, nohandles %#x, EFIHANDLE %#x", table.SearchTypeNames[table.EFI_LOCATE_SEARCH_TYPE(f.Args[0])], g, f.Args[2], f.Args[3], f.Args[4])
 		// This is probably done wrong, the way we do this. Oh well.
 		// I think ServBase should just be a string.
-		b, ok := dispatchService[g.String()]
-		if !ok {
-			return fmt.Errorf("No registered service for %s", g)
-		}
-
-		d, ok := dispatches[b]
+		d, ok := dispatches[ServBase(g.String())]
 		if !ok {
 			log.Panicf("Can't happen: no base for %s", g)
 		}
-		log.Printf("Writing %#x to args[4]", d.base)
+		log.Printf("Writing %#x to args[4]", d.up)
 		var bb [4]byte
-		binary.LittleEndian.PutUint64(bb[:], uint64(d.base))
+		binary.LittleEndian.PutUint64(bb[:], uint64(d.up))
 		if err := f.Proc.Write(f.Args[4], bb[:]); err != nil {
 			return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[4], err)
 		}
@@ -97,18 +98,14 @@ func (r *Boot) Call(f *Fault) error {
 		if err := f.Proc.Read(f.Args[1], g[:]); err != nil {
 			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
 		}
-		log.Printf("HandleProtocol: GUID %s", g)
-		b, ok := dispatchService[g.String()]
-		if !ok {
-			return fmt.Errorf("No registered service for %s", g)
-		}
-
-		d, ok := dispatches[b]
+		d, ok := dispatches[ServBase(g.String())]
+		log.Printf("HandleProtocol: GUID %s %v ok %v", g, d, ok)
 		if !ok {
 			return fmt.Errorf("Can't happen: no base for %s", g)
 		}
 		var bb [4]byte
-		binary.LittleEndian.PutUint32(bb[:], uint32(dat))
+		log.Printf("Address is %#x", d.up)
+		binary.LittleEndian.PutUint32(bb[:], uint32(d.up))
 		if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
 			return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[2], err)
 		}
@@ -153,7 +150,7 @@ func (r *Boot) Load(f *Fault) error {
 	if !ok {
 		log.Panicf("unsupported Boot Load of %#x", op)
 	}
-	ret := uintptr(op) + uintptr(r.u)
+	ret := uintptr(op) + uintptr(r.up)
 	log.Printf("Boot Load services: %v(%#x), arg type %T, args %v return %#x", t, op, f.Inst.Args, f.Inst.Args, ret)
 	if err := retval(f, ret); err != nil {
 		log.Panic(err)

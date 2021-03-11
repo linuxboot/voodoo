@@ -11,12 +11,14 @@ const (
 	allocAmt = uintptr(1 << 16)
 	// ImageHandle is the ServBase of the UEFI Image Handle
 	ImageHandle = uintptr(0x100000)
+	servBaseFmt = "SB%#x"
 )
 
 // Func is a function selector.
 type Func uint16
 
-type ServBase uintptr
+type ServBase string
+type ServPtr uint32
 
 var (
 	// memBase is the default allocation base for UEFI structs.
@@ -25,20 +27,23 @@ var (
 	malloc sync.Mutex
 )
 
-func bumpAllocate() uintptr {
+func bumpAllocate() ServPtr {
 	malloc.Lock()
 	defer malloc.Unlock()
 	m := memBase
 	memBase += allocAmt
-	return m
+	return ServPtr(m)
 }
 
 // String is a stringer for ServBase
-func (s ServBase) String() string {
-	return string(s)
+func (p ServPtr) String() string {
+	return fmt.Sprintf(servBaseFmt, uint32(p))
 }
 
-const servBaseFmt = "SB%#x"
+// String is a stringer for ServBase
+func (p ServPtr) Base() ServBase {
+	return ServBase(fmt.Sprintf(servBaseFmt, p))
+}
 
 // Service is the interface to services.
 // In deference to the fact that we may be tracing
@@ -49,12 +54,13 @@ type Service interface {
 	Load(f *Fault) error
 	Store(f *Fault) error
 	Base() ServBase
+	Ptr() ServPtr
 }
 
 // serviceCreator returns a service. The parameter, u,
 // is passed to it as an identifier. The serviceCreator
 // may itself call other serviceCreators.
-type serviceCreator func(u ServBase) (Service, error)
+type serviceCreator func(u ServPtr) (Service, error)
 
 var creators = map[string]serviceCreator{}
 
@@ -62,14 +68,13 @@ var creators = map[string]serviceCreator{}
 var GUIDServices = []string{}
 
 type dispatch struct {
-	s    Service
-	base ServBase
+	s  Service
+	up ServPtr
 }
 
 // dispatch contains both the nice print name of a service ("runtime") as
 // well as GUID represented as strings.
 var dispatches = map[ServBase]*dispatch{}
-var dispatchService = map[string]ServBase{}
 
 // RegisterCreator registers a service creator.
 // Assumption: only called from init()
@@ -92,27 +97,26 @@ func RegisterGUIDCreator(n string, s serviceCreator) {
 // and then dispatch to the correct Call function.
 // Note that because this uses a string, one might set up names based
 // on both a service name and a guid. Why, I have no idea.
-func Base(n string) (uintptr, error) {
+func Base(n string) (ServPtr, error) {
 	s, ok := creators[n]
 	if !ok {
 		return 0, fmt.Errorf("Service %q does not exist", n)
 	}
 	base := bumpAllocate()
-	b := servBaseName(base)
+	b := base.Base()
 	if d, ok := dispatches[b]; ok {
 		log.Panicf("Base %v for %s is in use by %v", b, n, d)
 	}
-	srv, err := s(b)
+	srv, err := s(base)
 	if err != nil {
 		return 0, err
 	}
-	dispatchService[n] = b
-	dispatches[b] = &dispatch{s: srv, base: b}
+	dispatches[b] = &dispatch{s: srv, up: ServPtr(base)}
 	return base, nil
 }
 
 func servBaseName(a uintptr) ServBase {
-	return ServBase(a &^ 0xffff)
+	return ServPtr(a &^ 0xffff).Base()
 }
 
 func splitBaseOp(a uintptr) (ServBase, Func) {

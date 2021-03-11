@@ -10,7 +10,8 @@ const LoadedImageProtocol = "5B1B31A1-9562-11D2-8E3F-00A0C969723B"
 
 // LoadedImage implements Service
 type LoadedImage struct {
-	u ServBase
+	u  ServBase
+	up ServPtr
 }
 
 func init() {
@@ -18,13 +19,18 @@ func init() {
 }
 
 // NewLoadedImage returns a LoadedImage Service
-func NewLoadedImage(u ServBase) (Service, error) {
-	return &LoadedImage{u: u}, nil
+func NewLoadedImage(u ServPtr) (Service, error) {
+	return &LoadedImage{u: u.Base(), up: u}, nil
 }
 
 // Base implements service.Base
 func (l *LoadedImage) Base() ServBase {
 	return l.u
+}
+
+// Base implements service.Ptr
+func (l *LoadedImage) Ptr() ServPtr {
+	return l.up
 }
 
 // Call implements service.Call

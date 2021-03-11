@@ -10,6 +10,7 @@ import (
 // TextMode implements Service
 type TextMode struct {
 	u         ServBase
+	up        ServPtr
 	max       uint32
 	mode      uint32
 	attribute uint32
@@ -18,18 +19,25 @@ type TextMode struct {
 	vis       uint32
 }
 
+var _ Service = &TextMode{}
+
 func init() {
 	RegisterCreator("textoutmode", NewTextMode)
 }
 
 // NewTextMode returns a TextMode Service
-func NewTextMode(u ServBase) (Service, error) {
-	return &TextMode{u: u}, nil
+func NewTextMode(u ServPtr) (Service, error) {
+	return &TextMode{u: u.Base(), up: u}, nil
 }
 
 // Base implements service.Base
 func (t *TextMode) Base() ServBase {
 	return t.u
+}
+
+// Ptr implements service.Ptr
+func (t *TextMode) Ptr() ServPtr {
+	return t.up
 }
 
 // Call implements service.Call
@@ -48,7 +56,7 @@ func (t *TextMode) Load(f *Fault) error {
 	if !ok {
 		log.Panicf("unsupported TextMode Load of %#x", op)
 	}
-	ret := uintptr(op) + uintptr(t.u)
+	ret := uintptr(op) + uintptr(t.up)
 	log.Printf("TextMode services: %v(%#x), arg type %T, args %v", tm, op, f.Inst.Args, f.Inst.Args)
 	if err := retval(f, ret); err != nil {
 		log.Panic(err)

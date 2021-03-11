@@ -12,7 +12,8 @@ import (
 
 // Runtime implements Service
 type Runtime struct {
-	u ServBase
+	u  ServBase
+	up ServPtr
 }
 
 func init() {
@@ -20,13 +21,18 @@ func init() {
 }
 
 // NewRuntime returns a Runtime Service
-func NewRuntime(u ServBase) (Service, error) {
-	return &Runtime{u: u}, nil
+func NewRuntime(u ServPtr) (Service, error) {
+	return &Runtime{u: u.Base(), up: u}, nil
 }
 
 // Base implements service.Base
 func (r *Runtime) Base() ServBase {
 	return r.u
+}
+
+// Base implements service.Ptr
+func (r *Runtime) Ptr() ServPtr {
+	return r.up
 }
 
 // Call implements service.Call
@@ -79,7 +85,7 @@ func (r *Runtime) Load(f *Fault) error {
 		log.Panicf("runtimeservices Load: No such op %#x", op)
 	}
 	log.Printf("runtimeservices Load: %s(%#x), arg type %T, args %v", t, op, f.Inst.Args, f.Inst.Args)
-	ret := uintptr(op) + uintptr(r.u)
+	ret := uintptr(op) + uintptr(r.Ptr())
 	if err := retval(f, ret); err != nil {
 		log.Panic(err)
 	}

@@ -10,28 +10,37 @@ import (
 
 // TextIn implements Service
 type TextIn struct {
-	u ServBase
-	t ServBase
+	u   ServBase
+	up  ServPtr
+	t   ServBase
+	tup ServPtr
 }
+
+var _ Service = &TextIn{}
 
 func init() {
 	RegisterCreator("textin", NewTextIn)
 }
 
 // NewTextIn returns a TextIn Service
-func NewTextIn(u ServBase) (Service, error) {
+func NewTextIn(u ServPtr) (Service, error) {
 	// We need to get to the TextInMode.
 	tm, err := Base("textoutmode")
 	if err != nil {
 		return nil, err
 	}
 	log.Printf("NewTextIn: TextMode base is %#x %#x", tm, ServBase(tm))
-	return &TextIn{u: u, t: ServBase(tm)}, nil
+	return &TextIn{u: ServBase(u.String()), up: u, t: ServBase(tm), tup: ServPtr(tm)}, nil
 }
 
 // Base implements service.Base
 func (t *TextIn) Base() ServBase {
 	return t.u
+}
+
+// Base implements service.Base
+func (t *TextIn) Ptr() ServPtr {
+	return t.up
 }
 
 // Call implements service.Call
@@ -66,11 +75,11 @@ func (r *TextIn) Load(f *Fault) error {
 	if !ok {
 		log.Panicf("unsupported TextIn Load of %#x", op)
 	}
-	ret := uintptr(op) + uintptr(r.u)
+	ret := uintptr(op) + uintptr(r.up)
 	switch op {
 	default:
 	case table.STOutMode:
-		ret = uintptr(r.t)
+		ret = uintptr(r.tup)
 	}
 	log.Printf("TextIn Load services: %v(%#x), arg type %T, args %v return %#x", t, op, f.Inst.Args, f.Inst.Args, ret)
 	if err := retval(f, ret); err != nil {

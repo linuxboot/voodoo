@@ -11,28 +11,37 @@ import (
 
 // TextOut implements Service
 type TextOut struct {
-	u ServBase
-	t ServBase
+	u   ServBase
+	up  ServPtr
+	t   ServBase
+	tup ServPtr
 }
+
+var _ Service = &TextOut{}
 
 func init() {
 	RegisterCreator("textout", NewTextOut)
 }
 
 // NewTextOut returns a TextOut Service
-func NewTextOut(u ServBase) (Service, error) {
+func NewTextOut(u ServPtr) (Service, error) {
 	// We need to get to the TextOutMode.
 	tm, err := Base("textoutmode")
 	if err != nil {
 		return nil, err
 	}
 	log.Printf("NewTextOut: TextMode base is %#x %#x", tm, ServBase(tm))
-	return &TextOut{u: u, t: ServBase(tm)}, nil
+	return &TextOut{u: u.Base(), up: u, t: tm.Base(), tup: tm}, nil
 }
 
 // Base implements service.Base
 func (t *TextOut) Base() ServBase {
 	return t.u
+}
+
+// Ptr implements service.Ptr
+func (t *TextOut) Ptr() ServPtr {
+	return t.up
 }
 
 // Call implements service.Call
@@ -56,7 +65,7 @@ func (t *TextOut) Call(f *Fault) error {
 	case table.STOutSetAttribute:
 		log.Printf("Fuck STOutSetAttribute")
 	case table.STOutMode:
-		if err := retval(f, uintptr(t.t)); err != nil {
+		if err := retval(f, uintptr(t.tup)); err != nil {
 			log.Panic(err)
 		}
 	default:
@@ -74,11 +83,11 @@ func (r *TextOut) Load(f *Fault) error {
 	if !ok {
 		log.Panicf("unsupported TextOut Load of %#x", op)
 	}
-	ret := uintptr(op) + uintptr(r.u)
+	ret := uintptr(op) + uintptr(r.up)
 	switch op {
 	default:
 	case table.STOutMode:
-		ret = uintptr(r.t)
+		ret = uintptr(r.tup)
 	}
 	log.Printf("TextOut Load services: %v(%#x), arg type %T, args %v return %#x", t, op, f.Inst.Args, f.Inst.Args, ret)
 	if err := retval(f, ret); err != nil {

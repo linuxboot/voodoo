@@ -12,8 +12,11 @@ var ()
 
 // Runtime implements Service
 type SystemTable struct {
-	u ServBase
+	u  ServBase
+	up ServPtr
 }
+
+var _ Service = &SystemTable{}
 
 func init() {
 	RegisterCreator("systemtable", NewSystemtable)
@@ -21,8 +24,8 @@ func init() {
 
 // NewSystemtable returns a Systemtable Service
 // This must be the FIRST New called for a service.
-func NewSystemtable(u ServBase) (Service, error) {
-	var st = &SystemTable{}
+func NewSystemtable(u ServPtr) (Service, error) {
+	var st = &SystemTable{up: u, u: u.Base()}
 
 	for _, t := range []struct {
 		n  string
@@ -54,6 +57,11 @@ func NewSystemtable(u ServBase) (Service, error) {
 // Base implements service.Base
 func (s *SystemTable) Base() ServBase {
 	return s.u
+}
+
+// Base implements service.Ptr
+func (s *SystemTable) Ptr() ServPtr {
+	return s.up
 }
 
 // Call implements service.Call
