@@ -156,7 +156,7 @@ func Dispatch(f *Fault) error {
 	b, op := splitBaseOp(a)
 	d, ok := dispatches[b]
 	if !ok {
-		log.Printf("Dispatch %s: Can't find %#x", f.Asm, b)
+		log.Printf("Dispatch %s: Can't find %v", f.Asm, b)
 		return fmt.Errorf("%#x: No such service in %v", a, d)
 	}
 	f.Op = op
