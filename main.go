@@ -32,8 +32,11 @@ type msg func()
 var (
 	start      = flag.Uint64("start", 0, "starting address -- default is from PE/COFF but you can override")
 	optional   = flag.Bool("optional", false, "Print optional registers")
-	offset     = flag.String("offset", "0", "offset for objcopy")
+	offset     = flag.Uint64("offset", 0x400000, "offset for objcopy")
 	singlestep = flag.Bool("singlestep", false, "single step instructions")
+	debug      = flag.Bool("debug", true, "Enable debug prints")
+	elfFile    = flag.String("elf", "binstart", "file to use for initial ptrace startup")
+	v          = log.Printf
 	step       = func(...string) {}
 	dat        uintptr
 	line       int
@@ -74,6 +77,7 @@ func show(indent string, l ...interface{}) string {
 }
 
 func main() {
+	ptrace.Debug = log.Printf
 	flag.Parse()
 	a := flag.Args()
 	if len(a) != 1 {
@@ -90,24 +94,26 @@ func main() {
 	if *singlestep {
 		step = any
 	}
-	f, err := ioutil.TempFile("", "voodoo")
-	if err != nil {
-		log.Fatal(err)
+	// objcopy seems to corrupt the file, too bad!
+	if false {
+		f, err := ioutil.TempFile("", "voodoo")
+		if err != nil {
+			log.Fatal(err)
+		}
+		*elfFile = f.Name()
+		o, err := exec.Command("objcopy", "--adjust-vma", fmt.Sprintf("%#x", *offset), "-O", "elf64-x86-64", a[0], *elfFile).CombinedOutput()
+		if err != nil {
+			log.Fatalf("objcopy to %s failed: %s %v", *elfFile, string(o), err)
+		}
+		f.Close()
 	}
-	n := f.Name()
-	o, err := exec.Command("objcopy", "--adjust-vma", *offset, "-O", "elf64-x86-64", a[0], n).CombinedOutput()
-	if err != nil {
-		log.Fatalf("objcopy to %s failed: %s %v", n, string(o), err)
-	}
-	f.Close()
-	e, err := elf.Open(n)
+	e, err := elf.Open(*elfFile)
 	if err != nil {
 		log.Fatal(err)
 	}
 	eip := uintptr(e.Entry)
 	e.Close()
-
-	t, err := ptrace.Exec(n, []string{n})
+	t, err := ptrace.Exec(*elfFile, []string{*elfFile})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -131,9 +137,10 @@ func main() {
 		for _, s := range f.COFFSymbols {
 			log.Printf("\t%v", s)
 		}
-		// We need to relocate to start at 0x400000
+		// We need to relocate to start at *offset.
 		// UEFI runs in page zero. I can't believe it.
-		base := uintptr(0x400000)
+		base := uintptr(*offset)
+		log.Printf("Base is %#x", base)
 		for i, s := range f.Sections {
 			fmt.Fprintf(os.Stderr, "Section %d", i)
 			fmt.Fprintf(os.Stderr, show("\t", &s.SectionHeader))
@@ -142,19 +149,15 @@ func main() {
 			if err != nil {
 				log.Fatalf("Can't get data for this section: %v", err)
 			}
-			if false {
-				if err := t.Write(addr, dat); err != nil {
-					any(fmt.Sprintf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err))
-					log.Fatalf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err)
-				}
+			if err := t.Write(addr, dat); err != nil {
+				any(fmt.Sprintf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err))
+				log.Fatalf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err)
 			}
 		}
 		// For now we assume the entry point is the start of the first segment
-		if false {
-			eip = base + uintptr(f.Sections[0].VirtualAddress)
-			if *start != 0 {
-				eip = uintptr(*start)
-			}
+		eip = base + uintptr(f.Sections[0].VirtualAddress)
+		if *start != 0 {
+			eip = uintptr(*start)
 		}
 	}
 	log.Printf("Start at %#x", eip)
@@ -194,9 +197,6 @@ func main() {
 
 	//Addr uintptr // Memory location which caused fault
 	for e := range t.Events() {
-		if line%25 == 0 {
-			ptrace.Header(os.Stdout)
-		}
 		line++
 		// Sometimes it fails with ESRCH but the process is there.
 		i, err := t.GetSiginfo()
@@ -216,8 +216,6 @@ func main() {
 			log.Printf("Could not get regs: %v", err)
 			os.Exit(1)
 		}
-		asm := ptrace.Asm(insn, r.Rip)
-		fmt.Println(asm)
 		step()
 		switch s {
 		default:
@@ -243,7 +241,8 @@ func main() {
 			if err := ptrace.Regs(os.Stdout, r); err != nil {
 				log.Fatal(err)
 			}
-			if err := segv(t, i, insn, r, asm); err != nil {
+			segvasm := ptrace.Asm(insn, r.Rip)
+			if err := segv(t, i, insn, r, segvasm); err != nil {
 				if err == io.EOF {
 					fmt.Println("\n===:DXE Exits!")
 					os.Exit(0)
@@ -282,6 +281,11 @@ func main() {
 		}
 		if err := ptrace.RegDiff(os.Stdout, r, p); err != nil {
 			log.Fatal(err)
+		}
+		asm := ptrace.Asm(insn, r.Rip)
+		fmt.Println(asm)
+		if line%25 == 0 {
+			ptrace.Header(os.Stdout)
 		}
 		p = r
 		if err := t.SingleStep(); err != nil {

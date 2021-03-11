@@ -1,2 +1,2 @@
-start: start.c
-	gcc -static -nostdlib -nostdinc -o start start.c
+start:  start.c Makefile
+	gcc -static -o start start.c
