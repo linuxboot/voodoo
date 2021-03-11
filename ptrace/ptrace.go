@@ -16,6 +16,8 @@ var (
 	// ErrTraceeExited is returned when a command is executed on a tracee
 	// that has already exited.
 	ErrTraceeExited = errors.New("tracee exited")
+	// Debug can be set externally to trace activity.
+	Debug = func(string, ...interface{}) {}
 )
 
 // An Event is sent on a Tracee's event channel whenever it changes state.
@@ -202,6 +204,7 @@ func (t *Tracee) WriteWord(address uintptr, word uint64) error {
 
 func (t *Tracee) Write(address uintptr, data []byte) error {
 	err := make(chan error, 1)
+	Debug("Write %#x %#x", address, data)
 	if t.do(func() {
 		_, e := syscall.PtracePokeData(t.proc.Pid, address, data)
 		err <- e
