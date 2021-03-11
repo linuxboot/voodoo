@@ -33,6 +33,8 @@ func retval(f *Fault, val uintptr) error {
 		f.Regs.Rcx = v
 	case x86asm.RDX:
 		f.Regs.Rdx = v
+	case x86asm.EDX:
+		f.Regs.Rdx = v
 	case x86asm.RAX:
 		f.Regs.Rax = v
 	case x86asm.R8:

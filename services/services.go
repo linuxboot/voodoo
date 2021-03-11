@@ -36,12 +36,12 @@ func bumpAllocate() ServPtr {
 }
 
 // String is a stringer for ServBase
-func (p ServPtr) String() string {
-	return fmt.Sprintf(servBaseFmt, uint32(p))
+func (p *ServPtr) String() string {
+	return fmt.Sprintf(servBaseFmt, uint32(*p))
 }
 
 // String is a stringer for ServBase
-func (p ServPtr) Base() ServBase {
+func (p *ServPtr) Base() ServBase {
 	return ServBase(p.String())
 }
 
@@ -72,7 +72,7 @@ type dispatch struct {
 	up ServPtr
 }
 
-func (d*dispatch)String() string {
+func (d *dispatch) String() string {
 	return fmt.Sprintf("%v %#x", d.s, d.up)
 }
 
@@ -112,7 +112,7 @@ func Base(n string) (ServPtr, error) {
 	}
 	base := bumpAllocate()
 	b := base.Base()
-	log.Printf("Base: base is %#x %s", base, b)
+	log.Printf("Base: base is %#x %s", uint32(base), b)
 	if d, ok := dispatches[b]; ok {
 		log.Panicf("Base %v for %s is in use by %v", b, n, d)
 	}
@@ -128,7 +128,8 @@ func Base(n string) (ServPtr, error) {
 }
 
 func servBaseName(a uintptr) ServBase {
-	return ServPtr(a &^ 0xffff).Base()
+	b := ServPtr(((a >> 16) << 16))
+	return b.Base()
 }
 
 func splitBaseOp(a uintptr) (ServBase, Func) {

@@ -41,7 +41,7 @@ func NewSystemtable(u ServPtr) (Service, error) {
 			log.Fatal(err)
 		}
 		table.SystemTableNames[t.st].Val = uint64(r)
-		log.Printf("-----------> Install service %s at %#x", t.n, r)
+		log.Printf("-----------> Install service %s at %#x", t.n, uint32(r))
 	}
 
 	// Now set up all the GUIDServices

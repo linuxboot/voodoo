@@ -77,8 +77,8 @@ func (r *Boot) Call(f *Fault) error {
 		if !ok {
 			log.Panicf("Can't happen: no base for %s", g)
 		}
-		log.Printf("Writing %#x to args[4]", d.up)
-		var bb [4]byte
+		log.Printf("Writing %#x to %#x", uint64(d.up), f.Args[4])
+		var bb [8]byte
 		binary.LittleEndian.PutUint64(bb[:], uint64(d.up))
 		if err := f.Proc.Write(f.Args[4], bb[:]); err != nil {
 			return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[4], err)
@@ -87,6 +87,7 @@ func (r *Boot) Call(f *Fault) error {
 		if err := f.Proc.Write(f.Args[3], bb[:]); err != nil {
 			return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[3], err)
 		}
+		log.Printf("BootServices Call LocateHandle: done")
 		return nil
 	case table.HandleProtocol:
 		// There. All on one line. Not 7. So, UEFI, did that really hurt so much?
@@ -104,7 +105,7 @@ func (r *Boot) Call(f *Fault) error {
 			return fmt.Errorf("Can't happen: no base for %s", g)
 		}
 		var bb [4]byte
-		log.Printf("Address is %#x", d.up)
+		log.Printf("Address is %#x", uint32(d.up))
 		binary.LittleEndian.PutUint32(bb[:], uint32(d.up))
 		if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
 			return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[2], err)
