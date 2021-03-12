@@ -77,7 +77,6 @@ func show(indent string, l ...interface{}) string {
 }
 
 func main() {
-	ptrace.Debug = log.Printf
 	flag.Parse()
 	a := flag.Args()
 	if len(a) != 1 {
@@ -149,6 +148,13 @@ func main() {
 			if err != nil {
 				log.Fatalf("Can't get data for this section: %v", err)
 			}
+			// Zero it out.
+			log.Printf("Copy section to %#x:%#x", addr, s.VirtualSize)
+			bb := make([]byte, s.VirtualSize)
+			if err := t.Write(addr, bb); err != nil {
+				any(fmt.Sprintf("Can't write %d bytes of zero @ %#x for this section to process:", len(bb), addr, err))
+				log.Fatalf("Can't write %d bytes of zero @ %#x for this section to process:", len(bb), addr, err)
+			}
 			if err := t.Write(addr, dat); err != nil {
 				any(fmt.Sprintf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err))
 				log.Fatalf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err)
@@ -157,6 +163,7 @@ func main() {
 		// For now we assume the entry point is the start of the first segment
 		eip = base + uintptr(f.Sections[0].VirtualAddress)
 	}
+	ptrace.Debug = log.Printf
 	// *start overrides it all.
 	if *start != 0 {
 		eip = uintptr(*start)
