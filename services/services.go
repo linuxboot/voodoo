@@ -162,7 +162,8 @@ func Dispatch(f *Fault) error {
 	f.Op = op
 	// Go (Plan 9) is CALL
 	// gnu is call
-	if strings.Contains(f.Asm, "CALL") || strings.Contains(f.Asm, "call") {
+	if strings.Contains(f.Asm, "CALL") || strings.Contains(f.Asm, "call") ||
+		strings.Contains(f.Asm, "jmp") { // tail call
 		return d.s.Call(f)
 	}
 	log.Printf("Arg 0 is %v, %T", f.Inst.Args[0], f.Inst.Args[0])
