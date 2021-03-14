@@ -246,12 +246,15 @@ type kvm_vapic_addr struct {
 	vapic_addr uint64
 }
 
-/* for SET_GUEST_DEBUG */
+const (
+	// Enabled enables debug options in the guest
+	Enable = 1
+	// SingleStep enables single step.
+	SingleStep = 2
+)
 
-//#define GUESTDBG_ENABLE		0x00000001
-//#define GUESTDBG_SINGLESTEP		0x00000002
-
-type kvm_guest_debug struct {
+// Debug controls guest debug.
+type Debug struct {
 	control uint32
 	pad     uint32
 	//	arch    kvm_guest_debug_arch

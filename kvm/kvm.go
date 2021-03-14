@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"syscall"
+	"unsafe"
 
 	"golang.org/x/sys/unix"
 )
@@ -31,6 +32,19 @@ type Tracee struct {
 	events chan Event
 	err    chan error
 	cmds   chan func()
+}
+
+func (t *Tracee) ioctl(option int, data interface{}) error {
+	var err error
+	switch option {
+	default:
+		_, _, err = syscall.Ioctl(syscall.IOCTL, t.f.Fd(), option, unsafe.Pointer(data))
+	}
+	return err
+}
+
+func (t *Tracee) singleStep() error {
+	return t.ioctl(SetGuestDebug, &debug{control: DebugEnable | SingleStep})
 }
 
 // PID returns the PID for a Tracee.
