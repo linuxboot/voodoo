@@ -1,5 +1,5 @@
-// Package ptrace provides an interface to the ptrace system call.
-package ptrace
+// Package kvm provides an interface to the kvm system call.
+package kvm
 
 import (
 	"fmt"
@@ -58,7 +58,7 @@ var (
 )
 
 // GetReg gets a register value from the Tracee.
-// This code does not do any ptrace calls to get registers.
+// This code does not do any kvm calls to get registers.
 // It returns a pointer so the register can be read and modified.
 func GetReg(r *syscall.PtraceRegs, reg x86asm.Reg) (*uint64, error) {
 	log.Printf("GetReg %s", reg)
@@ -418,7 +418,7 @@ func Pointer(inst *x86asm.Inst, r *syscall.PtraceRegs, arg int) (uintptr, error)
 			Disp    int64
 		}
 	*/
-	log.Printf("ARG[%d] %q m is %#x", inst.Args[arg], m)
+	log.Printf("ARG[%d] %q m is %#x", arg, inst.Args[arg], m)
 	b, err := GetReg(r, m.Base)
 	if err != nil {
 		return 0, fmt.Errorf("Can't get Base reg %v in %v", m.Base, m)

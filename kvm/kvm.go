@@ -1,12 +1,13 @@
-// Package ptrace provides an interface to the ptrace system call.
-package ptrace
+// Package kvm provides an interface to the kvm system call.
+package kvm
 
 import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"flag"
+	"fmt"
 	"os"
-	"runtime"
 	"syscall"
 
 	"golang.org/x/sys/unix"
@@ -17,7 +18,8 @@ var (
 	// that has already exited.
 	ErrTraceeExited = errors.New("tracee exited")
 	// Debug can be set externally to trace activity.
-	Debug = func(string, ...interface{}) {}
+	Debug      = func(string, ...interface{}) {}
+	DeviceName = flag.String("kvmdevice", "/dev/kvm", "kvm device to use")
 )
 
 // An Event is sent on a Tracee's event channel whenever it changes state.
@@ -25,93 +27,96 @@ type Event interface{}
 
 // A Tracee is a process that is being traced.
 type Tracee struct {
-	proc   *os.Process
+	f      *os.File
 	events chan Event
 	err    chan error
 	cmds   chan func()
 }
 
 // PID returns the PID for a Tracee.
-func (t *Tracee) PID() int { return t.proc.Pid }
+func (t *Tracee) PID() int { return int(t.f.Fd()) }
 
 // Events returns the events channel for the tracee.
 func (t *Tracee) Events() <-chan Event {
 	return t.events
 }
 
+func version(*os.File) (uint64, error) {
+	//	ret = ioctl(kvm->sys_fd, KVM_GET_API_VERSION, 0);
+	//	if (ret != KVM_API_VERSION) {
+	//		pr_err("KVM_API_VERSION ioctl");
+	//		ret = -errno;
+	//		goto err_sys_fd;
+	//	}
+	return 12, nil
+
+}
+
 // Exec executes a process with tracing enabled, returning the Tracee
 // or an error if an error occurs while executing the process.
 func Exec(name string, argv []string) (*Tracee, error) {
+	k, err := os.OpenFile(*DeviceName, os.O_RDWR, 0)
+	if err != nil {
+		return nil, err
+	}
+	if v, err := version(k); err != nil || v != APIVersion {
+		return nil, fmt.Errorf("Version: %d != %d or error %v", v, APIVersion, err)
+	}
 	t := &Tracee{
+		f:      k,
 		events: make(chan Event, 1),
 		err:    make(chan error, 1),
 		cmds:   make(chan func()),
 	}
 
-	err := make(chan error)
-	proc := make(chan *os.Process)
+	errs := make(chan error)
+	proc := make(chan *os.File)
+
 	go func() {
-		runtime.LockOSThread()
-		p, e := os.StartProcess(name, argv, &os.ProcAttr{
-			Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
-			Sys: &syscall.SysProcAttr{
-				Ptrace:    true,
-				Pdeathsig: syscall.SIGCHLD,
-			},
-		})
-		proc <- p
-		err <- e
+		// kvm->vm_fd = ioctl(kvm->sys_fd, KVM_CREATE_VM, KVM_VM_TYPE);
+		// if (kvm->vm_fd < 0) {
+		// 	pr_err("KVM_CREATE_VM ioctl");
+		// 	ret = kvm->vm_fd;
+		// 	goto err_sys_fd;
+		// }
+
+		// if (kvm__check_extensions(kvm)) {
+		// 	pr_err("A required KVM extension is not supported by OS");
+		// 	ret = -ENOSYS;
+		// 	goto err_vm_fd;
+		// }
+
+		// kvm__arch_init(kvm, kvm->cfg.hugetlbfs_path, kvm->cfg.ram_size);
+
+		// INIT_LIST_HEAD(&kvm->mem_banks);
+		// kvm__init_ram(kvm);
+		var e error
+		proc <- k
+		errs <- e
 		if e != nil {
 			return
 		}
 		go t.wait()
 		t.trace()
 	}()
-	t.proc = <-proc
-	return t, <-err
+	t.f = <-proc
+	return t, <-errs
 }
 
 // Attach attaches to the given process.
 func Attach(pid int) (*Tracee, error) {
-	t := &Tracee{
-		events: make(chan Event, 1),
-		err:    make(chan error, 1),
-		cmds:   make(chan func()),
-	}
-
-	err := make(chan error, 1)
-	proc := make(chan *os.Process)
-	go func() {
-		runtime.LockOSThread()
-		err <- syscall.PtraceAttach(pid)
-		p, e := os.FindProcess(pid)
-		proc <- p
-		err <- e
-		if e != nil {
-			return
-		}
-		go t.wait()
-		t.trace()
-	}()
-	t.proc = <-proc
-	return t, <-err
+	return nil, fmt.Errorf("Not supported yet")
 }
 
-// Detach detaches the tracee, allowing it to continue its execution normally.
-// No more tracing is performed, and no events are sent on the event channel
-// until the tracee exits.
+// Detach detaches the tracee, destroying it in the process.
 func (t *Tracee) Detach() error {
-	err := make(chan error, 1)
-	if t.do(func() { err <- syscall.PtraceDetach(t.proc.Pid) }) {
-		return <-err
-	}
-	return ErrTraceeExited
+	return fmt.Errorf("not yet")
 }
 
 // SingleStep continues the tracee for one instruction.
 func (t *Tracee) SingleStep() error {
 	err := make(chan error, 1)
-	if t.do(func() { err <- syscall.PtraceSingleStep(t.proc.Pid) }) {
+	if t.do(func() { err <- syscall.PtraceSingleStep(int(t.f.Fd())) }) {
 		return <-err
 	}
 	return ErrTraceeExited
@@ -123,7 +128,7 @@ func (t *Tracee) SingleStep() error {
 func (t *Tracee) Continue() error {
 	err := make(chan error, 1)
 	sig := 0
-	if t.do(func() { err <- syscall.PtraceCont(t.proc.Pid, sig) }) {
+	if t.do(func() { err <- syscall.PtraceCont(int(t.f.Fd()), sig) }) {
 		return <-err
 	}
 	return ErrTraceeExited
@@ -136,7 +141,7 @@ func (t *Tracee) Syscall() error {
 	}
 	errchan := make(chan error, 1)
 	t.cmds <- func() {
-		err := syscall.PtraceSyscall(t.proc.Pid, 0)
+		err := syscall.PtraceSyscall(int(t.f.Fd()), 0)
 		errchan <- err
 	}
 	return <-errchan
@@ -145,7 +150,7 @@ func (t *Tracee) Syscall() error {
 // SendSignal sends the given signal to the tracee.
 func (t *Tracee) SendSignal(sig syscall.Signal) error {
 	err := make(chan error, 1)
-	if t.do(func() { err <- syscall.Kill(t.proc.Pid, sig) }) {
+	if t.do(func() { err <- syscall.Kill(int(t.f.Fd()), sig) }) {
 		return <-err
 	}
 	return ErrTraceeExited
@@ -168,7 +173,7 @@ func (t *Tracee) ReadWord(address uintptr) (uint64, error) {
 	err := make(chan error, 1)
 	value := make(chan uint64, 1)
 	if t.do(func() {
-		v, e := peek(t.proc.Pid, address)
+		v, e := peek(int(t.f.Fd()), address)
 		value <- v
 		err <- e
 	}) {
@@ -196,7 +201,7 @@ func poke(pid int, address uintptr, word uint64) error {
 // WriteWord writes the given word into the inferior's address space.
 func (t *Tracee) WriteWord(address uintptr, word uint64) error {
 	err := make(chan error, 1)
-	if t.do(func() { err <- poke(t.proc.Pid, address, word) }) {
+	if t.do(func() { err <- poke(int(t.f.Fd()), address, word) }) {
 		return <-err
 	}
 	return ErrTraceeExited
@@ -206,7 +211,7 @@ func (t *Tracee) Write(address uintptr, data []byte) error {
 	err := make(chan error, 1)
 	Debug("Write %#x %#x", address, data)
 	if t.do(func() {
-		_, e := syscall.PtracePokeData(t.proc.Pid, address, data)
+		_, e := syscall.PtracePokeData(int(t.f.Fd()), address, data)
 		err <- e
 	}) {
 		return <-err
@@ -218,7 +223,7 @@ func (t *Tracee) Write(address uintptr, data []byte) error {
 func (t *Tracee) Read(address uintptr, data []byte) error {
 	err := make(chan error, 1)
 	if t.do(func() {
-		_, e := syscall.PtracePeekData(t.proc.Pid, address, data)
+		_, e := syscall.PtracePeekData(int(t.f.Fd()), address, data)
 		err <- e
 	}) {
 		return <-err
@@ -250,7 +255,7 @@ func (t *Tracee) GetRegs() (*syscall.PtraceRegs, error) {
 	value := make(chan *syscall.PtraceRegs, 1)
 	if t.do(func() {
 		var regs syscall.PtraceRegs
-		err := syscall.PtraceGetRegs(t.proc.Pid, &regs)
+		err := syscall.PtraceGetRegs(int(t.f.Fd()), &regs)
 		value <- &regs
 		errchan <- err
 	}) {
@@ -266,7 +271,7 @@ func (t *Tracee) GetIPtr() (uintptr, error) {
 	if t.do(func() {
 		var regs syscall.PtraceRegs
 		regs.Rip = 0
-		err := syscall.PtraceGetRegs(t.proc.Pid, &regs)
+		err := syscall.PtraceGetRegs(int(t.f.Fd()), &regs)
 		value <- uintptr(regs.Rip)
 		errchan <- err
 	}) {
@@ -280,13 +285,13 @@ func (t *Tracee) SetIPtr(addr uintptr) error {
 	errchan := make(chan error, 1)
 	if t.do(func() {
 		var regs syscall.PtraceRegs
-		err := syscall.PtraceGetRegs(t.proc.Pid, &regs)
+		err := syscall.PtraceGetRegs(int(t.f.Fd()), &regs)
 		if err != nil {
 			errchan <- err
 			return
 		}
 		regs.Rip = uint64(addr)
-		err = syscall.PtraceSetRegs(t.proc.Pid, &regs)
+		err = syscall.PtraceSetRegs(int(t.f.Fd()), &regs)
 		errchan <- err
 	}) {
 		return <-errchan
@@ -298,7 +303,7 @@ func (t *Tracee) SetIPtr(addr uintptr) error {
 func (t *Tracee) SetRegs(regs *syscall.PtraceRegs) error {
 	errchan := make(chan error, 1)
 	if t.do(func() {
-		err := syscall.PtraceSetRegs(t.proc.Pid, regs)
+		err := syscall.PtraceSetRegs(int(t.f.Fd()), regs)
 		errchan <- err
 	}) {
 		return <-errchan
@@ -312,7 +317,7 @@ func (t *Tracee) GetSiginfo() (*unix.SignalfdSiginfo, error) {
 	errchan := make(chan error, 1)
 	value := make(chan *unix.SignalfdSiginfo, 1)
 	if t.do(func() {
-		si, err := GetSigInfo(t.proc.Pid)
+		si, err := GetSigInfo(int(t.f.Fd()))
 		errchan <- err
 		value <- si
 	}) {
@@ -327,7 +332,7 @@ func (t *Tracee) GetSiginfo() (*unix.SignalfdSiginfo, error) {
 func (t *Tracee) ClearSignal() error {
 	errchan := make(chan error, 1)
 	if t.do(func() {
-		errchan <- ClearSignals(int(t.proc.Pid))
+		errchan <- ClearSignals(int(int(t.f.Fd())))
 	}) {
 		return <-errchan
 	}
@@ -355,25 +360,26 @@ func (t *Tracee) Close() error {
 	close(t.cmds)
 	t.cmds = nil
 
-	syscall.Kill(t.proc.Pid, syscall.SIGKILL)
+	syscall.Kill(int(t.f.Fd()), syscall.SIGKILL)
 	return err
 }
 
+// for what.
 func (t *Tracee) wait() {
 	defer close(t.err)
 	for {
-		state, err := t.proc.Wait()
-		if err != nil {
-			t.err <- err
-			close(t.events)
-			return
-		}
-		if state.Exited() {
-			t.events <- Event(state.Sys().(syscall.WaitStatus))
-			close(t.events)
-			return
-		}
-		t.events <- Event(state.Sys().(syscall.WaitStatus))
+		// state, err := t.proc.Wait()
+		// if err != nil {
+		// 	t.err <- err
+		// 	close(t.events)
+		// 	return
+		// }
+		// if state.Exited() {
+		// 	t.events <- Event(state.Sys().(syscall.WaitStatus))
+		// 	close(t.events)
+		// 	return
+		// }
+		// t.events <- Event(state.Sys().(syscall.WaitStatus))
 	}
 }
 

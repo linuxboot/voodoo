@@ -1,6 +1,14 @@
-package services
+package kvm
 
-import "testing"
+import (
+	"log"
+	"testing"
+)
 
-func TestExecute(t *testing.T) {
+func TestOpen(t *testing.T) {
+	v, err := Exec("", []string{""})
+	if err != nil {
+		t.Fatalf("Open: got %v, want nil", err)
+	}
+	log.Printf("%v", v)
 }

@@ -1,8 +1,13 @@
 package kvm
 
+import "fmt"
+
 type KVMExit uint64
 
-//#define API_VERSION 12
+// The only API version we support.
+// The only API version anyway. This was
+// a mistake remedied by the capability stuff.
+const APIVersion = 12
 
 /* for CREATE_MEMORY_REGION */
 type kvm_memory_region struct {
@@ -43,22 +48,14 @@ const (
 	ExitIntr            = 10
 	ExitSet_tpr         = 11
 	ExitTpr_access      = 12
-	ExitS390_sieic      = 13
-	ExitS390_reset      = 14
-	ExitDcr             = 15 /* deprecated */
 	ExitNmi             = 16
 	ExitInternal_error  = 17
 	ExitOsi             = 18
-	ExitPapr_hcall      = 19
-	ExitS390_ucontrol   = 20
-	ExitWatchdog        = 21
-	ExitS390_tsch       = 22
-	ExitEpr             = 23
-	ExitSystem_event    = 24
-	ExitS390_stsi       = 25
-	ExitIoapic_eoi      = 26
-	ExitHyperv          = 27
-	ExitArm_nisv        = 28
+	// 	ExitPapr_hcall      = 19
+	ExitWatchdog     = 21
+	ExitEpr          = 23
+	ExitSystem_event = 24
+	ExitIoapic_eoi   = 26
 )
 
 /* For ExitINTERNAL_ERROR */
@@ -257,7 +254,7 @@ type kvm_vapic_addr struct {
 type kvm_guest_debug struct {
 	control uint32
 	pad     uint32
-	arch    kvm_guest_debug_arch
+	//	arch    kvm_guest_debug_arch
 }
 
 const (
@@ -281,7 +278,7 @@ type kvm_ioeventfd struct {
 	datamatch uint64
 	addr      uint64 /* legal pio/mmio address */
 	len       uint32 /* 1, 2, 4, or 8 or 0 to ignore length */
-	__s32     fd
+	fd        int32
 	flags     uint32
 	pad       [36]uint8
 }
@@ -635,8 +632,7 @@ type kvm_one_reg struct {
 //#define KVMCLOCK_CTRL	  _IO(KVMIO,   0xad)
 //#define GET_REG_LIST	  _IOWR(KVMIO, 0xb0, struct kvm_reg_list)
 
-func (e *KvmExit) String() string {
-	var n string
+func (e *KVMExit) String() string {
 	switch *e {
 	case ExitUnknown:
 		return "ExitUnknown"
@@ -664,38 +660,20 @@ func (e *KvmExit) String() string {
 		return "ExitSet_tpr"
 	case ExitTpr_access:
 		return "ExitTpr_access"
-	case ExitS390_sieic:
-		return "ExitS390_sieic"
-	case ExitS390_reset:
-		return "ExitS390_reset"
-	case ExitDcr:
-		return "ExitDcr"
 	case ExitNmi:
 		return "ExitNmi"
 	case ExitInternal_error:
 		return "ExitInternal_error"
 	case ExitOsi:
 		return "ExitOsi"
-	case ExitPapr_hcall:
-		return "ExitPapr_hcall"
-	case ExitS390_ucontrol:
-		return "ExitS390_ucontrol"
 	case ExitWatchdog:
 		return "ExitWatchdog"
-	case ExitS390_tsch:
-		return "ExitS390_tsch"
 	case ExitEpr:
 		return "ExitEpr"
 	case ExitSystem_event:
 		return "ExitSystem_event"
-	case ExitS390_stsi:
-		return "ExitS390_stsi"
 	case ExitIoapic_eoi:
 		return "ExitIoapic_eoi"
-	case ExitHyperv:
-		return "ExitHyperv"
-	case ExitArm_nisv:
-		return "ExitArm_nisv"
 	}
 	return fmt.Sprintf("unknown exit %#x", *e)
 }

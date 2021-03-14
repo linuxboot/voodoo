@@ -1,4 +1,4 @@
-package ptrace
+package kvm
 
 import (
 	"syscall"
