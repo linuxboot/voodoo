@@ -1,6 +1,10 @@
 package kvm
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+	"syscall"
+)
 
 // Exit is the VM exit value returned by KVM.
 type Exit uint64
@@ -11,6 +15,72 @@ type Exit uint64
 // a mistake remedied by the capability stuff.
 const APIVersion = 12
 
+type regs struct {
+	rax, rbx, rcx, rdx uint64
+	rsi, rdi, rsp, rbp uint64
+	r8, r9, r10, r11   uint64
+	r12, r13, r14, r15 uint64
+	rip, rflags        uint64
+}
+
+type segment struct {
+	base                           uint64
+	limit                          uint32
+	selector                       uint16
+	stype                          uint8
+	present, dpl, db, s, l, g, avl uint8
+	_                              uint8
+	_                              uint8
+}
+
+type dtable struct {
+	base  uint64
+	limit uint16
+	_     [3]uint16
+}
+
+/* for KVM_GET_SREGS and KVM_SET_SREGS */
+type sregs struct {
+	/* out (KVM_GET_SREGS) / in (KVM_SET_SREGS) */
+	cs, ds, es, fs, gs, ss  segment
+	tr, ldt                 segment
+	gdt, idt                dtable
+	cr0, cr2, cr3, cr4, cr8 uint64
+	efer                    uint64
+	apic                    uint16
+	interruptBitmap        [(256 + 63) / 64]uint64
+}
+
+func kvmRegstoPtraceRegs(pr *syscall.PtraceRegs, r *regs, s *sregs) {
+	pr.R15 = r.r15
+	pr.R14 = r.r14
+	pr.R13 = r.r13
+	pr.R12 = r.r12
+	pr.Rbp = r.rbp
+	pr.Rbx = r.rbx
+	pr.R11 = r.r11
+	pr.R10 = r.r10
+	pr.R9 = r.r9
+	pr.R8 = r.r8
+	pr.Rax = r.rax
+	pr.Rcx = r.rcx
+	pr.Rdx = r.rdx
+	pr.Rsi = r.rsi
+	pr.Rdi = r.rdi
+	pr.Orig_rax = r.rax /// hmmm ....
+	pr.Rip = r.rip
+	//pr.Cs = r.Cs
+	pr.Eflags = r.rflags
+	pr.Rsp = r.rsp
+	// pr.Ss = r.Ss
+	// pr.Fs_base = r.Fs_base
+	// pr.Gs_base = r.Gs_base
+	// pr.Ds = r.Ds
+	// pr.Es = r.Es
+	// pr.Fs = r.Fs
+	// pr.Gs = r.Gs
+}
+
 // MemoryRegion is used for CREATE_MEMORY_REGION
 type MemoryRegion struct {
 	slot  uint32
@@ -19,8 +89,16 @@ type MemoryRegion struct {
 	size  uint64 /* bytes */
 }
 
-// Region is used for  SET_USER_MEMORY_REGION
-type Region struct {
+// CreateRegion is used for KVM_CREATE_MEMORY_REGION
+type CreateRegion struct {
+	slot  uint32
+	flags uint32
+	gpa   uint64
+	size  uint64
+}
+
+// UserRegion is used for  SET_USER_MEMORY_REGION
+type UserRegion struct {
 	slot     uint32
 	flags    uint32
 	gpa      uint64
@@ -683,4 +761,100 @@ func (e *Exit) String() string {
 		return "ExitIoapic_eoi"
 	}
 	return fmt.Sprintf("unknown exit %#x", *e)
+}
+
+// rflags = regs.rflags;
+
+// rip = regs.rip; rsp = regs.rsp;
+// rax = regs.rax; rbx = regs.rbx; rcx = regs.rcx;
+// rdx = regs.rdx; rsi = regs.rsi; rdi = regs.rdi;
+// rbp = regs.rbp; r8  = regs.r8;  r9  = regs.r9;
+// r10 = regs.r10; r11 = regs.r11; r12 = regs.r12;
+// r13 = regs.r13; r14 = regs.r14; r15 = regs.r15;
+
+// dprintf(debug_fd, "\n Registers:\n");
+// dprintf(debug_fd,   " ----------\n");
+// dprintf(debug_fd, " rip: %016lx   rsp: %016lx flags: %016lx\n", rip, rsp, rflags);
+// dprintf(debug_fd, " rax: %016lx   rbx: %016lx   rcx: %016lx\n", rax, rbx, rcx);
+// dprintf(debug_fd, " rdx: %016lx   rsi: %016lx   rdi: %016lx\n", rdx, rsi, rdi);
+// dprintf(debug_fd, " rbp: %016lx    r8: %016lx    r9: %016lx\n", rbp, r8,  r9);
+// dprintf(debug_fd, " r10: %016lx   r11: %016lx   r12: %016lx\n", r10, r11, r12);
+// dprintf(debug_fd, " r13: %016lx   r14: %016lx   r15: %016lx\n", r13, r14, r15);
+
+// if (ioctl(vcpu->vcpu_fd, KVM_GET_SREGS, &sregs) < 0)
+// 	die("KVM_GET_REGS failed");
+
+// cr0 = sregs.cr0; cr2 = sregs.cr2; cr3 = sregs.cr3;
+// cr4 = sregs.cr4; cr8 = sregs.cr8;
+
+// GetRegs reads the registers from the inferior.
+func (t *Tracee) GetRegs() (*syscall.PtraceRegs, error) {
+	errchan := make(chan error, 1)
+	value := make(chan *syscall.PtraceRegs, 1)
+	if t.do(func() {
+		pr := &syscall.PtraceRegs{}
+		r := &regs{}
+		s := &sregs{}
+		if err := t.ioctl(getRegs, &r); err != nil {
+			value <- nil
+			errchan <- err
+		}
+		if err := t.ioctl(getSregs, &s); err != nil {
+			value <- nil
+			errchan <- err
+		}
+		kvmRegstoPtraceRegs(pr, r, s)
+		value <- pr
+		errchan <- nil
+	}) {
+		return <-value, <-errchan
+	}
+	return &syscall.PtraceRegs{}, errors.New("GetRegs: Unreachable")
+}
+
+// GetIPtr reads the instruction pointer from the inferior and returns it.
+func (t *Tracee) GetIPtr() (uintptr, error) {
+	errchan := make(chan error, 1)
+	value := make(chan uintptr, 1)
+	if t.do(func() {
+		var regs syscall.PtraceRegs
+		regs.Rip = 0
+		err := syscall.PtraceGetRegs(int(t.dev.Fd()), &regs)
+		value <- uintptr(regs.Rip)
+		errchan <- err
+	}) {
+		return <-value, <-errchan
+	}
+	return 0, ErrTraceeExited
+}
+
+// SetIPtr sets the instruction pointer for a Tracee.
+func (t *Tracee) SetIPtr(addr uintptr) error {
+	errchan := make(chan error, 1)
+	if t.do(func() {
+		var regs syscall.PtraceRegs
+		err := syscall.PtraceGetRegs(int(t.dev.Fd()), &regs)
+		if err != nil {
+			errchan <- err
+			return
+		}
+		regs.Rip = uint64(addr)
+		err = syscall.PtraceSetRegs(int(t.dev.Fd()), &regs)
+		errchan <- err
+	}) {
+		return <-errchan
+	}
+	return ErrTraceeExited
+}
+
+// SetRegs sets regs for a Tracee.
+func (t *Tracee) SetRegs(regs *syscall.PtraceRegs) error {
+	errchan := make(chan error, 1)
+	if t.do(func() {
+		err := syscall.PtraceSetRegs(int(t.dev.Fd()), regs)
+		errchan <- err
+	}) {
+		return <-errchan
+	}
+	return ErrTraceeExited
 }

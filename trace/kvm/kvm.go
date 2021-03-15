@@ -4,9 +4,11 @@ package kvm
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"syscall"
 	"unsafe"
@@ -26,23 +28,34 @@ var (
 // An Event is sent on a Tracee's event channel whenever it changes state.
 type Event interface{}
 
+// A Region defines a memory region.
+// This is likely overkill; we likely don't want
+// anything more than a single 2G region starting at 0.
+type Region struct {
+	slot int // this seems to matter?
+	gpa  uint64
+	data []byte
+}
+
 // A Tracee is a process that is being traced.
 type Tracee struct {
-	f      *os.File
-	events chan Event
-	err    chan error
-	cmds   chan func()
+	dev     *os.File
+	vm      uintptr
+	events  chan Event
+	err     chan error
+	cmds    chan func()
+	regions []Region
 }
 
 func (t *Tracee) String() string {
-	return fmt.Sprintf("%s", t.f.Name())
+	return fmt.Sprintf("%s", t.dev.Name())
 }
 
-func (t *Tracee) ioctl(option int, data interface{}) error {
+func (t *Tracee) ioctl(option uintptr, data interface{}) error {
 	var err error
 	switch option {
 	default:
-		_, _, err = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.f.Fd()), uintptr(option), uintptr(unsafe.Pointer(&data)))
+		_, _, err = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.dev.Fd()), uintptr(option), uintptr(unsafe.Pointer(&data)))
 	}
 	return err
 }
@@ -52,22 +65,26 @@ func (t *Tracee) singleStep() error {
 }
 
 // PID returns the PID for a Tracee.
-func (t *Tracee) PID() int { return int(t.f.Fd()) }
+func (t *Tracee) PID() int { return int(t.dev.Fd()) }
 
 // Events returns the events channel for the tracee.
 func (t *Tracee) Events() <-chan Event {
 	return t.events
 }
 
-func version(*os.File) (uint64, error) {
-	//	ret = ioctl(kvm->sys_fd, KVM_GET_API_VERSION, 0);
-	//	if (ret != KVM_API_VERSION) {
-	//		pr_err("KVM_API_VERSION ioctl");
-	//		ret = -errno;
-	//		goto err_sys_fd;
-	//	}
-	return 12, nil
+func version(f *os.File) int {
+	r1, _, _ := syscall.Syscall(syscall.SYS_IOCTL, uintptr(f.Fd()), kvmversion, 0)
+	// syscall returns a non-nil error, always, even for 0.
+	// if it fails, we'll get -1 and that's all we need to know.
+	return int(r1)
+}
 
+func startvm(f *os.File) (uintptr, error) {
+	r1, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(f.Fd()), vmcreate, 0)
+	if errno == 0 {
+		return r1, nil
+	}
+	return r1, errno
 }
 
 // New returns a new Tracee. It will fail if the kvm device can not be opened.
@@ -76,11 +93,18 @@ func New() (*Tracee, error) {
 	if err != nil {
 		return nil, err
 	}
-	if v, err := version(k); err != nil || v != APIVersion {
-		return nil, fmt.Errorf("Version: %d != %d or error %v", v, APIVersion, err)
+	if v := version(k); v != APIVersion {
+		return nil, fmt.Errorf("Version: got %d, must be %d", v, APIVersion)
 	}
+
+	vm, err := startvm(k)
+	if err != nil {
+		return nil, fmt.Errorf("startvm: failed (%d, %v)", vm, err)
+	}
+
 	t := &Tracee{
-		f:      k,
+		dev:    k,
+		vm:     vm,
 		events: make(chan Event, 1),
 		err:    make(chan error, 1),
 		cmds:   make(chan func()),
@@ -88,11 +112,30 @@ func New() (*Tracee, error) {
 	return t, nil
 }
 
+// This allows setting up mem for a guest.
+// This is not exposed because it's not supported by ptrace(2)
+// and the trace model is the common subset of ptrace and kvm.
+func (t *Tracee) mem(b []byte, base uint64) error {
+	p := &bytes.Buffer{}
+	u := &UserRegion{slot: 0, flags: 0, gpa: base, size: uint64(len(b)), useraddr: uint64(uintptr(unsafe.Pointer(&b[0])))}
+	binary.Write(p, binary.LittleEndian, u)
+	log.Printf("ioctl %s", hex.Dump(p.Bytes()))
+	_, _, err := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.dev.Fd()), uintptr(setMem), uintptr(unsafe.Pointer(&p.Bytes()[0])))
+	return err
+}
+
+// This allows setting up mem for a guest.
+// This is not exposed because it's not supported by ptrace(2)
+// and the trace model is the common subset of ptrace and kvm.
+func (t *Tracee) unusedcreateMem(base, size uint64) error {
+	var r = &CreateRegion{slot: 0, flags: 0, gpa: base, size: size}
+	return t.ioctl(setMem, r)
+}
+
 // Exec executes a process with tracing enabled, returning the Tracee
 // or an error if an error occurs while executing the process.
 func (t *Tracee) Exec(name string, argv ...string) error {
 	errs := make(chan error)
-	proc := make(chan *os.File)
 
 	go func() {
 		// kvm->vm_fd = ioctl(kvm->sys_fd, KVM_CREATE_VM, KVM_VM_TYPE);
@@ -113,7 +156,6 @@ func (t *Tracee) Exec(name string, argv ...string) error {
 		// INIT_LIST_HEAD(&kvm->mem_banks);
 		// kvm__init_ram(kvm);
 		var e error
-		proc <- t.f
 		errs <- e
 		if e != nil {
 			return
@@ -121,7 +163,6 @@ func (t *Tracee) Exec(name string, argv ...string) error {
 		go t.wait()
 		t.trace()
 	}()
-	t.f = <-proc
 	return <-errs
 }
 
@@ -132,7 +173,7 @@ func Attach(pid int) (*Tracee, error) {
 
 // Detach detaches the tracee, destroying it in the process.
 func (t *Tracee) Detach() error {
-	if err := t.f.Close(); err != nil {
+	if err := t.dev.Close(); err != nil {
 		return err
 	}
 	return nil
@@ -141,7 +182,7 @@ func (t *Tracee) Detach() error {
 // SingleStep continues the tracee for one instruction.
 func (t *Tracee) SingleStep() error {
 	err := make(chan error, 1)
-	if t.do(func() { err <- syscall.PtraceSingleStep(int(t.f.Fd())) }) {
+	if t.do(func() { err <- syscall.PtraceSingleStep(int(t.dev.Fd())) }) {
 		return <-err
 	}
 	return ErrTraceeExited
@@ -153,7 +194,7 @@ func (t *Tracee) SingleStep() error {
 func (t *Tracee) Continue() error {
 	err := make(chan error, 1)
 	sig := 0
-	if t.do(func() { err <- syscall.PtraceCont(int(t.f.Fd()), sig) }) {
+	if t.do(func() { err <- syscall.PtraceCont(int(t.dev.Fd()), sig) }) {
 		return <-err
 	}
 	return ErrTraceeExited
@@ -166,7 +207,7 @@ func (t *Tracee) Syscall() error {
 	}
 	errchan := make(chan error, 1)
 	t.cmds <- func() {
-		err := syscall.PtraceSyscall(int(t.f.Fd()), 0)
+		err := syscall.PtraceSyscall(int(t.dev.Fd()), 0)
 		errchan <- err
 	}
 	return <-errchan
@@ -175,7 +216,7 @@ func (t *Tracee) Syscall() error {
 // SendSignal sends the given signal to the tracee.
 func (t *Tracee) SendSignal(sig syscall.Signal) error {
 	err := make(chan error, 1)
-	if t.do(func() { err <- syscall.Kill(int(t.f.Fd()), sig) }) {
+	if t.do(func() { err <- syscall.Kill(int(t.dev.Fd()), sig) }) {
 		return <-err
 	}
 	return ErrTraceeExited
@@ -198,7 +239,7 @@ func (t *Tracee) ReadWord(address uintptr) (uint64, error) {
 	err := make(chan error, 1)
 	value := make(chan uint64, 1)
 	if t.do(func() {
-		v, e := peek(int(t.f.Fd()), address)
+		v, e := peek(int(t.dev.Fd()), address)
 		value <- v
 		err <- e
 	}) {
@@ -226,7 +267,7 @@ func poke(pid int, address uintptr, word uint64) error {
 // WriteWord writes the given word into the inferior's address space.
 func (t *Tracee) WriteWord(address uintptr, word uint64) error {
 	err := make(chan error, 1)
-	if t.do(func() { err <- poke(int(t.f.Fd()), address, word) }) {
+	if t.do(func() { err <- poke(int(t.dev.Fd()), address, word) }) {
 		return <-err
 	}
 	return ErrTraceeExited
@@ -236,7 +277,7 @@ func (t *Tracee) Write(address uintptr, data []byte) error {
 	err := make(chan error, 1)
 	Debug("Write %#x %#x", address, data)
 	if t.do(func() {
-		_, e := syscall.PtracePokeData(int(t.f.Fd()), address, data)
+		_, e := syscall.PtracePokeData(int(t.dev.Fd()), address, data)
 		err <- e
 	}) {
 		return <-err
@@ -248,7 +289,7 @@ func (t *Tracee) Write(address uintptr, data []byte) error {
 func (t *Tracee) Read(address uintptr, data []byte) error {
 	err := make(chan error, 1)
 	if t.do(func() {
-		_, e := syscall.PtracePeekData(int(t.f.Fd()), address, data)
+		_, e := syscall.PtracePeekData(int(t.dev.Fd()), address, data)
 		err <- e
 	}) {
 		return <-err
@@ -274,75 +315,13 @@ func (t *Tracee) ReadStupidString(address uintptr) (string, error) {
 	return s, nil
 }
 
-// GetRegs reads the registers from the inferior.
-func (t *Tracee) GetRegs() (*syscall.PtraceRegs, error) {
-	errchan := make(chan error, 1)
-	value := make(chan *syscall.PtraceRegs, 1)
-	if t.do(func() {
-		var regs syscall.PtraceRegs
-		err := syscall.PtraceGetRegs(int(t.f.Fd()), &regs)
-		value <- &regs
-		errchan <- err
-	}) {
-		return <-value, <-errchan
-	}
-	return &syscall.PtraceRegs{}, errors.New("GetRegs: Unreachable")
-}
-
-// GetIPtr reads the instruction pointer from the inferior and returns it.
-func (t *Tracee) GetIPtr() (uintptr, error) {
-	errchan := make(chan error, 1)
-	value := make(chan uintptr, 1)
-	if t.do(func() {
-		var regs syscall.PtraceRegs
-		regs.Rip = 0
-		err := syscall.PtraceGetRegs(int(t.f.Fd()), &regs)
-		value <- uintptr(regs.Rip)
-		errchan <- err
-	}) {
-		return <-value, <-errchan
-	}
-	return 0, ErrTraceeExited
-}
-
-// SetIPtr sets the instruction pointer for a Tracee.
-func (t *Tracee) SetIPtr(addr uintptr) error {
-	errchan := make(chan error, 1)
-	if t.do(func() {
-		var regs syscall.PtraceRegs
-		err := syscall.PtraceGetRegs(int(t.f.Fd()), &regs)
-		if err != nil {
-			errchan <- err
-			return
-		}
-		regs.Rip = uint64(addr)
-		err = syscall.PtraceSetRegs(int(t.f.Fd()), &regs)
-		errchan <- err
-	}) {
-		return <-errchan
-	}
-	return ErrTraceeExited
-}
-
-// SetRegs sets regs for a Tracee.
-func (t *Tracee) SetRegs(regs *syscall.PtraceRegs) error {
-	errchan := make(chan error, 1)
-	if t.do(func() {
-		err := syscall.PtraceSetRegs(int(t.f.Fd()), regs)
-		errchan <- err
-	}) {
-		return <-errchan
-	}
-	return ErrTraceeExited
-}
-
 // GetSiginfo reads the signal information for the signal that stopped the inferior.  Only
 // valid on Unix if the inferior is stopped due to a signal.
 func (t *Tracee) GetSiginfo() (*unix.SignalfdSiginfo, error) {
 	errchan := make(chan error, 1)
 	value := make(chan *unix.SignalfdSiginfo, 1)
 	if t.do(func() {
-		si, err := GetSigInfo(int(t.f.Fd()))
+		si, err := GetSigInfo(int(t.dev.Fd()))
 		errchan <- err
 		value <- si
 	}) {
@@ -357,7 +336,7 @@ func (t *Tracee) GetSiginfo() (*unix.SignalfdSiginfo, error) {
 func (t *Tracee) ClearSignal() error {
 	errchan := make(chan error, 1)
 	if t.do(func() {
-		errchan <- ClearSignals(int(int(t.f.Fd())))
+		errchan <- ClearSignals(int(int(t.dev.Fd())))
 	}) {
 		return <-errchan
 	}
@@ -385,7 +364,7 @@ func (t *Tracee) Close() error {
 	close(t.cmds)
 	t.cmds = nil
 
-	syscall.Kill(int(t.f.Fd()), syscall.SIGKILL)
+	syscall.Kill(int(t.dev.Fd()), syscall.SIGKILL)
 	return err
 }
 
