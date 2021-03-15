@@ -44,7 +44,7 @@ var (
 	createCPU     = iIO(0x41)
 	setGuestDebug = iIOW(0x9b, unsafe.Sizeof(DebugControl{}))
 	getRegs       = iIOR(0x81, unsafe.Sizeof(regs{}))
-	setRegs       = iIOR(0x82, unsafe.Sizeof(regs{}))
+	setRegs       = iIOW(0x82, unsafe.Sizeof(regs{}))
 	getSregs      = iIOR(0x83, unsafe.Sizeof(regs{}))
 	// don't use this	setMem        = iIOW(0x40, unsafe.Sizeof(Region{}))
 	setMem = iIOW(0x46, unsafe.Sizeof(UserRegion{}))

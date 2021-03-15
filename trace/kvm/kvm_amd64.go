@@ -10,6 +10,7 @@ import (
 type Exit uint64
 type cpu struct {
 	id int
+	fd uintptr
 }
 
 // APIVersion is the KVM API version.
@@ -82,6 +83,35 @@ func kvmRegstoPtraceRegs(pr *syscall.PtraceRegs, r *regs, s *sregs) {
 	// pr.Es = r.Es
 	// pr.Fs = r.Fs
 	// pr.Gs = r.Gs
+}
+
+func ptraceRegsToKVMRegs(pr *syscall.PtraceRegs, r *regs, s *sregs) {
+	r.r15 = pr.R15
+	r.r14 = pr.R14
+	r.r13 = pr.R13
+	r.r12 = pr.R12
+	r.rbp = pr.Rbp
+	r.rbx = pr.Rbx
+	r.r11 = pr.R11
+	r.r10 = pr.R10
+	r.r9 = pr.R9
+	r.r8 = pr.R8
+	r.rax = pr.Rax
+	r.rcx = pr.Rcx
+	r.rdx = pr.Rdx
+	r.rsi = pr.Rsi
+	r.rdi = pr.Rdi
+	r.rip = pr.Rip
+	//r.Cs=pr.Cs
+	r.rflags = pr.Eflags
+	r.rsp = pr.Rsp
+	// r.Ss=pr.Ss
+	// r.Fs_base=pr.Fs_base
+	// r.Gs_base=pr.Gs_base
+	// r.Ds=pr.Ds
+	// r.Es=pr.Es
+	// r.Fs=pr.Fs
+	// r.Gs=pr.Gs
 }
 
 // MemoryRegion is used for CREATE_MEMORY_REGION
@@ -798,12 +828,12 @@ func (t *Tracee) GetRegs() (*syscall.PtraceRegs, error) {
 		pr := &syscall.PtraceRegs{}
 		r := &regs{}
 		s := &sregs{}
-		if _, _, err := t.ioctl(getRegs, &r); err != nil {
+		if _, _, err := t.cpuioctl(getRegs, &r); err != nil {
 			value <- nil
 			errchan <- err
 		}
-		if false {
-			if _, _, err := t.ioctl(getSregs, &s); err != nil {
+		if false { // notimplemented?
+			if _, _, err := t.cpuioctl(getSregs, &s); err != nil {
 				value <- nil
 				errchan <- err
 			}
@@ -853,11 +883,17 @@ func (t *Tracee) SetIPtr(addr uintptr) error {
 }
 
 // SetRegs sets regs for a Tracee.
-func (t *Tracee) SetRegs(regs *syscall.PtraceRegs) error {
+func (t *Tracee) SetRegs(pr *syscall.PtraceRegs) error {
 	errchan := make(chan error, 1)
 	if t.do(func() {
-		err := syscall.PtraceSetRegs(int(t.dev.Fd()), regs)
-		errchan <- err
+		r := &regs{}
+		s := &sregs{}
+		ptraceRegsToKVMRegs(pr, r, s)
+		if _, _, err := t.cpuioctl(setRegs, &r); err != nil {
+			errchan <- err
+		}
+
+		errchan <- nil
 	}) {
 		return <-errchan
 	}

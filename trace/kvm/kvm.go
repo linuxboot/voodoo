@@ -45,18 +45,18 @@ type Tracee struct {
 	err     chan error
 	cmds    chan func()
 	regions []Region
-	cpu
+	cpu     cpu
 }
 
 func (t *Tracee) String() string {
 	return fmt.Sprintf("%s", t.dev.Name())
 }
 
-func (t *Tracee) ioctl(option uintptr, data interface{}) (r1, r2 uintptr, err error) {
+func (t *Tracee) vmioctl(option uintptr, data interface{}) (r1, r2 uintptr, err error) {
 	var errno syscall.Errno
 	switch option {
 	default:
-		r1, r2, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.dev.Fd()), uintptr(option), uintptr(unsafe.Pointer(&data)))
+		r1, r2, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), uintptr(option), uintptr(unsafe.Pointer(&data)))
 	}
 	if errno != 0 {
 		err = errno
@@ -64,8 +64,19 @@ func (t *Tracee) ioctl(option uintptr, data interface{}) (r1, r2 uintptr, err er
 	return
 }
 
+func (t *Tracee) cpuioctl(option uintptr, data interface{}) (r1, r2 uintptr, err error) {
+	var errno syscall.Errno
+	switch option {
+	default:
+		r1, r2, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), uintptr(option), uintptr(unsafe.Pointer(&data)))
+	}
+	if errno != 0 {
+		err = errno
+	}
+	return
+}
 func (t *Tracee) singleStep() error {
-	_, _, err := t.ioctl(setGuestDebug, &DebugControl{control: Enable | SingleStep})
+	_, _, err := t.cpuioctl(setGuestDebug, &DebugControl{control: Enable | SingleStep})
 	return err
 }
 
@@ -138,11 +149,12 @@ func New() (*Tracee, error) {
 
 // createCPU creates a CPU, given an id.
 func (t *Tracee) createCPU(id int) error {
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), uintptr(createCPU), 0)
+	r1, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), uintptr(createCPU), 0)
 	if errno != 0 {
 		return errno
 	}
-	t.id = id
+	t.cpu.id = id
+	t.cpu.fd = r1
 	return nil
 }
 
