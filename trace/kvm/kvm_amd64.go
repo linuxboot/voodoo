@@ -2,28 +2,30 @@ package kvm
 
 import "fmt"
 
-type KVMExit uint64
+// Exit is the VM exit value returned by KVM.
+type Exit uint64
 
+// APIVersion is the KVM API version.
 // The only API version we support.
 // The only API version anyway. This was
 // a mistake remedied by the capability stuff.
 const APIVersion = 12
 
-/* for CREATE_MEMORY_REGION */
-type kvm_memory_region struct {
-	slot            uint32
-	flags           uint32
-	guest_phys_addr uint64
-	memory_size     uint64 /* bytes */
+// MemoryRegion is used for CREATE_MEMORY_REGION
+type MemoryRegion struct {
+	slot  uint32
+	flags uint32
+	gpa   uint64
+	size  uint64 /* bytes */
 }
 
-/* for SET_USER_MEMORY_REGION */
+// Region is used for  SET_USER_MEMORY_REGION
 type Region struct {
-	slot            uint32
-	flags           uint32
-	guest_phys_addr uint64
-	memory_size     uint64 /* bytes */
-	userspace_addr  uint64 /* start of the userspace allocated memory */
+	slot     uint32
+	flags    uint32
+	gpa      uint64
+	size     uint64
+	useraddr uint64
 }
 
 /*
@@ -34,28 +36,29 @@ type Region struct {
 //#define MEM_LOG_DIRTY_PAGES	(1UL << 0)
 //#define MEM_READONLY	(1UL << 1)
 
+// KVM exit values.
 const (
-	ExitUnknown         = 0
-	ExitException       = 1
-	ExitIo              = 2
-	ExitHypercall       = 3
-	ExitDebug           = 4
-	ExitHlt             = 5
-	ExitMmio            = 6
-	ExitIrq_window_open = 7
-	ExitShutdown        = 8
-	ExitFail_entry      = 9
-	ExitIntr            = 10
-	ExitSet_tpr         = 11
-	ExitTpr_access      = 12
-	ExitNmi             = 16
-	ExitInternal_error  = 17
-	ExitOsi             = 18
+	ExitUnknown       = 0
+	ExitException     = 1
+	ExitIo            = 2
+	ExitHypercall     = 3
+	ExitDebug         = 4
+	ExitHlt           = 5
+	ExitMmio          = 6
+	ExitIrqWindowOpen = 7
+	ExitShutdown      = 8
+	ExitFailEntry     = 9
+	ExitIntr          = 10
+	ExitSetTPR        = 11
+	ExitTPRAccess     = 12
+	ExitNmi           = 16
+	ExitInternalError = 17
+	ExitOsi           = 18
 	// 	ExitPapr_hcall      = 19
-	ExitWatchdog     = 21
-	ExitEpr          = 23
-	ExitSystem_event = 24
-	ExitIoapic_eoi   = 26
+	ExitWatchdog    = 21
+	ExitEpr         = 23
+	ExitSystemEvent = 24
+	ExitIoapicEOI   = 26
 )
 
 /* For ExitINTERNAL_ERROR */
@@ -68,22 +71,22 @@ const (
 /* Encounter unexpected vm-exit reason */
 //#define INTERNAL_ERROR_UNEXPECTED_ExitREASON	4
 
-/* for RUN, returned by mmap(vcpu_fd, offset=0) */
-type kvm_run struct {
+// Run controls running, and is returned by mmap(vcpu_fd, offset=0)
+type Run struct {
 	/* in */
-	request_interrupt_window uint8
-	immediate_exit           uint8
-	padding1                 [6]uint8
+	RequestInterruptWindow uint8
+	ImmediateExit          uint8
+	_                      [6]uint8
 
 	/* out */
-	exit_reason                   uint32
-	ready_for_interrupt_injection uint8
-	if_flag                       uint8
-	flags                         uint16
+	ExitReason                 uint32
+	ReadyForInterruptInjection uint8
+	IFFlag                     uint8
+	flags                      uint16
 
 	/* in (pre_kvm_run), out (post_kvm_run) */
-	cr8       uint64
-	apic_base uint64
+	cr8      uint64
+	APICBase uint64
 	//////
 	//////	union {
 	//////		/* ExitUNKNOWN */
@@ -192,23 +195,23 @@ type kvm_run struct {
 	//////	} s
 }
 
-/* for TRANSLATE */
-type kvm_translation struct {
-	/* in */
-	linear_address uint64
+// Translate translates guest linear to physical? This is for for TRANSLATE
+type Translate struct {
+	// LinearAddress is input.
+	LinearAddress uint64
 
-	/* out */
-	physical_address uint64
-	valid            uint8
-	writeable        uint8
-	usermode         uint8
-	pad              [5]uint8
+	// This is output
+	PhysicalAddress uint64
+	Valid           uint8
+	Writeable       uint8
+	Usermode        uint8
+	_               [5]uint8
 }
 
-/* for GET_DIRTY_LOG */
-type kvm_dirty_log struct {
-	slot     uint32
-	padding1 uint32
+// DirtyLog gets a log of dirty pages.
+type DirtyLog struct {
+	Slot uint32
+	_    uint32
 
 	//	union {
 	//		void *dirty_bitmap /* one bit per page
@@ -217,56 +220,56 @@ type kvm_dirty_log struct {
 
 }
 
-/* for CLEAR_DIRTY_LOG */
-type kvm_clear_dirty_log struct {
-	slot       uint32
-	num_pages  uint32
-	first_page uint64
+// ClearDirtyLog clears the dirty page log.
+type ClearDirtyLog struct {
+	Slot      uint32
+	NumPages  uint32
+	FirstPage uint64
 	//	union {
 	//		void *dirty_bitmap /* one bit per page */
 	//		padding2 uint64
 	//	}
 }
 
-/* for SET_SIGNAL_MASK */
-type kvm_signal_mask struct {
+// SetSignalMask sets the signal mask
+type SetSignalMask struct {
 	len    uint32
 	sigset [0]uint8
 }
 
-/* for TPR_ACCESS_REPORTING */
-type kvm_tpr_access_ctl struct {
-	enabled  uint32
-	flags    uint32
-	reserved [8]uint32
+// TPRAccessCtl controls how TPRAccess is reported.
+type TPRAccessCtl struct {
+	Enabled uint32
+	Flags   uint32
+	_       [8]uint32
 }
 
-/* for SET_VAPIC_ADDR */
-type kvm_vapic_addr struct {
-	vapic_addr uint64
+// VAPICAddr sets the VAPIC address.
+type VAPICAddr struct {
+	Addr uint64
 }
 
 const (
-	// Enabled enables debug options in the guest
+	// Enable enables debug options in the guest
 	Enable = 1
 	// SingleStep enables single step.
 	SingleStep = 2
 )
 
-// Debug controls guest debug.
-type Debug struct {
+// DebugControl controls guest debug.
+type DebugControl struct {
 	control uint32
-	pad     uint32
+	_       uint32
 	//	arch    kvm_guest_debug_arch
 }
 
 const (
-	kvm_ioeventfd_flag_nr_datamatch = 0
-	kvm_ioeventfd_flag_nr_pio
-	kvm_ioeventfd_flag_nr_deassign
-	kvm_ioeventfd_flag_nr_virtio_ccw_notify
-	kvm_ioeventfd_flag_nr_fast_mmio
-	kvm_ioeventfd_flag_nr_max
+	ioeventfdFlagNRdatamatch = 0
+	ioeventfdFlagNRpio
+	ioeventfdFlagNRdeassign
+	ioeventfdFlagNRvirtioCCWNotify
+	ioeventfdFlagNRfastMMIO
+	ioeventfdFlagNRmax
 )
 
 //#define IOEVENTFD_FLAG_DATAMATCH (1 << kvm_ioeventfd_flag_nr_datamatch)
@@ -277,13 +280,14 @@ const (
 
 //#define IOEVENTFD_VALID_FLAG_MASK  ((1 << kvm_ioeventfd_flag_nr_max) - 1)
 
-type kvm_ioeventfd struct {
-	datamatch uint64
-	addr      uint64 /* legal pio/mmio address */
-	len       uint32 /* 1, 2, 4, or 8 or 0 to ignore length */
-	fd        int32
-	flags     uint32
-	pad       [36]uint8
+// IOEventFD controls how events are managed.
+type IOEventFD struct {
+	Datamatch uint64
+	Addr      uint64 /* legal pio/mmio address */
+	Len       uint32 /* 1, 2, 4, or 8 or 0 to ignore length */
+	FD        int32
+	Flags     uint32
+	_         [36]uint8
 }
 
 //#define X86_DISABLE_EXITS_MWAIT          (1 << 0)
@@ -295,8 +299,8 @@ type kvm_ioeventfd struct {
 //                                              X86_DISABLE_EXITS_PAUSE | \
 //                                              X86_DISABLE_EXITS_CSTATE)
 
-/* for ENABLE_CAP */
-type kvm_enable_cap struct {
+// EnableCap enables capabilities
+type enableCap struct {
 	/* in */
 	cap   uint32
 	flags uint32
@@ -546,12 +550,12 @@ type kvm_enable_cap struct {
 //#define REG_SIZE_U1024	0x0070000000000000ULL
 //#define REG_SIZE_U2048	0x0080000000000000ULL
 
-type kvm_reg_list struct {
+type regList struct {
 	n   uint64 /* number of regs */
 	reg [0]uint64
 }
 
-type kvm_one_reg struct {
+type oneReg struct {
 	id   uint64
 	addr uint64
 }
@@ -635,7 +639,7 @@ type kvm_one_reg struct {
 //#define KVMCLOCK_CTRL	  _IO(KVMIO,   0xad)
 //#define GET_REG_LIST	  _IOWR(KVMIO, 0xb0, struct kvm_reg_list)
 
-func (e *KVMExit) String() string {
+func (e *Exit) String() string {
 	switch *e {
 	case ExitUnknown:
 		return "ExitUnknown"
@@ -651,21 +655,21 @@ func (e *KVMExit) String() string {
 		return "ExitHlt"
 	case ExitMmio:
 		return "ExitMmio"
-	case ExitIrq_window_open:
+	case ExitIrqWindowOpen:
 		return "ExitIrq_window_open"
 	case ExitShutdown:
 		return "ExitShutdown"
-	case ExitFail_entry:
+	case ExitFailEntry:
 		return "ExitFail_entry"
 	case ExitIntr:
 		return "ExitIntr"
-	case ExitSet_tpr:
+	case ExitSetTPR:
 		return "ExitSet_tpr"
-	case ExitTpr_access:
+	case ExitTPRAccess:
 		return "ExitTpr_access"
 	case ExitNmi:
 		return "ExitNmi"
-	case ExitInternal_error:
+	case ExitInternalError:
 		return "ExitInternal_error"
 	case ExitOsi:
 		return "ExitOsi"
@@ -673,9 +677,9 @@ func (e *KVMExit) String() string {
 		return "ExitWatchdog"
 	case ExitEpr:
 		return "ExitEpr"
-	case ExitSystem_event:
+	case ExitSystemEvent:
 		return "ExitSystem_event"
-	case ExitIoapic_eoi:
+	case ExitIoapicEOI:
 		return "ExitIoapic_eoi"
 	}
 	return fmt.Sprintf("unknown exit %#x", *e)

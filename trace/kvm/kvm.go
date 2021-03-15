@@ -20,7 +20,7 @@ var (
 	ErrTraceeExited = errors.New("tracee exited")
 	// Debug can be set externally to trace activity.
 	Debug      = func(string, ...interface{}) {}
-	DeviceName = flag.String("kvmdevice", "/dev/kvm", "kvm device to use")
+	deviceName = flag.String("kvmdevice", "/dev/kvm", "kvm device to use")
 )
 
 // An Event is sent on a Tracee's event channel whenever it changes state.
@@ -34,17 +34,21 @@ type Tracee struct {
 	cmds   chan func()
 }
 
+func (t *Tracee) String() string {
+	return fmt.Sprintf("%s", t.f.Name())
+}
+
 func (t *Tracee) ioctl(option int, data interface{}) error {
 	var err error
 	switch option {
 	default:
-		_, _, err = syscall.Ioctl(syscall.IOCTL, t.f.Fd(), option, unsafe.Pointer(data))
+		_, _, err = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.f.Fd()), uintptr(option), uintptr(unsafe.Pointer(&data)))
 	}
 	return err
 }
 
 func (t *Tracee) singleStep() error {
-	return t.ioctl(SetGuestDebug, &debug{control: DebugEnable | SingleStep})
+	return t.ioctl(setGuestDebug, &DebugControl{control: Enable | SingleStep})
 }
 
 // PID returns the PID for a Tracee.
@@ -66,10 +70,9 @@ func version(*os.File) (uint64, error) {
 
 }
 
-// Exec executes a process with tracing enabled, returning the Tracee
-// or an error if an error occurs while executing the process.
-func Exec(name string, argv []string) (*Tracee, error) {
-	k, err := os.OpenFile(*DeviceName, os.O_RDWR, 0)
+// New returns a new Tracee. It will fail if the kvm device can not be opened.
+func New() (*Tracee, error) {
+	k, err := os.OpenFile(*deviceName, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +85,12 @@ func Exec(name string, argv []string) (*Tracee, error) {
 		err:    make(chan error, 1),
 		cmds:   make(chan func()),
 	}
+	return t, nil
+}
 
+// Exec executes a process with tracing enabled, returning the Tracee
+// or an error if an error occurs while executing the process.
+func (t *Tracee) Exec(name string, argv ...string) error {
 	errs := make(chan error)
 	proc := make(chan *os.File)
 
@@ -105,7 +113,7 @@ func Exec(name string, argv []string) (*Tracee, error) {
 		// INIT_LIST_HEAD(&kvm->mem_banks);
 		// kvm__init_ram(kvm);
 		var e error
-		proc <- k
+		proc <- t.f
 		errs <- e
 		if e != nil {
 			return
@@ -114,7 +122,7 @@ func Exec(name string, argv []string) (*Tracee, error) {
 		t.trace()
 	}()
 	t.f = <-proc
-	return t, <-errs
+	return <-errs
 }
 
 // Attach attaches to the given process.
@@ -124,7 +132,10 @@ func Attach(pid int) (*Tracee, error) {
 
 // Detach detaches the tracee, destroying it in the process.
 func (t *Tracee) Detach() error {
-	return fmt.Errorf("not yet")
+	if err := t.f.Close(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // SingleStep continues the tracee for one instruction.

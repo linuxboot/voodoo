@@ -263,14 +263,14 @@ func GetReg(r *syscall.PtraceRegs, reg x86asm.Reg) (*uint64, error) {
 }
 
 // Params sets paramers in %rcx, %rdx
-func (p *Tracee) Params(ImageHandle, SystemTable uintptr) error {
-	r, err := p.GetRegs()
+func (t *Tracee) Params(ImageHandle, SystemTable uintptr) error {
+	r, err := t.GetRegs()
 	if err != nil {
 		return err
 	}
 	r.Rcx = uint64(ImageHandle)
 	r.Rdx = uint64(SystemTable)
-	return p.SetRegs(r)
+	return t.SetRegs(r)
 }
 
 // Inst retrieves an instruction from the traced process.
