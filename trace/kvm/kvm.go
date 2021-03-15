@@ -120,8 +120,11 @@ func (t *Tracee) mem(b []byte, base uint64) error {
 	u := &UserRegion{slot: 0, flags: 0, gpa: base, size: uint64(len(b)), useraddr: uint64(uintptr(unsafe.Pointer(&b[0])))}
 	binary.Write(p, binary.LittleEndian, u)
 	log.Printf("ioctl %s", hex.Dump(p.Bytes()))
-	_, _, err := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.dev.Fd()), uintptr(setMem), uintptr(unsafe.Pointer(&p.Bytes()[0])))
-	return err
+	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), uintptr(setMem), uintptr(unsafe.Pointer(&p.Bytes()[0])))
+	if errno == 0 {
+		return nil
+	}
+	return errno
 }
 
 // This allows setting up mem for a guest.
