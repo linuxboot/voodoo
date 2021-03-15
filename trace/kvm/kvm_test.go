@@ -37,14 +37,27 @@ func TestCreateRegion(t *testing.T) {
 	}
 }
 
-func testGetRegs(t *testing.T) {
+func TestCreateCpu(t *testing.T) {
 	v, err := New()
 	if err != nil {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
-	t.Logf("%v", v)
-	err = v.Exec("", []string{""}...)
-	if err := v.Detach(); err != nil {
-		t.Fatalf("Detach: Got %v, want nil", err)
+	defer v.Detach()
+	if err := v.createCPU(0); err != nil {
+		t.Fatalf("createCPU: got %v, want nil", err)
 	}
+}
+
+func TestGetRegs(t *testing.T) {
+	v, err := New()
+	if err != nil {
+		t.Fatalf("Open: got %v, want nil", err)
+	}
+	defer v.Detach()
+	t.Logf("%v", v)
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	t.Logf("Regs %v", r)
 }

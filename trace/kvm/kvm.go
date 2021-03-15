@@ -45,23 +45,28 @@ type Tracee struct {
 	err     chan error
 	cmds    chan func()
 	regions []Region
+	cpu
 }
 
 func (t *Tracee) String() string {
 	return fmt.Sprintf("%s", t.dev.Name())
 }
 
-func (t *Tracee) ioctl(option uintptr, data interface{}) error {
-	var err error
+func (t *Tracee) ioctl(option uintptr, data interface{}) (r1, r2 uintptr, err error) {
+	var errno syscall.Errno
 	switch option {
 	default:
-		_, _, err = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.dev.Fd()), uintptr(option), uintptr(unsafe.Pointer(&data)))
+		r1, r2, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.dev.Fd()), uintptr(option), uintptr(unsafe.Pointer(&data)))
 	}
-	return err
+	if errno != 0 {
+		err = errno
+	}
+	return
 }
 
 func (t *Tracee) singleStep() error {
-	return t.ioctl(setGuestDebug, &DebugControl{control: Enable | SingleStep})
+	_, _, err := t.ioctl(setGuestDebug, &DebugControl{control: Enable | SingleStep})
+	return err
 }
 
 // PID returns the PID for a Tracee.
@@ -109,7 +114,36 @@ func New() (*Tracee, error) {
 		err:    make(chan error, 1),
 		cmds:   make(chan func()),
 	}
-	return t, nil
+	errs := make(chan error)
+	go func() {
+		// if (kvm__check_extensions(kvm)) {
+		// 	pr_err("A required KVM extension is not supported by OS");
+		// 	ret = -ENOSYS;
+		// 	goto err_vm_fd;
+		// }
+
+		// kvm__arch_init(kvm, kvm->cfg.hugetlbfs_path, kvm->cfg.ram_size);
+
+		// kvm__init_ram(kvm);
+		var e error
+		errs <- e
+		if e != nil {
+			return
+		}
+		go t.wait()
+		t.trace()
+	}()
+	return t, <-errs
+}
+
+// createCPU creates a CPU, given an id.
+func (t *Tracee) createCPU(id int) error {
+	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), uintptr(createCPU), 0)
+	if errno != 0 {
+		return errno
+	}
+	t.id = id
+	return nil
 }
 
 // This allows setting up mem for a guest.
@@ -124,15 +158,11 @@ func (t *Tracee) mem(b []byte, base uint64) error {
 	if errno == 0 {
 		return nil
 	}
-	return errno
-}
 
-// This allows setting up mem for a guest.
-// This is not exposed because it's not supported by ptrace(2)
-// and the trace model is the common subset of ptrace and kvm.
-func (t *Tracee) unusedcreateMem(base, size uint64) error {
-	var r = &CreateRegion{slot: 0, flags: 0, gpa: base, size: size}
-	return t.ioctl(setMem, r)
+	// Kick of the async executor for cmds.
+	// Still not sure we want this, but a goroutine per vm is a little
+	// bit compelling, so keep it for now.
+	return errno
 }
 
 // Exec executes a process with tracing enabled, returning the Tracee

@@ -41,6 +41,7 @@ func iIOC(dir, nr, size uintptr) uintptr {
 var (
 	kvmversion    = iIO(0)
 	vmcreate      = iIO(1)
+	createCPU     = iIO(0x41)
 	setGuestDebug = iIOW(0x9b, unsafe.Sizeof(DebugControl{}))
 	getRegs       = iIOR(0x81, unsafe.Sizeof(regs{}))
 	setRegs       = iIOR(0x82, unsafe.Sizeof(regs{}))

@@ -8,6 +8,9 @@ import (
 
 // Exit is the VM exit value returned by KVM.
 type Exit uint64
+type cpu struct {
+	id int
+}
 
 // APIVersion is the KVM API version.
 // The only API version we support.
@@ -48,7 +51,7 @@ type sregs struct {
 	cr0, cr2, cr3, cr4, cr8 uint64
 	efer                    uint64
 	apic                    uint16
-	interruptBitmap        [(256 + 63) / 64]uint64
+	interruptBitmap         [(256 + 63) / 64]uint64
 }
 
 func kvmRegstoPtraceRegs(pr *syscall.PtraceRegs, r *regs, s *sregs) {
@@ -795,13 +798,15 @@ func (t *Tracee) GetRegs() (*syscall.PtraceRegs, error) {
 		pr := &syscall.PtraceRegs{}
 		r := &regs{}
 		s := &sregs{}
-		if err := t.ioctl(getRegs, &r); err != nil {
+		if _, _, err := t.ioctl(getRegs, &r); err != nil {
 			value <- nil
 			errchan <- err
 		}
-		if err := t.ioctl(getSregs, &s); err != nil {
-			value <- nil
-			errchan <- err
+		if false {
+			if _, _, err := t.ioctl(getSregs, &s); err != nil {
+				value <- nil
+				errchan <- err
+			}
 		}
 		kvmRegstoPtraceRegs(pr, r, s)
 		value <- pr
