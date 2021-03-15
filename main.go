@@ -18,7 +18,7 @@ import (
 	"os/exec"
 	"reflect"
 
-	"github.com/linuxboot/voodoo/ptrace"
+	"github.com/linuxboot/voodoo/trace"
 	"github.com/linuxboot/voodoo/services"
 	"golang.org/x/sys/unix"
 )
@@ -88,7 +88,7 @@ func main() {
 		log.Fatal(err)
 	}
 	if *optional {
-		ptrace.RegsPrint = ptrace.AllregsPrint
+		trace.RegsPrint = trace.AllregsPrint
 	}
 	if *singlestep {
 		step = any
@@ -112,7 +112,7 @@ func main() {
 	}
 	eip := uintptr(e.Entry)
 	e.Close()
-	t, err := ptrace.Exec(*elfFile, []string{*elfFile})
+	t, err := trace.Exec(*elfFile, []string{*elfFile})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func main() {
 		// For now we assume the entry point is the start of the first segment
 		eip = base + uintptr(f.Sections[0].VirtualAddress)
 	}
-	ptrace.Debug = log.Printf
+	trace.Debug = log.Printf
 	// *start overrides it all.
 	if *start != 0 {
 		eip = uintptr(*start)
@@ -176,7 +176,7 @@ func main() {
 	if err := t.Params(uintptr(services.ImageHandle), uintptr(st)); err != nil {
 		log.Fatalf("Setting params: %v", err)
 	}
-	if err := ptrace.Header(os.Stdout); err != nil {
+	if err := trace.Header(os.Stdout); err != nil {
 		log.Fatal(err)
 	}
 	line++
@@ -184,7 +184,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Could not get regs: %v", err)
 	}
-	if err := ptrace.Regs(os.Stdout, r); err != nil {
+	if err := trace.Regs(os.Stdout, r); err != nil {
 		log.Fatal(err)
 	}
 	p := r
@@ -247,10 +247,10 @@ func main() {
 			// it's easy.
 			//showone(os.Stderr, "", &r)
 			//any(fmt.Sprintf("Handle the segv at %#x", i.Addr))
-			if err := ptrace.Regs(os.Stdout, r); err != nil {
+			if err := trace.Regs(os.Stdout, r); err != nil {
 				log.Fatal(err)
 			}
-			segvasm := ptrace.Asm(insn, r.Rip)
+			segvasm := trace.Asm(insn, r.Rip)
 			if err := segv(t, i, insn, r, segvasm); err != nil {
 				if err == io.EOF {
 					fmt.Println("\n===:DXE Exits!")
@@ -288,13 +288,13 @@ func main() {
 				log.Printf("%v,", i)
 			}
 		}
-		if err := ptrace.RegDiff(os.Stdout, r, p); err != nil {
+		if err := trace.RegDiff(os.Stdout, r, p); err != nil {
 			log.Fatal(err)
 		}
-		asm := ptrace.Asm(insn, r.Rip)
+		asm := trace.Asm(insn, r.Rip)
 		fmt.Println(asm)
 		if line%25 == 0 {
-			ptrace.Header(os.Stdout)
+			trace.Header(os.Stdout)
 		}
 		p = r
 		if err := t.SingleStep(); err != nil {
