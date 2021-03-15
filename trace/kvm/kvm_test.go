@@ -63,7 +63,30 @@ func TestGetRegs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
-	t.Logf("Regs %v", r)
+	pr, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("2nd GetRegs: got %v, want nil", err)
+	}
+	diff(t.Errorf, pr.R15, r.R15, "R15")
+	diff(t.Errorf, pr.R14, r.R14, "R14")
+	diff(t.Errorf, pr.R13, r.R13, "R13")
+	diff(t.Errorf, pr.R12, r.R12, "R12")
+	diff(t.Errorf, pr.Rbp, r.Rbp, "Rbp")
+	diff(t.Errorf, pr.Rbx, r.Rbx, "Rbx")
+	diff(t.Errorf, pr.R11, r.R11, "R11")
+	diff(t.Errorf, pr.R10, r.R10, "R10")
+	diff(t.Errorf, pr.R9, r.R9, "R9")
+	diff(t.Errorf, pr.R8, r.R8, "R8")
+	diff(t.Errorf, pr.Rax, r.Rax, "Rax")
+	diff(t.Errorf, pr.Rcx, r.Rcx, "Rcx")
+	diff(t.Errorf, pr.Rdx, r.Rdx, "Rdx")
+	diff(t.Errorf, pr.Rsi, r.Rsi, "Rsi")
+	diff(t.Errorf, pr.Rdi, r.Rdi, "Rdi")
+	diff(t.Errorf, pr.Rip, r.Rip, "Rip")
+	diff(t.Errorf, pr.Rsp, r.Rsp, "Rsp")
+	diff(t.Errorf, uint64(r.Cs), uint64(r.Cs), "cs")
+	diff(t.Errorf, uint64(r.Ds), uint64(r.Ds), "cs")
+	diff(t.Errorf, uint64(r.Ss), uint64(r.Ss), "cs")
 }
 
 func TestSetRegs(t *testing.T) {
@@ -80,6 +103,7 @@ func TestSetRegs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
+	t.Logf(show("Read:\t", r))
 	pr := &syscall.PtraceRegs{}
 	pr.R15 = ^r.R15
 	pr.R14 = ^r.R14
@@ -98,13 +122,20 @@ func TestSetRegs(t *testing.T) {
 	pr.Rdi = ^r.Rdi
 	pr.Rip = ^r.Rip
 	pr.Rsp = ^r.Rsp
+	pr.Cs = 0xff00
+	pr.Ds = 0xfe00
+	pr.Ss = 0xfd00
+
 	if err := v.SetRegs(pr); err != nil {
 		t.Fatalf("setregs: got %v, want nil", err)
 	}
+	t.Logf(show("Set:\t", pr))
 	r, err = v.GetRegs()
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
+	t.Logf("%s", show("After:\t", r))
+	// Don't check 15-8 for now
 
 	diff(t.Errorf, pr.R15, r.R15, "R15")
 	diff(t.Errorf, pr.R14, r.R14, "R14")
@@ -116,6 +147,7 @@ func TestSetRegs(t *testing.T) {
 	diff(t.Errorf, pr.R10, r.R10, "R10")
 	diff(t.Errorf, pr.R9, r.R9, "R9")
 	diff(t.Errorf, pr.R8, r.R8, "R8")
+
 	diff(t.Errorf, pr.Rax, r.Rax, "Rax")
 	diff(t.Errorf, pr.Rcx, r.Rcx, "Rcx")
 	diff(t.Errorf, pr.Rdx, r.Rdx, "Rdx")
@@ -123,6 +155,9 @@ func TestSetRegs(t *testing.T) {
 	diff(t.Errorf, pr.Rdi, r.Rdi, "Rdi")
 	diff(t.Errorf, pr.Rip, r.Rip, "Rip")
 	diff(t.Errorf, pr.Rsp, r.Rsp, "Rsp")
+	diff(t.Errorf, uint64(r.Cs), uint64(pr.Cs), "cs")
+	diff(t.Errorf, uint64(r.Ds), uint64(pr.Ds), "ds")
+	diff(t.Errorf, uint64(r.Ss), uint64(pr.Ss), "ss")
 
 }
 
@@ -132,4 +167,60 @@ func diff(f func(string, ...interface{}), a, b uint64, n string) bool {
 		return true
 	}
 	return false
+}
+
+func TestRunUD2(t *testing.T) {
+	v, err := New()
+	if err != nil {
+		t.Fatalf("Open: got %v, want nil", err)
+	}
+	defer v.Detach()
+	t.Logf("%v", v)
+	if err := v.createCPU(0); err != nil {
+		t.Fatalf("createCPU: got %v, want nil", err)
+	}
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	type page [2 * 1048576]byte
+	b := &page{}
+	if err := v.mem([]byte(b[:]), 0); err != nil {
+		t.Fatalf("creating %d byte region: got %v, want nil", len(b), err)
+	}
+	t.Logf("IP is %#x", r.Rip)
+	if err := v.SingleStep(); err != nil {
+		t.Fatalf("SingleStep: got %v, want nil", err)
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	t.Logf("IP is %#x", r.Rip)
+}
+
+func TestHalt(t *testing.T) {
+	v, err := New()
+	if err != nil {
+		t.Fatalf("Open: got %v, want nil", err)
+	}
+	defer v.Detach()
+	if err := v.createCPU(0); err != nil {
+		t.Fatalf("createCPU: got %v, want nil", err)
+	}
+	type page [2 * 1048576]byte
+	b := &page{}
+	hlt := []byte(b[:])
+	for i := range hlt {
+		hlt[i] = 0xf4
+	}
+	if err := v.mem([]byte(b[:]), 0); err != nil {
+		t.Fatalf("creating %d byte region: got %v, want nil", len(b), err)
+	}
+	if err := v.EnableSingleStep(); err != nil {
+		t.Fatalf("EnableSingleStep: got %v, want nil", err)
+	}
+	if err := v.SingleStep(); err != nil {
+		t.Fatalf("SingleStep: got %v, want nil", err)
+	}
 }

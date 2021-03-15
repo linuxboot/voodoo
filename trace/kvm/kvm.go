@@ -75,13 +75,54 @@ func (t *Tracee) cpuioctl(option uintptr, data interface{}) (r1, r2 uintptr, err
 	}
 	return
 }
-func (t *Tracee) singleStep() error {
-	_, _, err := t.cpuioctl(setGuestDebug, &DebugControl{control: Enable | SingleStep})
-	return err
+
+func ioctl(fd uintptr, op uintptr, arg uintptr) (err error) {
+	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, fd, op, arg)
+	if errno != 0 {
+		err = errno
+	}
+	return
+}
+
+// EnableSingleStep enables single stepping the guest
+func (t *Tracee) EnableSingleStep() error {
+	err := make(chan error, 1)
+	if t.do(func() {
+		// this is not very nice, but it is easy.
+		// And TBH, the tricks the Linux kernel people
+		// play are a lot nastier.
+		debug := [unsafe.Sizeof(DebugControl{})]byte{Enable | SingleStep}
+		err <- ioctl(t.cpu.fd, setGuestDebug, uintptr(unsafe.Pointer(&debug[0])))
+	}) {
+		return <-err
+	}
+	return ErrTraceeExited
+}
+
+// SingleStep continues the tracee for one instruction.
+// Todo: see if we are in single step mode, if not, set, etc.
+func (t *Tracee) SingleStep() error {
+	err := make(chan error, 1)
+	if t.do(func() {
+		// if e := t.singleStep(); err != nil {
+		// 	err <- e
+		// 	return
+		// }
+		_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), run, 0)
+		if errno == 0 {
+			err <- nil
+			return
+		}
+		err <- errno
+	}) {
+		return <-err
+	}
+	return ErrTraceeExited
 }
 
 // PID returns the PID for a Tracee.
-func (t *Tracee) PID() int { return int(t.dev.Fd()) }
+// we'll return the cpuid for now.
+func (t *Tracee) PID() int { return int(t.cpu.id) }
 
 // Events returns the events channel for the tracee.
 func (t *Tracee) Events() <-chan Event {
@@ -127,6 +168,9 @@ func New() (*Tracee, error) {
 	}
 	errs := make(chan error)
 	go func() {
+
+		// mmap and go don't really get along, so we'll not bother
+		// with the mmap'ed bits for now.
 		// if (kvm__check_extensions(kvm)) {
 		// 	pr_err("A required KVM extension is not supported by OS");
 		// 	ret = -ENOSYS;
@@ -165,7 +209,9 @@ func (t *Tracee) mem(b []byte, base uint64) error {
 	p := &bytes.Buffer{}
 	u := &UserRegion{slot: 0, flags: 0, gpa: base, size: uint64(len(b)), useraddr: uint64(uintptr(unsafe.Pointer(&b[0])))}
 	binary.Write(p, binary.LittleEndian, u)
-	log.Printf("ioctl %s", hex.Dump(p.Bytes()))
+	if false {
+		log.Printf("ioctl %s", hex.Dump(p.Bytes()))
+	}
 	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), uintptr(setMem), uintptr(unsafe.Pointer(&p.Bytes()[0])))
 	if errno == 0 {
 		return nil
@@ -222,15 +268,6 @@ func (t *Tracee) Detach() error {
 		return err
 	}
 	return nil
-}
-
-// SingleStep continues the tracee for one instruction.
-func (t *Tracee) SingleStep() error {
-	err := make(chan error, 1)
-	if t.do(func() { err <- syscall.PtraceSingleStep(int(t.dev.Fd())) }) {
-		return <-err
-	}
-	return ErrTraceeExited
 }
 
 // Continue makes the tracee execute unmanaged by the tracer.  Most commands are not

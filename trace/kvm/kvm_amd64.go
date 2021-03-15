@@ -1,9 +1,13 @@
 package kvm
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"reflect"
 	"syscall"
+	"unsafe"
 )
 
 // Exit is the VM exit value returned by KVM.
@@ -19,99 +23,125 @@ type cpu struct {
 // a mistake remedied by the capability stuff.
 const APIVersion = 12
 
+//  {rax=0, rbx=0, rcx=0, rdx=0, rsi=0, rdi=0, rsp=0, rbp=0, r8=0, r9=0, r10=0, r11=0, r12=0, r13=0, r14=0, r15=0, rip=0xfff0, rflags=0x2}
 type regs struct {
-	rax, rbx, rcx, rdx uint64
-	rsi, rdi, rsp, rbp uint64
-	r8, r9, r10, r11   uint64
-	r12, r13, r14, r15 uint64
-	rip, rflags        uint64
+	Rax, Rbx, Rcx, Rdx uint64
+	Rsi, Rdi, Rsp, Rbp uint64
+	R8, R9, R10, R11   uint64
+	R12, R13, R14, R15 uint64
+	Rip, Rflags        uint64
 }
 
 type segment struct {
-	base                           uint64
-	limit                          uint32
-	selector                       uint16
-	stype                          uint8
-	present, dpl, db, s, l, g, avl uint8
+	Base                           uint64
+	Limit                          uint32
+	Selector                       uint16
+	Stype                          uint8
+	Present, DPL, DB, S, L, G, AVL uint8
 	_                              uint8
 	_                              uint8
 }
 
+func showone(indent string, in interface{}) string {
+	var ret string
+	s := reflect.ValueOf(in).Elem()
+	typeOfT := s.Type()
+
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+		switch f.Kind() {
+		case reflect.String:
+			ret += fmt.Sprintf(indent+"%s %s = %s\n", typeOfT.Field(i).Name, f.Type(), f.Interface())
+		default:
+			ret += fmt.Sprintf(indent+"%s %s = %#x\n", typeOfT.Field(i).Name, f.Type(), f.Interface())
+		}
+	}
+	return ret
+}
+
+func show(indent string, l ...interface{}) string {
+	var ret string
+	for _, i := range l {
+		ret += showone(indent, i)
+	}
+	return ret
+}
+
 type dtable struct {
-	base  uint64
-	limit uint16
+	Base  uint64
+	Limit uint16
 	_     [3]uint16
 }
 
 /* for KVM_GET_SREGS and KVM_SET_SREGS */
 type sregs struct {
 	/* out (KVM_GET_SREGS) / in (KVM_SET_SREGS) */
-	cs, ds, es, fs, gs, ss  segment
-	tr, ldt                 segment
-	gdt, idt                dtable
-	cr0, cr2, cr3, cr4, cr8 uint64
-	efer                    uint64
-	apic                    uint16
-	interruptBitmap         [(256 + 63) / 64]uint64
+	CS, DS, ES, FS, GS, SS  segment
+	TR, LDT                 segment
+	GDT, IDT                dtable
+	CR0, CR2, CR3, CR4, CR8 uint64
+	EFER                    uint64
+	APIC                    uint16
+	InterruptBitmap         [(256 + 63) / 64]uint64
 }
 
 func kvmRegstoPtraceRegs(pr *syscall.PtraceRegs, r *regs, s *sregs) {
-	pr.R15 = r.r15
-	pr.R14 = r.r14
-	pr.R13 = r.r13
-	pr.R12 = r.r12
-	pr.Rbp = r.rbp
-	pr.Rbx = r.rbx
-	pr.R11 = r.r11
-	pr.R10 = r.r10
-	pr.R9 = r.r9
-	pr.R8 = r.r8
-	pr.Rax = r.rax
-	pr.Rcx = r.rcx
-	pr.Rdx = r.rdx
-	pr.Rsi = r.rsi
-	pr.Rdi = r.rdi
-	pr.Orig_rax = r.rax /// hmmm ....
-	pr.Rip = r.rip
-	//pr.Cs = r.Cs
-	pr.Eflags = r.rflags
-	pr.Rsp = r.rsp
-	// pr.Ss = r.Ss
-	// pr.Fs_base = r.Fs_base
-	// pr.Gs_base = r.Gs_base
-	// pr.Ds = r.Ds
-	// pr.Es = r.Es
-	// pr.Fs = r.Fs
-	// pr.Gs = r.Gs
+	pr.R15 = r.R15
+	pr.R14 = r.R14
+	pr.R13 = r.R13
+	pr.R12 = r.R12
+	pr.Rbp = r.Rbp
+	pr.Rbx = r.Rbx
+	pr.R11 = r.R11
+	pr.R10 = r.R10
+	pr.R9 = r.R9
+	pr.R8 = r.R8
+	pr.Rax = r.Rax
+	pr.Rcx = r.Rcx
+	pr.Rdx = r.Rdx
+	pr.Rsi = r.Rsi
+	pr.Rdi = r.Rdi
+	pr.Orig_rax = r.Rax /// hmmm ....
+	pr.Rip = r.Rip
+	pr.Cs = uint64(s.CS.Selector)
+	pr.Eflags = r.Rflags
+	pr.Rsp = r.Rsp
+	pr.Ss = uint64(s.SS.Selector)
+	//pr.Fs_base = uint64(s.fs_base.Selector)
+	//pr.Gs_base = uint64(s.gs_base.Selector)
+	pr.Ds = uint64(s.DS.Selector)
+	pr.Es = uint64(s.ES.Selector)
+	pr.Fs = uint64(s.FS.Selector)
+	pr.Gs = uint64(s.GS.Selector)
 }
 
 func ptraceRegsToKVMRegs(pr *syscall.PtraceRegs, r *regs, s *sregs) {
-	r.r15 = pr.R15
-	r.r14 = pr.R14
-	r.r13 = pr.R13
-	r.r12 = pr.R12
-	r.rbp = pr.Rbp
-	r.rbx = pr.Rbx
-	r.r11 = pr.R11
-	r.r10 = pr.R10
-	r.r9 = pr.R9
-	r.r8 = pr.R8
-	r.rax = pr.Rax
-	r.rcx = pr.Rcx
-	r.rdx = pr.Rdx
-	r.rsi = pr.Rsi
-	r.rdi = pr.Rdi
-	r.rip = pr.Rip
-	//r.Cs=pr.Cs
-	r.rflags = pr.Eflags
-	r.rsp = pr.Rsp
-	// r.Ss=pr.Ss
-	// r.Fs_base=pr.Fs_base
-	// r.Gs_base=pr.Gs_base
-	// r.Ds=pr.Ds
-	// r.Es=pr.Es
-	// r.Fs=pr.Fs
-	// r.Gs=pr.Gs
+	r.R15 = pr.R15
+	r.R14 = pr.R14
+	r.R13 = pr.R13
+	r.R12 = pr.R12
+	r.Rbp = pr.Rbp
+	r.Rbx = pr.Rbx
+	r.R11 = pr.R11
+	r.R10 = pr.R10
+	r.R9 = pr.R9
+	r.R8 = pr.R8
+	r.Rax = pr.Rax
+	r.Rcx = pr.Rcx
+	r.Rdx = pr.Rdx
+	r.Rsi = pr.Rsi
+	r.Rdi = pr.Rdi
+	r.Rip = pr.Rip
+	s.CS.Selector = uint16(pr.Cs)
+	r.Rflags = pr.Eflags
+	r.Rsp = pr.Rsp
+	s.SS.Selector = uint16(pr.Ss)
+	//s.fs_base = pr.Fs_base
+	//s.gs_base = pr.Gs_base
+	s.DS.Selector = uint16(pr.Ds)
+	s.ES.Selector = uint16(pr.Es)
+	s.FS.Selector = uint16(pr.Fs)
+	s.GS.Selector = uint16(pr.Gs)
 }
 
 // MemoryRegion is used for CREATE_MEMORY_REGION
@@ -369,7 +399,7 @@ const (
 
 // DebugControl controls guest debug.
 type DebugControl struct {
-	control uint32
+	Control uint32
 	_       uint32
 	//	arch    kvm_guest_debug_arch
 }
@@ -825,19 +855,23 @@ func (t *Tracee) GetRegs() (*syscall.PtraceRegs, error) {
 	errchan := make(chan error, 1)
 	value := make(chan *syscall.PtraceRegs, 1)
 	if t.do(func() {
+		var rdata [unsafe.Sizeof(regs{})]byte
+		var sdata [unsafe.Sizeof(sregs{})]byte
 		pr := &syscall.PtraceRegs{}
 		r := &regs{}
 		s := &sregs{}
-		if _, _, err := t.cpuioctl(getRegs, &r); err != nil {
+
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getRegs, uintptr(unsafe.Pointer(&rdata[0]))); errno != 0 {
 			value <- nil
-			errchan <- err
+			errchan <- errno
 		}
-		if false { // notimplemented?
-			if _, _, err := t.cpuioctl(getSregs, &s); err != nil {
-				value <- nil
-				errchan <- err
-			}
+		binary.Read(bytes.NewReader(rdata[:]), binary.LittleEndian, r)
+
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getSregs, uintptr(unsafe.Pointer(&sdata[0]))); errno != 0 {
+			value <- nil
+			errchan <- errno
 		}
+		binary.Read(bytes.NewReader(sdata[:]), binary.LittleEndian, s)
 		kvmRegstoPtraceRegs(pr, r, s)
 		value <- pr
 		errchan <- nil
@@ -886,11 +920,18 @@ func (t *Tracee) SetIPtr(addr uintptr) error {
 func (t *Tracee) SetRegs(pr *syscall.PtraceRegs) error {
 	errchan := make(chan error, 1)
 	if t.do(func() {
+		rdata, sdata := &bytes.Buffer{}, &bytes.Buffer{}
 		r := &regs{}
 		s := &sregs{}
 		ptraceRegsToKVMRegs(pr, r, s)
-		if _, _, err := t.cpuioctl(setRegs, &r); err != nil {
-			errchan <- err
+		binary.Write(rdata, binary.LittleEndian, r)
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setRegs, uintptr(unsafe.Pointer(&rdata.Bytes()[0]))); errno != 0 {
+			errchan <- errno
+		}
+
+		binary.Write(sdata, binary.LittleEndian, s)
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setSregs, uintptr(unsafe.Pointer(&sdata.Bytes()[0]))); errno != 0 {
+			errchan <- errno
 		}
 
 		errchan <- nil
