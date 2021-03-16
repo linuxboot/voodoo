@@ -208,42 +208,12 @@ func TestHalt(t *testing.T) {
 	if err := v.createCPU(0); err != nil {
 		t.Fatalf("createCPU: got %v, want nil", err)
 	}
-	if err := v.Run(); err == nil {
-		t.Fatalf("Run: got nil, want err")
-	}
-
-	type lowbios [128 * 1024]byte
-	low := &lowbios{}
-	blow := []byte(low[:])
-	for i := range blow {
-		blow[i] = 0x90
-	}
-	if err := v.mem(blow, 0xe0000); err != nil {
-		t.Fatalf("creating %d byte region: got %v, want nil", len(blow), err)
-	}
-
-	type page [16 * 1048576]byte
-	b := &page{}
-	hlt := []byte(b[:])
-	for i := range hlt {
-		// hlt
-		hlt[i] = 0xf4
-		// nop
-		hlt[i] = 0x90
-	}
-	//1 0000 48FFC0   	inc %rax
-	// 2 0003 F4       	hlt
-	copy(hlt[0xfffff0:], []byte{0xc0, 0xff, 0x48})
-	// This kind of confirms we need the bios at the top 16m.
-	// sadly, this is not what kvmtool thinks. Damn.
-	// if err := v.mem([]byte(b[:]), 0); err != nil {
-	// 	t.Fatalf("creating %d byte region: got %v, want nil", len(b), err)
-	// }
-	if false {
-		if err := v.mem([]byte(b[:]), 0xff00000); err != nil {
-			t.Fatalf("creating %d byte region: got %v, want nil", len(b), err)
+	if false { // can't do this test any more; createCPU allows the memory.
+		if err := v.Run(); err == nil {
+			t.Fatalf("Run: got nil, want err")
 		}
 	}
+
 	if err := v.SingleStep(false); err != nil {
 		t.Fatalf("Run: got %v, want nil", err)
 	}

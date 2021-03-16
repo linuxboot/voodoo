@@ -788,24 +788,52 @@ func (t *Tracee) SetRegs(pr *syscall.PtraceRegs) error {
 	return ErrTraceeExited
 }
 
+// We are going for broke here, setting up a 64-bit machine.
+// We also set up the BIOS areas, at 0xe0000 and 0xff000000.
 func (t *Tracee) archInit() error {
 	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), setTSSAddr, 0xfffbd000)
 	if errno != 0 {
 		return errno
 	}
+	// slot 0 is low memory, to 2g for now.
+	type lowbios [2048 * 1048576]byte
+	low := &lowbios{}
+	blow := []byte(low[:])
+	// poison it with hlt.
+	for i := range blow {
+		blow[i] = 0xf4
+	}
+	if err := t.mem(blow, 0x0); err != nil {
+		return fmt.Errorf("creating %d byte region: got %v, want nil", len(blow), err)
+	}
+	// slot 1 is high bios, at top of 4g.
+	type page [16 * 1048576]byte
+	b := &page{}
+	hlt := []byte(b[:])
+	for i := range hlt {
+		hlt[i] = 0xf4
+	}
+	//1 0000 48FFC0   	inc %rax
+	// 2 0003 F4       	hlt
+	//copy(hlt[0xfffff0:], []byte{0xc0, 0xff, 0x48})
+	if err := t.mem([]byte(b[:]), 0xff000000); err != nil {
+		return fmt.Errorf("creating %d byte region: got %v, want nil", len(b), err)
+	}
+
 	return nil
 }
 
 var bit64 = &sregs{
-	CS:  segment{Base: 0, Limit: 4294967295, Selector: 8, Stype: 11, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
-	DS:  segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
-	ES:  segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
-	FS:  segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
-	GS:  segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
-	SS:  segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
-	TR:  segment{Base: 0, Limit: 65535, Selector: 0, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 0, L: 0, G: 0, AVL: 0},
-	LDT: segment{Base: 0, Limit: 65535, Selector: 0, Stype: 2, Present: 1, DPL: 0, DB: 0, S: 0, L: 0, G: 0, AVL: 0},
-	GDT: dtable{Base: 0, Limit: 65535}, IDT: dtable{Base: 0, Limit: 65535},
+	CS:   segment{Base: 0, Limit: 4294967295, Selector: 8, Stype: 11, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+	DS:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+	ES:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+	FS:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+	GS:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+	SS:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+	TR:   segment{Base: 0, Limit: 65535, Selector: 0, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 0, L: 0, G: 0, AVL: 0},
+	LDT:  segment{Base: 0, Limit: 65535, Selector: 0, Stype: 2, Present: 1, DPL: 0, DB: 0, S: 0, L: 0, G: 0, AVL: 0},
+	GDT:  dtable{Base: 0, Limit: 65535},
+	IDT:  dtable{Base: 0, Limit: 65535},
 	CR0:  0x80050033,
 	CR2:  0,
 	CR3:  0x2000,
