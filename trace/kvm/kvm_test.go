@@ -208,11 +208,15 @@ func TestHalt(t *testing.T) {
 	if err := v.createCPU(0); err != nil {
 		t.Fatalf("createCPU: got %v, want nil", err)
 	}
+	if err := v.Run(); err == nil {
+		t.Fatalf("Run: got nil, want err")
+	}
+
 	type lowbios [128 * 1024]byte
 	low := &lowbios{}
 	blow := []byte(low[:])
 	for i := range blow {
-		blow[i] = 0xf4
+		blow[i] = 0x90
 	}
 	if err := v.mem(blow, 0xe0000); err != nil {
 		t.Fatalf("creating %d byte region: got %v, want nil", len(blow), err)
@@ -235,11 +239,13 @@ func TestHalt(t *testing.T) {
 	// if err := v.mem([]byte(b[:]), 0); err != nil {
 	// 	t.Fatalf("creating %d byte region: got %v, want nil", len(b), err)
 	// }
-	if err := v.mem([]byte(b[:]), 0xff00000); err != nil {
-		t.Fatalf("creating %d byte region: got %v, want nil", len(b), err)
+	if false {
+		if err := v.mem([]byte(b[:]), 0xff00000); err != nil {
+			t.Fatalf("creating %d byte region: got %v, want nil", len(b), err)
+		}
 	}
 	if err := v.SingleStep(false); err != nil {
-		t.Fatalf("SingleStep: got %v, want nil", err)
+		t.Fatalf("Run: got %v, want nil", err)
 	}
 	r, err := v.GetRegs()
 	if err != nil {
@@ -263,7 +269,7 @@ func TestHalt(t *testing.T) {
 	for i := 0; i < 16; i++ {
 		Debug = t.Logf
 		if err := v.Run(); err != nil {
-			t.Errorf("SingleStep: got %v, want nil", err)
+			t.Errorf("Run: got %v, want nil", err)
 		}
 		r, err = v.GetRegs()
 		if err != nil {

@@ -122,13 +122,14 @@ func (t *Tracee) SingleStep(onoff bool) error {
 func (t *Tracee) Run() error {
 	errc := make(chan error, 1)
 	if t.do(func() {
-		Debug("Step")
 		e := ioctl(uintptr(t.cpu.fd), run, 0)
 		errc <- e
 	}) {
 		err := <-errc
 		Debug("run returns with %v", err)
-		err = binary.Read(bytes.NewBuffer(t.cpu.m), binary.LittleEndian, &t.cpu.VMRun)
+		if err := binary.Read(bytes.NewBuffer(t.cpu.m), binary.LittleEndian, &t.cpu.VMRun); err != nil {
+			log.Panicf("Read in run failed -- can't happe")
+		}
 		return err
 	}
 	return ErrTraceeExited

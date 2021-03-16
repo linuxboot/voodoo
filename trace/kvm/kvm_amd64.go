@@ -84,7 +84,7 @@ type sregs struct {
 	GDT, IDT                dtable
 	CR0, CR2, CR3, CR4, CR8 uint64
 	EFER                    uint64
-	APIC                    uint16
+	APIC                    uint64
 	InterruptBitmap         [(256 + 63) / 64]uint64
 }
 
@@ -794,4 +794,24 @@ func (t *Tracee) archInit() error {
 		return errno
 	}
 	return nil
+}
+
+var bit64 = &sregs{
+	CS:  segment{Base: 0, Limit: 4294967295, Selector: 8, Stype: 11, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+	DS:  segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+	ES:  segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+	FS:  segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+	GS:  segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+	SS:  segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+	TR:  segment{Base: 0, Limit: 65535, Selector: 0, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 0, L: 0, G: 0, AVL: 0},
+	LDT: segment{Base: 0, Limit: 65535, Selector: 0, Stype: 2, Present: 1, DPL: 0, DB: 0, S: 0, L: 0, G: 0, AVL: 0},
+	GDT: dtable{Base: 0, Limit: 65535}, IDT: dtable{Base: 0, Limit: 65535},
+	CR0:  0x80050033,
+	CR2:  0,
+	CR3:  0x2000,
+	CR4:  0x20,
+	CR8:  0,
+	EFER: 0x500,
+	APIC: 0xfee00900,
+	/*interrupt_bitmap:[0, 0, 0, 0]*/
 }
