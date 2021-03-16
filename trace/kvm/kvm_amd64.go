@@ -397,13 +397,6 @@ const (
 	SingleStep = 2
 )
 
-// DebugControl controls guest debug.
-type DebugControl struct {
-	Control uint32
-	_       uint32
-	//	arch    kvm_guest_debug_arch
-}
-
 const (
 	ioeventfdFlagNRdatamatch = 0
 	ioeventfdFlagNRpio

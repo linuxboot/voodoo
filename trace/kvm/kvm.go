@@ -10,10 +10,17 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
+)
+
+const (
+	sigexit  = syscall.Signal(32)
+	sigpause = syscall.Signal(33)
+	sigtask  = syscall.Signal(34)
 )
 
 var (
@@ -24,6 +31,13 @@ var (
 	Debug      = func(string, ...interface{}) {}
 	deviceName = flag.String("kvmdevice", "/dev/kvm", "kvm device to use")
 )
+
+// DebugControl controls guest debug.
+type DebugControl struct {
+	Control  uint32
+	_        uint32
+	debugreg [8]uint64
+}
 
 // An Event is sent on a Tracee's event channel whenever it changes state.
 type Event interface{}
@@ -46,6 +60,7 @@ type Tracee struct {
 	cmds    chan func()
 	regions []Region
 	cpu     cpu
+	vmpages []byte
 }
 
 func (t *Tracee) String() string {
@@ -104,16 +119,10 @@ func (t *Tracee) EnableSingleStep() error {
 func (t *Tracee) SingleStep() error {
 	err := make(chan error, 1)
 	if t.do(func() {
-		// if e := t.singleStep(); err != nil {
-		// 	err <- e
-		// 	return
-		// }
-		_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), run, 0)
-		if errno == 0 {
-			err <- nil
-			return
-		}
-		err <- errno
+		Debug("Step")
+		e := ioctl(uintptr(t.cpu.fd), run, 0)
+		Debug("run returns with %v", err)
+		err <- e
 	}) {
 		return <-err
 	}
@@ -159,12 +168,17 @@ func New() (*Tracee, error) {
 		return nil, fmt.Errorf("startvm: failed (%d, %v)", vm, err)
 	}
 
+	vmpages, err := syscall.Mmap(int(vm), 0, 4096, syscall.PROT_READ, syscall.MAP_SHARED)
+	if err != nil {
+		log.Printf("MMap failed, continuing anyway: %v", err)
+	}
 	t := &Tracee{
-		dev:    k,
-		vm:     vm,
-		events: make(chan Event, 1),
-		err:    make(chan error, 1),
-		cmds:   make(chan func()),
+		vmpages: vmpages,
+		dev:     k,
+		vm:      vm,
+		events:  make(chan Event, 1),
+		err:     make(chan error, 1),
+		cmds:    make(chan func()),
 	}
 	errs := make(chan error)
 	go func() {
@@ -453,19 +467,18 @@ func (t *Tracee) Close() error {
 // for what.
 func (t *Tracee) wait() {
 	defer close(t.err)
+	sigs := make(chan os.Signal)
+	signal.Notify(sigs, sigexit, sigpause, sigtask)
 	for {
-		// state, err := t.proc.Wait()
-		// if err != nil {
-		// 	t.err <- err
-		// 	close(t.events)
-		// 	return
-		// }
-		// if state.Exited() {
-		// 	t.events <- Event(state.Sys().(syscall.WaitStatus))
-		// 	close(t.events)
-		// 	return
-		// }
-		// t.events <- Event(state.Sys().(syscall.WaitStatus))
+		select {
+		case s := <-sigs:
+			Debug("Got signal %v", s)
+			if s.String() == "interrupt" {
+				t.err <- fmt.Errorf(s.String())
+			}
+			t.events <- fmt.Sprintf("Signal %v", s)
+		default:
+		}
 	}
 }
 

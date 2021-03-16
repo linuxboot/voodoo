@@ -217,9 +217,28 @@ func TestHalt(t *testing.T) {
 	if err := v.mem([]byte(b[:]), 0); err != nil {
 		t.Fatalf("creating %d byte region: got %v, want nil", len(b), err)
 	}
-	if err := v.EnableSingleStep(); err != nil {
-		t.Fatalf("EnableSingleStep: got %v, want nil", err)
+	if false {
+		if err := v.EnableSingleStep(); err != nil {
+			t.Fatalf("EnableSingleStep: got %v, want nil", err)
+		}
 	}
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	t.Logf("IP is %#x", r.Rip)
+	r.Rip = 0
+	r.Cs = 0
+	if err := v.SetRegs(r); err != nil {
+		t.Fatalf("setregs: got %v, want nil", err)
+	}
+	t.Logf(show("Set:\t", r))
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	t.Logf("IP is %#x", r.Rip)
+	Debug = t.Logf
 	if err := v.SingleStep(); err != nil {
 		t.Fatalf("SingleStep: got %v, want nil", err)
 	}
