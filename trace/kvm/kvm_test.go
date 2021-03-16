@@ -189,7 +189,7 @@ func TestRunUD2(t *testing.T) {
 		t.Fatalf("creating %d byte region: got %v, want nil", len(b), err)
 	}
 	t.Logf("IP is %#x", r.Rip)
-	if err := v.SingleStep(); err != nil {
+	if err := v.Run(); err != nil {
 		t.Fatalf("SingleStep: got %v, want nil", err)
 	}
 	r, err = v.GetRegs()
@@ -208,38 +208,57 @@ func TestHalt(t *testing.T) {
 	if err := v.createCPU(0); err != nil {
 		t.Fatalf("createCPU: got %v, want nil", err)
 	}
-	type page [2 * 1048576]byte
+	type page [16 * 1048576]byte
 	b := &page{}
 	hlt := []byte(b[:])
 	for i := range hlt {
+		// hlt
 		hlt[i] = 0xf4
+		// nop
+		hlt[i] = 0x90
 	}
-	if err := v.mem([]byte(b[:]), 0); err != nil {
+	//1 0000 48FFC0   	inc %rax
+	// 2 0003 F4       	hlt
+	copy(hlt[0xfffff0:], []byte{0xc0, 0xff, 0x48})
+	// This kind of confirms we need the bios at the top 16m.
+	// sadly, this is not what kvmtool thinks. Damn.
+	// if err := v.mem([]byte(b[:]), 0); err != nil {
+	// 	t.Fatalf("creating %d byte region: got %v, want nil", len(b), err)
+	// }
+	if err := v.mem([]byte(b[:]), 0xff00000); err != nil {
 		t.Fatalf("creating %d byte region: got %v, want nil", len(b), err)
 	}
-	if false {
-		if err := v.EnableSingleStep(); err != nil {
-			t.Fatalf("EnableSingleStep: got %v, want nil", err)
-		}
+	if err := v.SingleStep(false); err != nil {
+		t.Fatalf("SingleStep: got %v, want nil", err)
 	}
 	r, err := v.GetRegs()
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
 	t.Logf("IP is %#x", r.Rip)
-	r.Rip = 0
-	r.Cs = 0
-	if err := v.SetRegs(r); err != nil {
-		t.Fatalf("setregs: got %v, want nil", err)
+	if false {
+		//r.Rip = 0
+		//		r.Cs = 0
+		if err := v.SetRegs(r); err != nil {
+			t.Fatalf("setregs: got %v, want nil", err)
+		}
+
+		t.Logf(show("Set:\t", r))
+		r, err = v.GetRegs()
+		if err != nil {
+			t.Fatalf("GetRegs: got %v, want nil", err)
+		}
+		t.Logf("IP is %#x", r.Rip)
 	}
-	t.Logf(show("Set:\t", r))
-	r, err = v.GetRegs()
-	if err != nil {
-		t.Fatalf("GetRegs: got %v, want nil", err)
-	}
-	t.Logf("IP is %#x", r.Rip)
-	Debug = t.Logf
-	if err := v.SingleStep(); err != nil {
-		t.Fatalf("SingleStep: got %v, want nil", err)
+	for i := 0; i < 16; i++ {
+		Debug = t.Logf
+		if err := v.Run(); err != nil {
+			t.Errorf("SingleStep: got %v, want nil", err)
+		}
+		r, err = v.GetRegs()
+		if err != nil {
+			t.Fatalf("GetRegs: got %v, want nil", err)
+		}
+		t.Logf("IP is %#x", r.Rip)
 	}
 }

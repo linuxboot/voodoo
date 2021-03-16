@@ -100,13 +100,16 @@ func ioctl(fd uintptr, op uintptr, arg uintptr) (err error) {
 }
 
 // EnableSingleStep enables single stepping the guest
-func (t *Tracee) EnableSingleStep() error {
+func (t *Tracee) SingleStep(onoff bool) error {
 	err := make(chan error, 1)
 	if t.do(func() {
+		var debug [unsafe.Sizeof(DebugControl{})]byte
+		if onoff {
+			debug[0] = Enable | SingleStep
+		}
 		// this is not very nice, but it is easy.
 		// And TBH, the tricks the Linux kernel people
 		// play are a lot nastier.
-		debug := [unsafe.Sizeof(DebugControl{})]byte{Enable | SingleStep}
 		err <- ioctl(t.cpu.fd, setGuestDebug, uintptr(unsafe.Pointer(&debug[0])))
 	}) {
 		return <-err
@@ -116,15 +119,16 @@ func (t *Tracee) EnableSingleStep() error {
 
 // SingleStep continues the tracee for one instruction.
 // Todo: see if we are in single step mode, if not, set, etc.
-func (t *Tracee) SingleStep() error {
-	err := make(chan error, 1)
+func (t *Tracee) Run() error {
+	errc := make(chan error, 1)
 	if t.do(func() {
 		Debug("Step")
 		e := ioctl(uintptr(t.cpu.fd), run, 0)
-		Debug("run returns with %v", err)
-		err <- e
+		errc <- e
 	}) {
-		return <-err
+		err := <-errc
+		Debug("run returns with %v", err)
+		return err
 	}
 	return ErrTraceeExited
 }
