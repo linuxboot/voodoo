@@ -764,6 +764,7 @@ func (t *Tracee) SetIPtr(addr uintptr) error {
 }
 
 // SetRegs sets regs for a Tracee.
+// The ability to set sregs is limited by what can be set in ptraceregs.
 func (t *Tracee) SetRegs(pr *syscall.PtraceRegs) error {
 	errchan := make(chan error, 1)
 	if t.do(func() {
@@ -800,9 +801,39 @@ func (t *Tracee) archInit() error {
 	low := &lowbios{}
 	blow := []byte(low[:])
 	// poison it with hlt.
-	for i := range blow {
+	for i := range blow[0x5000:] {
 		blow[i] = 0xf4
 	}
+	// Set up page tables for long mode.
+	blow[0x2000] = 3
+	blow[0x2001] = 0x30
+	// present, read/write, page table at 0x3000
+	//ptes[0x2000] = 0x3000 | 0x3
+	// Gbyte-aligned page address in to 2 bits
+	// 3 in lowest 2 bits means present and read/write
+	// 0x60 means accessed/dirty
+	// 0x80 means the page size bit -- 0x80 | 0x60 = 0xe0
+	for i := byte(0); i < 4; i++ {
+		blow[int(i)+0x3000] = 0xe3
+		blow[int(i)+0x3003] = i * 0x40
+	}
+	//ptes[0x3000] = 0x000000e3
+	//ptes[0x3001] = 0x400000e3
+	//ptes[0x3002] = 0x800000e3
+	//ptes[0x3003] = 0xc00000e3
+	// ps bit set,
+	// uint64_t pml4_addr = 0x2000;
+	// uint64_t *pml4 = (void *)(vm->mem + pml4_addr);
+
+	// uint64_t pdpt_addr = 0x3000;
+	// uint64_t *pdpt = (void *)(vm->mem + pdpt_addr);
+
+	// uint64_t pd_addr = 0x4000;
+	// uint64_t *pd = (void *)(vm->mem + pd_addr);
+
+	// pml4[0] = PDE64_PRESENT | PDE64_RW | PDE64_USER | pdpt_addr;
+	// pdpt[0] = PDE64_PRESENT | PDE64_RW | PDE64_USER | pd_addr;
+	// pd[0] = PDE64_PRESENT | PDE64_RW | PDE64_USER | PDE64_PS;
 	if err := t.mem(blow, 0x0); err != nil {
 		return fmt.Errorf("creating %d byte region: got %v, want nil", len(blow), err)
 	}
