@@ -11,11 +11,13 @@ import (
 )
 
 // Exit is the VM exit value returned by KVM.
-type Exit uint64
+type Exit uint32
+
 type cpu struct {
-	id int
-	fd uintptr
-	m  []byte
+	id    int
+	fd    uintptr
+	m     []byte
+	VMRun VMRun
 }
 
 // APIVersion is the KVM API version.
@@ -178,31 +180,6 @@ type UserRegion struct {
 //#define MEM_LOG_DIRTY_PAGES	(1UL << 0)
 //#define MEM_READONLY	(1UL << 1)
 
-// KVM exit values.
-const (
-	ExitUnknown       = 0
-	ExitException     = 1
-	ExitIo            = 2
-	ExitHypercall     = 3
-	ExitDebug         = 4
-	ExitHlt           = 5
-	ExitMmio          = 6
-	ExitIrqWindowOpen = 7
-	ExitShutdown      = 8
-	ExitFailEntry     = 9
-	ExitIntr          = 10
-	ExitSetTPR        = 11
-	ExitTPRAccess     = 12
-	ExitNmi           = 16
-	ExitInternalError = 17
-	ExitOsi           = 18
-	// 	ExitPapr_hcall      = 19
-	ExitWatchdog    = 21
-	ExitEpr         = 23
-	ExitSystemEvent = 24
-	ExitIoapicEOI   = 26
-)
-
 /* For ExitINTERNAL_ERROR */
 /* Emulate instruction failed. */
 //#define INTERNAL_ERROR_EMULATION	1
@@ -212,130 +189,6 @@ const (
 //#define INTERNAL_ERROR_DELIVERY_EV	3
 /* Encounter unexpected vm-exit reason */
 //#define INTERNAL_ERROR_UNEXPECTED_ExitREASON	4
-
-// Run controls running, and is returned by mmap(vcpu_fd, offset=0)
-type Run struct {
-	/* in */
-	RequestInterruptWindow uint8
-	ImmediateExit          uint8
-	_                      [6]uint8
-
-	/* out */
-	ExitReason                 uint32
-	ReadyForInterruptInjection uint8
-	IFFlag                     uint8
-	flags                      uint16
-
-	/* in (pre_kvm_run), out (post_kvm_run) */
-	cr8      uint64
-	APICBase uint64
-	//////
-	//////	union {
-	//////		/* ExitUNKNOWN */
-	//////		struct {
-	//////			hardware_exit_reason uint64
-	//////		} hw
-	//////		/* ExitFAIL_ENTRY */
-	//////		struct {
-	//////			hardware_entry_failure_reason uint64
-	//////		} fail_entry
-	//////		/* ExitEXCEPTION */
-	//////		struct {
-	//////			exception uint32
-	//////			error_code uint32
-	//////		} ex
-	//////		/* ExitIO */
-	//////		struct {
-	////////#define ExitIO_IN  0
-	////////#define ExitIO_OUT 1
-	//////			direction uint8
-	//////			size uint8 /* bytes */
-	//////			port uint16
-	//////			count uint32
-	//////			data_offset uint64 /* relative to kvm_run start */
-	//////		} io
-	//////		/* ExitDEBUG */
-	//////		struct {
-	//////			struct kvm_debug_exit_arch arch
-	//////		} debug
-	//////		/* ExitMMIO */
-	//////		struct {
-	//////			phys_addr uint64
-	//////			data[8] uint8
-	//////			len uint32
-	//////			is_write uint8
-	//////		} mmio
-	//////		/* ExitHYPERCALL */
-	//////		struct {
-	//////			nr uint64
-	//////			args[6] uint64
-	//////			ret uint64
-	//////			longmode uint32
-	//////			pad uint32
-	//////		} hypercall
-	//////		/* ExitTPR_ACCESS */
-	//////		struct {
-	//////			rip uint64
-	//////			is_write uint32
-	//////			pad uint32
-	//////		} tpr_access
-	//////		/* ExitS390_SIEIC */
-	//////		struct {
-	//////			icptcode uint8
-	//////			ipa uint16
-	//////			ipb uint32
-	//////		} s390_sieic
-	//////		/* ExitINTERNAL_ERROR */
-	//////		struct {
-	//////			suberror uint32
-	//////			/* Available with CAP_INTERNAL_ERROR_DATA: */
-	//////			ndata uint32
-	//////			data[16] uint64
-	//////		} internal
-	//////		/* ExitOSI */
-	//////		struct {
-	//////			gprs[32] uint64
-	//////		} osi
-	//////		/* ExitPAPR_HCALL */
-	//////		struct {
-	//////			nr uint64
-	//////			ret uint64
-	//////			args[9] uint64
-	//////		} papr_hcall
-	//////		/* ExitEPR */
-	//////		struct {
-	//////			epr uint32
-	//////		} epr
-	//////		/* ExitSYSTEM_EVENT */
-	//////		struct {
-	////////#define SYSTEM_EVENT_SHUTDOWN       1
-	////////#define SYSTEM_EVENT_RESET          2
-	////////#define SYSTEM_EVENT_CRASH          3
-	//////			type uint32
-	//////			flags uint64
-	//////		} system_event
-	//////		/* Fix the size of the union. */
-	//////		char padding[256]
-	//////	}
-	//////
-	//////	/* 2048 is the size of the char array used to bound/pad the size
-	//////	 * of the union that holds sync regs.
-	//////	 */
-	//////	#define SYNC_REGS_SIZE_BYTES 2048
-	//////	/*
-	//////	 * shared registers between kvm and userspace.
-	//////	 * kvm_valid_regs specifies the register classes set by the host
-	//////	 * kvm_dirty_regs specified the register classes dirtied by userspace
-	//////	 * struct kvm_sync_regs is architecture specific, as well as the
-	//////	 * bits for kvm_valid_regs and kvm_dirty_regs
-	//////	 */
-	//////	kvm_valid_regs uint64
-	//////	kvm_dirty_regs uint64
-	//////	union {
-	//////		struct kvm_sync_regs regs
-	//////		char padding[SYNC_REGS_SIZE_BYTES]
-	//////	} s
-}
 
 // Translate translates guest linear to physical? This is for for TRANSLATE
 type Translate struct {
@@ -774,8 +627,8 @@ type oneReg struct {
 //#define KVMCLOCK_CTRL	  _IO(KVMIO,   0xad)
 //#define GET_REG_LIST	  _IOWR(KVMIO, 0xb0, struct kvm_reg_list)
 
-func (e *Exit) String() string {
-	switch *e {
+func (e Exit) String() string {
+	switch e {
 	case ExitUnknown:
 		return "ExitUnknown"
 	case ExitException:
@@ -791,21 +644,21 @@ func (e *Exit) String() string {
 	case ExitMmio:
 		return "ExitMmio"
 	case ExitIrqWindowOpen:
-		return "ExitIrq_window_open"
+		return "ExitIrqWindowOpen"
 	case ExitShutdown:
 		return "ExitShutdown"
 	case ExitFailEntry:
-		return "ExitFail_entry"
+		return "ExitFailEntry"
 	case ExitIntr:
 		return "ExitIntr"
 	case ExitSetTPR:
-		return "ExitSet_tpr"
+		return "ExitSetTPR"
 	case ExitTPRAccess:
-		return "ExitTpr_access"
+		return "ExitTprAccess"
 	case ExitNmi:
 		return "ExitNmi"
 	case ExitInternalError:
-		return "ExitInternal_error"
+		return "ExitInternalError"
 	case ExitOsi:
 		return "ExitOsi"
 	case ExitWatchdog:
@@ -813,11 +666,11 @@ func (e *Exit) String() string {
 	case ExitEpr:
 		return "ExitEpr"
 	case ExitSystemEvent:
-		return "ExitSystem_event"
+		return "ExitSystemEvent"
 	case ExitIoapicEOI:
-		return "ExitIoapic_eoi"
+		return "ExitIoapicEOI"
 	}
-	return fmt.Sprintf("unknown exit %#x", *e)
+	return fmt.Sprintf("unknown exit %#x", e)
 }
 
 // rflags = regs.rflags;
@@ -933,4 +786,12 @@ func (t *Tracee) SetRegs(pr *syscall.PtraceRegs) error {
 		return <-errchan
 	}
 	return ErrTraceeExited
+}
+
+func (t *Tracee) archInit() error {
+	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), setTSSAddr, 0xfffbd000)
+	if errno != 0 {
+		return errno
+	}
+	return nil
 }

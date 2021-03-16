@@ -53,4 +53,7 @@ var (
 
 	// shared region. No choice but to have this. Damn.
 	vcpuMmapSize = iIO(0x04)
+
+	// amd64
+	setTSSAddr = iIO(0x47)
 )

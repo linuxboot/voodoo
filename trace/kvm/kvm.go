@@ -61,7 +61,6 @@ type Tracee struct {
 	slot    uint32
 	regions []*Region
 	cpu     cpu
-	vmpages []byte
 }
 
 func (t *Tracee) String() string {
@@ -129,6 +128,7 @@ func (t *Tracee) Run() error {
 	}) {
 		err := <-errc
 		Debug("run returns with %v", err)
+		err = binary.Read(bytes.NewBuffer(t.cpu.m), binary.LittleEndian, &t.cpu.VMRun)
 		return err
 	}
 	return ErrTraceeExited
@@ -175,17 +175,12 @@ func New() (*Tracee, error) {
 		return nil, fmt.Errorf("startvm: failed (%d, %v)", vm, err)
 	}
 
-	vmpages, err := syscall.Mmap(int(vm), 0, 4096, syscall.PROT_READ, syscall.MAP_SHARED)
-	if err != nil {
-		log.Printf("MMap failed, continuing anyway: %v", err)
-	}
 	t := &Tracee{
-		vmpages: vmpages,
-		dev:     k,
-		vm:      vm,
-		events:  make(chan Event, 1),
-		err:     make(chan error, 1),
-		cmds:    make(chan func()),
+		dev:    k,
+		vm:     vm,
+		events: make(chan Event, 1),
+		err:    make(chan error, 1),
+		cmds:   make(chan func()),
 	}
 	errs := make(chan error)
 	go func() {
@@ -200,9 +195,9 @@ func New() (*Tracee, error) {
 		// kvm__arch_init(kvm, kvm->cfg.hugetlbfs_path, kvm->cfg.ram_size);
 
 		// kvm__init_ram(kvm);
-		var e error
-		errs <- e
-		if e != nil {
+		err := t.archInit()
+		errs <- err
+		if err != nil {
 			return
 		}
 		go t.wait()

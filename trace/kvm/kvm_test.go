@@ -269,6 +269,6 @@ func TestHalt(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GetRegs: got %v, want nil", err)
 		}
-		t.Logf("IP is %#x", r.Rip)
+		t.Logf("IP is %#x, exit %s", r.Rip, v.cpu.VMRun.String())
 	}
 }
