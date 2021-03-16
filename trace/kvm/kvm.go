@@ -46,7 +46,7 @@ type Event interface{}
 // This is likely overkill; we likely don't want
 // anything more than a single 2G region starting at 0.
 type Region struct {
-	slot int // this seems to matter?
+	slot uint32
 	gpa  uint64
 	data []byte
 }
@@ -58,7 +58,8 @@ type Tracee struct {
 	events  chan Event
 	err     chan error
 	cmds    chan func()
-	regions []Region
+	slot    uint32
+	regions []*Region
 	cpu     cpu
 	vmpages []byte
 }
@@ -158,6 +159,8 @@ func startvm(f *os.File) (uintptr, error) {
 }
 
 // New returns a new Tracee. It will fail if the kvm device can not be opened.
+// All the work done here is complex, but it all has to work or ... no kvm.
+// But as soon as possible we shift to using the goroutine. FWIW.
 func New() (*Tracee, error) {
 	k, err := os.OpenFile(*deviceName, os.O_RDWR, 0)
 	if err != nil {
@@ -186,7 +189,6 @@ func New() (*Tracee, error) {
 	}
 	errs := make(chan error)
 	go func() {
-
 		// mmap and go don't really get along, so we'll not bother
 		// with the mmap'ed bits for now.
 		// if (kvm__check_extensions(kvm)) {
@@ -210,13 +212,28 @@ func New() (*Tracee, error) {
 }
 
 // createCPU creates a CPU, given an id.
+// TODO :we're getting sloppy about the t.do stuff, fix.
 func (t *Tracee) createCPU(id int) error {
 	r1, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), uintptr(createCPU), 0)
 	if errno != 0 {
 		return errno
 	}
+	fd := r1
+	r1, _, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.dev.Fd()), vcpuMmapSize, 0)
+	if errno != 0 {
+		return errno
+	}
+	if r1 <= 0 {
+		return fmt.Errorf("mmap size is <= 0")
+	}
+	msize := uint64(r1)
+	b, err := unix.Mmap(int(fd), 0, int(msize), unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED)
+	if err != nil {
+		return fmt.Errorf("cpu shared mmap(%#x, %#x, %#x, %#x, %#x): %v", fd, 0, msize, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED, err)
+	}
 	t.cpu.id = id
-	t.cpu.fd = r1
+	t.cpu.fd = fd
+	t.cpu.m = b
 	return nil
 }
 
@@ -225,19 +242,17 @@ func (t *Tracee) createCPU(id int) error {
 // and the trace model is the common subset of ptrace and kvm.
 func (t *Tracee) mem(b []byte, base uint64) error {
 	p := &bytes.Buffer{}
-	u := &UserRegion{slot: 0, flags: 0, gpa: base, size: uint64(len(b)), useraddr: uint64(uintptr(unsafe.Pointer(&b[0])))}
+	u := &UserRegion{slot: t.slot, flags: 0, gpa: base, size: uint64(len(b)), useraddr: uint64(uintptr(unsafe.Pointer(&b[0])))}
 	binary.Write(p, binary.LittleEndian, u)
 	if false {
 		log.Printf("ioctl %s", hex.Dump(p.Bytes()))
 	}
 	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), uintptr(setMem), uintptr(unsafe.Pointer(&p.Bytes()[0])))
 	if errno == 0 {
+		t.regions = append(t.regions, &Region{slot: t.slot, gpa: base, data: b})
+		t.slot++
 		return nil
 	}
-
-	// Kick of the async executor for cmds.
-	// Still not sure we want this, but a goroutine per vm is a little
-	// bit compelling, so keep it for now.
 	return errno
 }
 

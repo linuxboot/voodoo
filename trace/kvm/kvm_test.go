@@ -208,6 +208,16 @@ func TestHalt(t *testing.T) {
 	if err := v.createCPU(0); err != nil {
 		t.Fatalf("createCPU: got %v, want nil", err)
 	}
+	type lowbios [128 * 1024]byte
+	low := &lowbios{}
+	blow := []byte(low[:])
+	for i := range blow {
+		blow[i] = 0xf4
+	}
+	if err := v.mem(blow, 0xe0000); err != nil {
+		t.Fatalf("creating %d byte region: got %v, want nil", len(blow), err)
+	}
+
 	type page [16 * 1048576]byte
 	b := &page{}
 	hlt := []byte(b[:])

@@ -15,6 +15,7 @@ type Exit uint64
 type cpu struct {
 	id int
 	fd uintptr
+	m  []byte
 }
 
 // APIVersion is the KVM API version.
