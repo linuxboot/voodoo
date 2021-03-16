@@ -208,12 +208,6 @@ func TestHalt(t *testing.T) {
 	if err := v.createCPU(0); err != nil {
 		t.Fatalf("createCPU: got %v, want nil", err)
 	}
-	if false { // can't do this test any more; createCPU allows the memory.
-		if err := v.Run(); err == nil {
-			t.Fatalf("Run: got nil, want err")
-		}
-	}
-
 	if err := v.SingleStep(false); err != nil {
 		t.Fatalf("Run: got %v, want nil", err)
 	}
