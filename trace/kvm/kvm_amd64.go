@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"log"
 	"reflect"
 	"syscall"
+	"time"
 	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
 // Exit is the VM exit value returned by KVM.
@@ -699,35 +701,49 @@ func (e Exit) String() string {
 // cr0 = sregs.cr0; cr2 = sregs.cr2; cr3 = sregs.cr3;
 // cr4 = sregs.cr4; cr8 = sregs.cr8;
 
-// GetRegs reads the registers from the inferior.
-func (t *Tracee) GetRegs() (*syscall.PtraceRegs, error) {
-	errchan := make(chan error, 1)
-	value := make(chan *syscall.PtraceRegs, 1)
+// getRegs reads all the regs; it is useful for the few cases that need more information.
+func (t Tracee) getRegs() (*regs, *sregs, error) {
+	// This model can get kludgy.
+	type all struct {
+		err error
+		s   *sregs
+		r   *regs
+	}
+	v := make(chan all, 1)
 	if t.do(func() {
 		var rdata [unsafe.Sizeof(regs{})]byte
 		var sdata [unsafe.Sizeof(sregs{})]byte
-		pr := &syscall.PtraceRegs{}
 		r := &regs{}
 		s := &sregs{}
 
 		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getRegs, uintptr(unsafe.Pointer(&rdata[0]))); errno != 0 {
-			value <- nil
-			errchan <- errno
+			v <- all{err: errno}
+			return
 		}
 		binary.Read(bytes.NewReader(rdata[:]), binary.LittleEndian, r)
 
 		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getSregs, uintptr(unsafe.Pointer(&sdata[0]))); errno != 0 {
-			value <- nil
-			errchan <- errno
+			v <- all{err: errno}
 		}
 		binary.Read(bytes.NewReader(sdata[:]), binary.LittleEndian, s)
-		kvmRegstoPtraceRegs(pr, r, s)
-		value <- pr
-		errchan <- nil
+		v <- all{r: r, s: s}
+
 	}) {
-		return <-value, <-errchan
+		ret := <-v
+		return ret.r, ret.s, ret.err
 	}
-	return &syscall.PtraceRegs{}, errors.New("GetRegs: Unreachable")
+	return nil, nil, fmt.Errorf("getRegs: t.do failed")
+}
+
+// GetRegs reads the registers from the inferior.
+func (t *Tracee) GetRegs() (*syscall.PtraceRegs, error) {
+	r, s, err := t.getRegs()
+	if err != nil {
+		return nil, err
+	}
+	pr := &syscall.PtraceRegs{}
+	kvmRegstoPtraceRegs(pr, r, s)
+	return pr, nil
 }
 
 // GetIPtr reads the instruction pointer from the inferior and returns it.
@@ -853,9 +869,76 @@ var bit64 = &sregs{
 	/*interrupt_bitmap:[0, 0, 0, 0]*/
 }
 
+// reference ...
+type signalfdSiginfo struct {
+	Signo    uint32
+	Errno    int32
+	Code     int32
+	Pid      uint32
+	Uid      uint32
+	Fd       int32
+	Tid      uint32
+	Band     uint32
+	Overrun  uint32
+	Trapno   uint32
+	Status   int32
+	Int      int32
+	Ptr      uint64
+	Utime    uint64
+	Stime    uint64
+	Addr     uint64
+	Addr_lsb uint16
+
+	Syscall   int32
+	Call_addr uint64
+	Arch      uint32
+	// contains filtered or unexported fields
+}
+
 func (t *Tracee) readInfo() error {
-	if err := binary.Read(bytes.NewBuffer(t.cpu.m), binary.LittleEndian, &t.cpu.VMRun); err != nil {
+	vmr := bytes.NewBuffer(t.cpu.m)
+	Debug("vmr len %d", vmr.Len())
+	if err := binary.Read(vmr, binary.LittleEndian, &t.cpu.VMRun); err != nil {
 		log.Panicf("Read in run failed -- can't happen")
 	}
+	Debug("vmr len %d", vmr.Len())
+	r, s, err := t.getRegs()
+	if err != nil {
+		return fmt.Errorf("readInfo: %v", err)
+	}
+	e := t.cpu.VMRun.ExitReason
+	sig := unix.SignalfdSiginfo{
+		Errno:     0,
+		Code:      int32(e),
+		Pid:       0,
+		Uid:       0,
+		Fd:        0,
+		Tid:       0,
+		Band:      0,
+		Overrun:   0,
+		Trapno:    0,
+		Status:    0,
+		Int:       0,
+		Ptr:       0,
+		Utime:     uint64(time.Now().Unix()),
+		Stime:     uint64(time.Now().Unix()),
+		Addr:      0,
+		Addr_lsb:  0,
+		Syscall:   0,
+		Call_addr: r.Rip,
+		Arch:      0, // no idea
+	}
+
+	switch e {
+	case ExitHlt:
+		sig.Trapno = uint32(unix.SIGILL)
+	case ExitMmio:
+		sig.Addr = s.CR2
+		sig.Trapno = uint32(unix.SIGSEGV)
+	default:
+		log.Panicf("readInfo: unhandled exit %s", Exit(e))
+	}
+	t.info = sig
+	t.events <- sig
 	return nil
 }

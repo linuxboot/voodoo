@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
 	"syscall"
 	"unsafe"
 
@@ -52,7 +51,7 @@ type Region struct {
 type Tracee struct {
 	dev     *os.File
 	vm      uintptr
-	events  chan interface{}
+	events  chan unix.SignalfdSiginfo
 	err     chan error
 	cmds    chan func()
 	slot    uint32
@@ -133,6 +132,7 @@ func (t *Tracee) Run() error {
 			log.Panicf("run: info %v", err)
 		}
 		// Now yank out the exit info.
+		t.events <- t.info
 		return err
 	}
 	return ErrTraceeExited
@@ -143,7 +143,7 @@ func (t *Tracee) Run() error {
 func (t *Tracee) PID() int { return int(t.cpu.id) }
 
 // Events returns the events channel for the tracee.
-func (t *Tracee) Events() <-chan interface{} {
+func (t *Tracee) Events() <-chan unix.SignalfdSiginfo {
 	return t.events
 }
 
@@ -182,7 +182,7 @@ func New() (*Tracee, error) {
 	t := &Tracee{
 		dev:    k,
 		vm:     vm,
-		events: make(chan interface{}, 1),
+		events: make(chan unix.SignalfdSiginfo, 1),
 		err:    make(chan error, 1),
 		cmds:   make(chan func()),
 	}
@@ -204,7 +204,6 @@ func New() (*Tracee, error) {
 		if err != nil {
 			return
 		}
-		go t.wait()
 		t.trace()
 	}()
 	return t, <-errs
@@ -293,7 +292,6 @@ func (t *Tracee) Exec(name string, argv ...string) error {
 		if e != nil {
 			return
 		}
-		go t.wait()
 		t.trace()
 	}()
 	return <-errs
@@ -412,10 +410,10 @@ func (t *Tracee) GetSiginfo() (*unix.SignalfdSiginfo, error) {
 	return &t.info, nil
 }
 
-// ClearSignal clears the last signal the inferior received.
+// ReArm does whatever might need to be done to resume.
 // This could allow the inferior
 // to continue after a segfault, for example.
-func (t *Tracee) ClearSignals() error {
+func (t *Tracee) ReArm() error {
 	errchan := make(chan error, 1)
 	if t.do(func() {
 		errchan <- nil
@@ -448,24 +446,6 @@ func (t *Tracee) Close() error {
 
 	syscall.Kill(int(t.dev.Fd()), syscall.SIGKILL)
 	return err
-}
-
-// for what.
-func (t *Tracee) wait() {
-	defer close(t.err)
-	sigs := make(chan os.Signal)
-	signal.Notify(sigs, sigexit, sigpause, sigtask)
-	for {
-		select {
-		case s := <-sigs:
-			Debug("Got signal %v", s)
-			if s.String() == "interrupt" {
-				t.err <- fmt.Errorf(s.String())
-			}
-			t.events <- fmt.Sprintf("Signal %v", s)
-		default:
-		}
-	}
 }
 
 func (t *Tracee) trace() {

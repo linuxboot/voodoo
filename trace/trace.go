@@ -20,10 +20,9 @@ type Trace interface {
 	GetRegs() (*syscall.PtraceRegs, error)
 	SetRegs(pr *syscall.PtraceRegs) error
 	SingleStep(onoff bool) error
-	GetSigInfo() (*unix.SignalfdSiginfo, error)
-	ClearSignals() error
+	ReArm() error
 	Run() error
-	Events() <-chan interface{}
+	Events() <-chan *unix.SignalfdSiginfo
 }
 
 var Debug = func(string, ...interface{}) {}

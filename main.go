@@ -211,16 +211,20 @@ func main() {
 	//Trapno int // trap number that caused hardware-generated signal
 
 	//Addr uintptr // Memory location which caused fault
-	for e := range t.Events() {
+	// We have the tracer, and only one. The tracer
+	// will feed us a set of SigInfo's
+	for i := range t.Events() {
 		line++
-		// Sometimes it fails with ESRCH but the process is there.
-		// will need to restore this if we ever want ptrace back.
-		i, err := t.GetSigInfo()
-		for err != nil {
-			log.Printf("%v,", err)
-			i, err = t.GetSigInfo()
-			any("Waiting for ^C, or hit return to try GetSigInfo again")
-		}
+		// This fail needs to be fixed in the ptrace package, not here.
+		// Hard to say what it is but ... fix it there.
+		// // Sometimes it fails with ESRCH but the process is there.
+		// // will need to restore this if we ever want ptrace back.
+		// i, err := t.GetSigInfo()
+		// for err != nil {
+		// 	log.Printf("%v,", err)
+		// 	i, err = t.GetSigInfo()
+		// 	any("Waiting for ^C, or hit return to try GetSigInfo again")
+		// }
 		log.Printf("SIGNAL INFO: %#x", i)
 		s := unix.Signal(i.Signo)
 		insn, r, err := trace.Inst(t)

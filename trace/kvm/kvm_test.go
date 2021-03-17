@@ -1,9 +1,35 @@
 package kvm
 
 import (
+	"fmt"
 	"syscall"
 	"testing"
+
+	"golang.org/x/arch/x86/x86asm"
+	"golang.org/x/sys/unix"
 )
+
+// this is a simple decoder to get around a circular dependency.
+// bad design?
+// Inst retrieves an instruction from the traced process.
+// It gets messy if the Rip is in unaddressable space; that means we
+// must fetch the saved Rip from [Rsp].
+func (t *Tracee) Inst() (*x86asm.Inst, *syscall.PtraceRegs, error) {
+	r, err := t.GetRegs()
+	if err != nil {
+		return nil, nil, fmt.Errorf("Inst:Getregs:%v", err)
+	}
+	pc := r.Rip
+	insn := make([]byte, 16)
+	if err := t.Read(uintptr(pc), insn); err != nil {
+		return nil, nil, fmt.Errorf("Can' read PC at #%x, err %v", pc, err)
+	}
+	d, err := x86asm.Decode(insn, 64)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Can't decode %#02x: %v", insn, err)
+	}
+	return &d, r, nil
+}
 
 func TestNew(t *testing.T) {
 	v, err := New()
@@ -183,6 +209,11 @@ func testRunUD2(t *testing.T) {
 		t.Fatalf("creating %d byte region: got %v, want nil", len(b), err)
 	}
 	t.Logf("IP is %#x", r.Rip)
+	go func() {
+		for range v.Events() {
+		}
+		t.Logf("No more events")
+	}()
 	if err := v.Run(); err != nil {
 		t.Fatalf("SingleStep: got %v, want nil", err)
 	}
@@ -225,6 +256,11 @@ func TestHalt(t *testing.T) {
 		}
 		t.Logf("IP is %#x", r.Rip)
 	}
+	go func() {
+		for range v.Events() {
+		}
+		t.Logf("No more events")
+	}()
 	for i := 0; i < 16; i++ {
 		Debug = t.Logf
 		if err := v.Run(); err != nil {
@@ -259,6 +295,12 @@ func TestDecode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
+	go func() {
+		for range v.Events() {
+		}
+		t.Logf("No more events")
+	}()
+
 	Debug = t.Logf
 	if err := v.Run(); err != nil {
 		t.Errorf("Run: got %v, want nil", err)
@@ -310,6 +352,11 @@ func TestSegv(t *testing.T) {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
 	Debug = t.Logf
+	go func() {
+		for range v.Events() {
+		}
+		t.Logf("No more events")
+	}()
 	if err := v.Run(); err != nil {
 		t.Errorf("Run: got %v, want nil", err)
 	}
@@ -361,8 +408,19 @@ func TestCall(t *testing.T) {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
 	Debug = t.Logf
-	if err := v.Run(); err != nil {
-		t.Errorf("Run: got %v, want nil", err)
+
+	go func() {
+		if err := v.Run(); err != nil {
+			t.Errorf("Run: got %v, want nil", err)
+		}
+	}()
+	ev := <-v.Events()
+	t.Logf("Event %#x", ev)
+	if ev.Trapno != uint32(unix.SIGSEGV) {
+		t.Errorf("Trapno: got %#x, want %#x", ev.Trapno, unix.SIGSEGV)
+	}
+	if ev.Addr != 0xff000000 {
+		t.Errorf("Addr: got %#x, want %#x", ev.Addr, 0xff000000)
 	}
 	r, err = v.GetRegs()
 	if err != nil {

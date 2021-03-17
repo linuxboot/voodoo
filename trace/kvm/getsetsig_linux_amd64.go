@@ -9,4 +9,3 @@ func (t *Tracee) GetSigInfo() (*unix.SignalfdSiginfo, error) {
 	var info = &unix.SignalfdSiginfo{}
 	return info, nil
 }
-
