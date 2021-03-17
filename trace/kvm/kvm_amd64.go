@@ -895,6 +895,15 @@ type signalfdSiginfo struct {
 	// contains filtered or unexported fields
 }
 
+// Exit types
+/* KVM_EXIT_MMIO */
+type xmmio struct {
+	Addr  uint64
+	Data  [8]byte
+	Len   int32
+	Write uint8
+}
+
 func (t *Tracee) readInfo() error {
 	vmr := bytes.NewBuffer(t.cpu.m)
 	Debug("vmr len %d", vmr.Len())
@@ -902,7 +911,7 @@ func (t *Tracee) readInfo() error {
 		log.Panicf("Read in run failed -- can't happen")
 	}
 	Debug("vmr len %d", vmr.Len())
-	r, s, err := t.getRegs()
+	r, _, err := t.getRegs()
 	if err != nil {
 		return fmt.Errorf("readInfo: %v", err)
 	}
@@ -933,8 +942,12 @@ func (t *Tracee) readInfo() error {
 	case ExitHlt:
 		sig.Trapno = uint32(unix.SIGILL)
 	case ExitMmio:
-		sig.Addr = s.CR2
+		var x xmmio
+		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {
+			log.Panicf("Read in run failed -- can't happen")
+		}
 		sig.Trapno = uint32(unix.SIGSEGV)
+		sig.Addr = x.Addr
 	default:
 		log.Panicf("readInfo: unhandled exit %s", Exit(e))
 	}

@@ -403,7 +403,8 @@ func TestCall(t *testing.T) {
 
 	r.Rip = 0x10000
 	r.Rsp = 0x8000
-	r.Rax = 0xffffff02
+	const bad = 0xffffff02
+	r.Rax = bad
 	if err := v.SetRegs(r); err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
@@ -419,8 +420,8 @@ func TestCall(t *testing.T) {
 	if ev.Trapno != uint32(unix.SIGSEGV) {
 		t.Errorf("Trapno: got %#x, want %#x", ev.Trapno, unix.SIGSEGV)
 	}
-	if ev.Addr != 0xff000000 {
-		t.Errorf("Addr: got %#x, want %#x", ev.Addr, 0xff000000)
+	if ev.Addr != bad {
+		t.Errorf("Addr: got %#x, want %#x", ev.Addr, bad)
 	}
 	r, err = v.GetRegs()
 	if err != nil {
@@ -441,8 +442,4 @@ func TestCall(t *testing.T) {
 		t.Fatalf("opcode: got %s, want 'CALL'", op)
 	}
 	t.Logf("Rsp is %#x", r.Rsp)
-	if r.Rsp != 0x7ff8 {
-		t.Logf("Call with Rsp: got %#x, want 0x7ff8", r.Rsp)
-	}
-
 }
