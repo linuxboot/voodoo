@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 	"syscall"
 	"unsafe"
@@ -823,7 +824,9 @@ func (t *Tracee) archInit() error {
 	for i := byte(0); i < 4; i++ {
 		copy(blow[int(i*8)+0x3000:], []byte{0xe3, 0x0, 0, i * 0x40, 0, 0, 0, 0})
 	}
-	Debug("Page tables: %s", hex.Dump(blow[0x2000:0x4000]))
+	if false {
+		Debug("Page tables: %s", hex.Dump(blow[0x2000:0x4000]))
+	}
 	if err := t.mem(blow, 0x0); err != nil {
 		return fmt.Errorf("creating %d byte region: got %v, want nil", len(blow), err)
 	}
@@ -867,4 +870,11 @@ var bit64 = &sregs{
 	EFER: 0x500,
 	APIC: 0xfee00900,
 	/*interrupt_bitmap:[0, 0, 0, 0]*/
+}
+
+func (t *Tracee) readInfo() error {
+	if err := binary.Read(bytes.NewBuffer(t.cpu.m), binary.LittleEndian, &t.cpu.VMRun); err != nil {
+		log.Panicf("Read in run failed -- can't happen")
+	}
+	return nil
 }

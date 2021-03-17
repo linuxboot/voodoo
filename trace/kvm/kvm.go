@@ -61,6 +61,11 @@ type Tracee struct {
 	slot    uint32
 	regions []*Region
 	cpu     cpu
+	// This may seem a poor match but it makes
+	// the program itself easier as ptrace and kvm
+	// return common faultinfo, and other packages
+	// understand it.
+	info unix.SignalfdSiginfo
 }
 
 func (t *Tracee) String() string {
@@ -127,9 +132,10 @@ func (t *Tracee) Run() error {
 	}) {
 		err := <-errc
 		Debug("run returns with %v", err)
-		if err := binary.Read(bytes.NewBuffer(t.cpu.m), binary.LittleEndian, &t.cpu.VMRun); err != nil {
-			log.Panicf("Read in run failed -- can't happe")
+		if err := t.readInfo(); err != nil {
+			log.Panicf("run: info %v", err)
 		}
+		// Now yank out the exit info.
 		return err
 	}
 	return ErrTraceeExited
@@ -424,16 +430,7 @@ func (t *Tracee) Write(address uintptr, data []byte) error {
 // GetSiginfo reads the signal information for the signal that stopped the inferior.  Only
 // valid on Unix if the inferior is stopped due to a signal.
 func (t *Tracee) GetSiginfo() (*unix.SignalfdSiginfo, error) {
-	errchan := make(chan error, 1)
-	value := make(chan *unix.SignalfdSiginfo, 1)
-	if t.do(func() {
-		si, err := GetSigInfo(int(t.dev.Fd()))
-		errchan <- err
-		value <- si
-	}) {
-		return <-value, <-errchan
-	}
-	return nil, ErrTraceeExited
+	return &t.info, nil
 }
 
 // ClearSignal clears the last signal the inferior received.

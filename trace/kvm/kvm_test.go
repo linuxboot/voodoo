@@ -1,7 +1,6 @@
 package kvm
 
 import (
-	"log"
 	"syscall"
 	"testing"
 )
@@ -34,8 +33,8 @@ func TestCreateRegion(t *testing.T) {
 	defer v.Detach()
 	type page [2 * 1048576]byte
 	b := &page{}
-	if err := v.mem([]byte(b[:]), 0); err != nil {
-		t.Fatalf("creating %d byte region: got %v, want nil", len(b), err)
+	if err := v.mem([]byte(b[:]), 0); err == nil {
+		t.Fatalf("creating %d byte region: got nil, want 'file exists'", len(b))
 	}
 }
 
@@ -123,9 +122,6 @@ func TestSetRegs(t *testing.T) {
 	pr.Rdi = ^r.Rdi
 	pr.Rip = ^r.Rip
 	pr.Rsp = ^r.Rsp
-	pr.Cs = 0xff00
-	pr.Ds = 0xfe00
-	pr.Ss = 0xfd00
 
 	if err := v.SetRegs(pr); err != nil {
 		t.Fatalf("setregs: got %v, want nil", err)
@@ -156,9 +152,6 @@ func TestSetRegs(t *testing.T) {
 	diff(t.Errorf, pr.Rdi, r.Rdi, "Rdi")
 	diff(t.Errorf, pr.Rip, r.Rip, "Rip")
 	diff(t.Errorf, pr.Rsp, r.Rsp, "Rsp")
-	diff(t.Errorf, uint64(r.Cs), uint64(pr.Cs), "cs")
-	diff(t.Errorf, uint64(r.Ds), uint64(pr.Ds), "ds")
-	diff(t.Errorf, uint64(r.Ss), uint64(pr.Ss), "ss")
 
 }
 
@@ -170,7 +163,7 @@ func diff(f func(string, ...interface{}), a, b uint64, n string) bool {
 	return false
 }
 
-func TestRunUD2(t *testing.T) {
+func testRunUD2(t *testing.T) {
 	v, err := New()
 	if err != nil {
 		t.Fatalf("Open: got %v, want nil", err)
@@ -282,11 +275,11 @@ func TestDecode(t *testing.T) {
 	i, r, err := v.Inst()
 	t.Logf("Inst returns %v, %v, %v", i, r, err)
 	if err != nil {
-		log.Fatalf("Inst: got %v, want nil", err)
+		t.Fatalf("Inst: got %v, want nil", err)
 	}
 	op := i.Op.String()
 	if op != "HLT" {
-		log.Fatalf("opcode: got %s, want HLT", op)
+		t.Fatalf("opcode: got %s, want HLT", op)
 	}
 }
 
@@ -326,16 +319,72 @@ func TestSegv(t *testing.T) {
 	}
 	e := v.cpu.VMRun.String()
 	t.Logf("IP is %#x, exit %s", r.Rip, e)
-	if e != "ExitHalt" {
-		t.Errorf("VM exit: got %v, want 'ExitHalt'", e)
+	if e != "ExitMmio" {
+		t.Errorf("VM exit: got %v, want 'ExitMmio'", e)
 	}
 	i, r, err := v.Inst()
 	t.Logf("Inst returns %v, %v, %v", i, r, err)
 	if err != nil {
-		log.Fatalf("Inst: got %v, want nil", err)
+		t.Fatalf("Inst: got %v, want nil", err)
 	}
 	op := i.Op.String()
 	if op != "MOV" {
-		log.Fatalf("opcode: got %s, want 'MOV'", op)
+		t.Fatalf("opcode: got %s, want 'MOV'", op)
 	}
+}
+
+func TestCall(t *testing.T) {
+	// 000d FF10     	call *(%rax)
+	call := []byte{0xff, 0x10}
+	Debug = t.Logf
+	v, err := New()
+	if err != nil {
+		t.Fatalf("Open: got %v, want nil", err)
+	}
+	defer v.Detach()
+	if err := v.createCPU(0); err != nil {
+		t.Fatalf("createCPU: got %v, want nil", err)
+	}
+	if err := v.SingleStep(false); err != nil {
+		t.Fatalf("Run: got %v, want nil", err)
+	}
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	copy(v.regions[0].data[0x10000:], call)
+
+	r.Rip = 0x10000
+	r.Rsp = 0x8000
+	r.Rax = 0xffffff02
+	if err := v.SetRegs(r); err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	Debug = t.Logf
+	if err := v.Run(); err != nil {
+		t.Errorf("Run: got %v, want nil", err)
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	e := v.cpu.VMRun.String()
+	t.Logf("IP is %#x, exit %s", r.Rip, e)
+	if e != "ExitMmio" {
+		t.Errorf("VM exit: got %v, want 'ExitMmio'", e)
+	}
+	i, r, err := v.Inst()
+	t.Logf("Inst returns %v, %v, %v", i, r, err)
+	if err != nil {
+		t.Fatalf("Inst: got %v, want nil", err)
+	}
+	op := i.Op.String()
+	if op != "CALL" {
+		t.Fatalf("opcode: got %s, want 'CALL'", op)
+	}
+	t.Logf("Rsp is %#x", r.Rsp)
+	if r.Rsp != 0x7ff8 {
+		t.Logf("Call with Rsp: got %#x, want 0x7ff8", r.Rsp)
+	}
+
 }

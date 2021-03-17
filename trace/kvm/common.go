@@ -78,6 +78,11 @@ func (t *Tracee) Inst() (*x86asm.Inst, *syscall.PtraceRegs, error) {
 	return &d, r, nil
 }
 
+// FaultingVA returns the faulting virtual address, assuming there
+// was one. 
+func (t *Tracee) FaultingVA() uintptr {
+	return 0
+}
 // Disasm returns a string for the disassembled instruction.
 func Disasm(t *Tracee) (string, error) {
 	d, r, err := t.Inst()
