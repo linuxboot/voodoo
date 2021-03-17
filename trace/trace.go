@@ -28,6 +28,11 @@ type Trace interface {
 
 var Debug = func(string, ...interface{}) {}
 
+func SetDebug(f func(string, ...interface{})) {
+	Debug = f
+	kvm.Debug = f
+}
+
 // New returns a new Trace. The kind is determined by the parameter.
 func New(n string) (Trace, error) {
 	switch n {

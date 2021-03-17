@@ -100,7 +100,11 @@ func main() {
 	if *singlestep {
 		step = any
 	}
-	// objcopy seems to corrupt the file, too bad!
+	// kvm starts life with a memory segment attached.
+	// ptrace will need one set up, but there's no
+	// reason to do that in main any more. ptrace
+	// will have have to adapt.
+	eip := uintptr(0xffff0)
 	if false {
 		f, err := ioutil.TempFile("", "voodoo")
 		if err != nil {
@@ -112,25 +116,25 @@ func main() {
 			log.Fatalf("objcopy to %s failed: %s %v", *elfFile, string(o), err)
 		}
 		f.Close()
+		e, err := elf.Open(*elfFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		eip = uintptr(e.Entry)
+		e.Close()
+		if err := t.Exec(*elfFile, []string{*elfFile}...); err != nil {
+			log.Fatal(err)
+		}
+		//	log.Printf("Process started with PID %d", t.PID())
+		step()
 	}
-	e, err := elf.Open(*elfFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-	eip := uintptr(e.Entry)
-	e.Close()
-	if err := t.Exec(*elfFile, []string{*elfFile}...); err != nil {
-		log.Fatal(err)
-	}
-	//	log.Printf("Process started with PID %d", t.PID())
-	step()
 	if err := t.SingleStep(*singlestep); err != nil {
 		log.Printf("First single step: %v", err)
 	}
 	step()
 	// For now, we do the PE/COFF externally. But leave this here ...
 	// you never know.
-	if true {
+	if false {
 		// Now fill it up
 		f, err := pe.Open(flag.Args()[0])
 		if err != nil {
@@ -169,7 +173,8 @@ func main() {
 		// For now we assume the entry point is the start of the first segment
 		eip = base + uintptr(f.Sections[0].VirtualAddress)
 	}
-	trace.Debug = log.Printf
+	trace.SetDebug(log.Printf)
+
 	// *start overrides it all.
 	if *start != 0 {
 		eip = uintptr(*start)
@@ -178,7 +183,6 @@ func main() {
 	if err := trace.SetIPtr(t, uintptr(eip)); err != nil {
 		log.Fatalf("Can't set IPtr to %#x: %v", eip, err)
 	}
-	log.Printf("IPtr is %#x, let's go.", eip)
 	if err := trace.Params(t, uintptr(services.ImageHandle), uintptr(st)); err != nil {
 		log.Fatalf("Setting params: %v", err)
 	}
@@ -190,6 +194,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Could not get regs: %v", err)
 	}
+	log.Printf("IPtr is %#x, let's go.", eip)
 	if err := trace.Regs(os.Stdout, r); err != nil {
 		log.Fatal(err)
 	}
@@ -197,12 +202,20 @@ func main() {
 
 	// Reserve space for structs that we will place into the memory.
 	// For now, just drop the stack 1m and use that as a bump pointer.
+	r.Rsp = 0x40000000
 	services.SetAllocator(uintptr(r.Rsp-0x100000), uintptr(r.Rsp))
 	r.Rsp -= 0x100000
 
 	log.Printf("Set stack to %#x", r.Rsp)
 	if err := t.SetRegs(r); err != nil {
 		log.Fatalf("Can't set stack to %#x: %v", dat, err)
+	}
+	r, err = t.GetRegs()
+	if err != nil {
+		log.Fatalf("Could not get regs: %v", err)
+	}
+	if err := trace.Regs(os.Stdout, r); err != nil {
+		log.Fatal(err)
 	}
 	//type Siginfo struct {
 	//Signo  int // signal number
@@ -230,7 +243,7 @@ func main() {
 		// 	i, err = t.GetSigInfo()
 		// 	any("Waiting for ^C, or hit return to try GetSigInfo again")
 		// }
-		log.Printf("SIGNAL INFO: %#x", i)
+		log.Printf("SIGNAL INFO: %s", showinfo(&i))
 		s := unix.Signal(i.Signo)
 		insn, r, err := trace.Inst(t)
 		if err != nil {
@@ -247,6 +260,13 @@ func main() {
 			for {
 				any("Waiting for ^C")
 			}
+		case unix.SIGILL:
+			log.Printf("SIGILL. you are ILL")
+			if err := trace.Regs(os.Stdout, r); err != nil {
+				log.Fatal(err)
+			}
+			illasm := trace.Asm(insn, r.Rip)
+			fmt.Println(illasm)
 		case unix.SIGSEGV:
 			// So far, there seem to be three things that can happen.
 			// Call, Load, and Store.

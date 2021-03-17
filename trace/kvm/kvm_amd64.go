@@ -904,6 +904,25 @@ type xmmio struct {
 	Write uint8
 }
 
+type shutdown struct {
+	Stype uint32
+	Flags uint64
+}
+
+//                 /* KVM_EXIT_SYSTEM_EVENT */
+//                 struct {
+// #define KVM_SYSTEM_EVENT_SHUTDOWN       1
+// #define KVM_SYSTEM_EVENT_RESET          2
+// #define KVM_SYSTEM_EVENT_CRASH          3
+//                         __u32 type;
+//                         __u64 flags;
+//                 } system_event;
+var stype = map[uint32]string{
+	1: "shutdown",
+	2: "reset",
+	3: "crash",
+}
+
 func (t *Tracee) readInfo() error {
 	vmr := bytes.NewBuffer(t.cpu.m)
 	Debug("vmr len %d", vmr.Len())
@@ -936,18 +955,30 @@ func (t *Tracee) readInfo() error {
 		Syscall:   0,
 		Call_addr: r.Rip,
 		Arch:      0, // no idea
+		Signo: 0,
 	}
 
 	switch e {
 	case ExitHlt:
 		sig.Trapno = uint32(unix.SIGILL)
+		sig.Signo = uint32(unix.SIGILL)
 	case ExitMmio:
 		var x xmmio
 		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {
 			log.Panicf("Read in run failed -- can't happen")
 		}
-		sig.Trapno = uint32(unix.SIGSEGV)
+		sig.Signo = uint32(unix.SIGSEGV)
 		sig.Addr = x.Addr
+	case ExitShutdown:
+		var x shutdown
+		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {
+			log.Panicf("Read in run failed -- can't happen")
+		}
+		n, _ := stype[x.Stype]
+		Debug("Shutdown: %s [%#x]", n, x.Stype)
+		sig.Trapno = x.Stype
+		sig.Signo = uint32(unix.SIGILL)
+		sig.Addr = r.Rip
 	default:
 		log.Panicf("readInfo: unhandled exit %s", Exit(e))
 	}
