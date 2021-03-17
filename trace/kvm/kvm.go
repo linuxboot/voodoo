@@ -396,7 +396,13 @@ func (t *Tracee) Write(address uintptr, data []byte) error {
 	err := make(chan error, 1)
 	Debug("Write %#x %#x", address, data)
 	if t.do(func() {
-		log.Panic("Write")
+		r := t.regions[0]
+		last := r.gpa + uint64(len(r.data))
+		if address+uintptr(len(data)) > uintptr(last) {
+			err <- fmt.Errorf("Address %#x is out of range", address)
+			return
+		}
+		copy(r.data[address:], data)
 		err <- nil
 	}) {
 		return <-err

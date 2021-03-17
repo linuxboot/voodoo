@@ -64,6 +64,39 @@ func TestCreateRegion(t *testing.T) {
 	}
 }
 
+func TestReadWrite(t *testing.T) {
+	v, err := New()
+	if err != nil {
+		t.Fatalf("Open: got %v, want nil", err)
+	}
+	defer v.Detach()
+	const addr = uintptr(0x6000)
+	page := make([]byte, 2*1048576)
+	if err := v.Read(addr, page); err != nil {
+		t.Fatalf("Read(%#x, %#x): got %v, want nil", addr, len(page), err)
+	}
+
+	for i := range page {
+		page[i] = uint8(i)
+	}
+	if err := v.Write(addr, page); err != nil {
+		t.Fatalf("Write(%#x, %#x): got %v, want nil", addr, len(page), err)
+	}
+
+	if err := v.Read(addr, page); err != nil {
+		t.Fatalf("Read(%#x, %#x): got %v, want nil", addr, len(page), err)
+	}
+	var diff int
+	for i := range page {
+		if page[i] != uint8(i) {
+			diff++
+		}
+	}
+	if diff != 0 {
+		t.Errorf("Reading back: got %d differences, want 0", diff)
+	}
+}
+
 func TestCreateCpu(t *testing.T) {
 	v, err := New()
 	if err != nil {
