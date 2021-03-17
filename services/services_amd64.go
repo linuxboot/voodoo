@@ -13,7 +13,7 @@ type Register = x86asm.Reg
 
 // Fault defines all we need to know on a fault and how to do it.
 type Fault struct {
-	Proc *trace.Tracee
+	Proc trace.Trace
 	Info *unix.SignalfdSiginfo
 	Inst *x86asm.Inst
 	Regs *syscall.PtraceRegs

@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/linuxboot/fiano/pkg/guid"
-	"github.com/linuxboot/voodoo/trace"
 	"github.com/linuxboot/voodoo/table"
 	"github.com/linuxboot/voodoo/uefi"
 )
@@ -44,7 +43,7 @@ func (r *Boot) Call(f *Fault) error {
 
 	case table.AllocatePool:
 		// Status = gBS->AllocatePool (EfiBootServicesData, sizeof (EXAMPLE_DEVICE), (VOID **)&Device);
-		f.Args = trace.Args(f.Proc, f.Regs, 5)
+		f.Args = f.Proc.Args(f.Proc, f.Regs, 5)
 		// ignore arg 0 for now.
 		log.Printf("AllocatePool: %d bytes", f.Args[1])
 		var bb [8]byte
@@ -56,14 +55,14 @@ func (r *Boot) Call(f *Fault) error {
 		return nil
 	case table.FreePool:
 		// Status = gBS->FreePool (Device);
-		f.Args = trace.Args(f.Proc, f.Regs, 1)
+		f.Args = f.Proc.Args(f.Proc, f.Regs, 1)
 		// Free? Forget it.
 		log.Printf("FreePool: %#x", f.Args[0])
 		return nil
 	case table.LocateHandle:
 		// EFI_STATUS LocateHandle (IN EFI_LOCATE_SEARCH_TYPE SearchType, IN EFI_GUID *Protocol OPTIONAL, IN VOID *SearchKey OPTIONAL,IN OUT UINTN *NoHandles,  OUT EFI_HANDLE **Buffer);
 		// We had hoped to ignore this nonsense, but ... we can't
-		f.Args = trace.Args(f.Proc, f.Regs, 5)
+		f.Args = f.Proc.Args(f.Proc, f.Regs, 5)
 
 		var g guid.GUID
 		if err := f.Proc.Read(f.Args[1], g[:]); err != nil {
@@ -94,7 +93,7 @@ func (r *Boot) Call(f *Fault) error {
 		// typedef EFI_STATUS (EFIAPI *EFI_HANDLE_PROTOCOL) (IN EFI_HANDLE Handle, IN EFI_GUID *Protocol, OUT VOID **Interface);
 
 		// The arguments are rcx, rdx, r9
-		f.Args = trace.Args(f.Proc, f.Regs, 3)
+		f.Args = f.Proc.Args(f.Proc, f.Regs, 3)
 		var g guid.GUID
 		if err := f.Proc.Read(f.Args[1], g[:]); err != nil {
 			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
@@ -117,7 +116,7 @@ func (r *Boot) Call(f *Fault) error {
 		// typedef EFI_STATUS (EFIAPI *EFI_HANDLE_PROTOCOL) (IN EFI_HANDLE Handle, IN EFI_GUID *Protocol, OUT VOID **Interface);
 
 		// The arguments are rcx, rdx, r9
-		f.Args = trace.Args(f.Proc, f.Regs, 3)
+		f.Args = f.Proc.Args(f.Proc, f.Regs, 3)
 		var g guid.GUID
 		if err := f.Proc.Read(f.Args[1], g[:]); err != nil {
 			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
@@ -127,12 +126,12 @@ func (r *Boot) Call(f *Fault) error {
 		return nil
 	case table.ConnectController:
 		// The arguments are rcx, rdx, r9, r8
-		f.Args = trace.Args(f.Proc, f.Regs, 4)
+		f.Args = f.Proc.Args(f.Proc, f.Regs, 4)
 		log.Printf("ConnectController: %#x", f.Args)
 		// Just pretend it worked.
 		return nil
 	case table.WaitForEvent:
-		f.Args = trace.Args(f.Proc, f.Regs, 3)
+		f.Args = f.Proc.Args(f.Proc, f.Regs, 3)
 		log.Printf("WaitForEvent: %#x", f.Args)
 		// Just pretend it worked.
 		return nil

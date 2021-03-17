@@ -10,7 +10,10 @@ import (
 type Trace interface {
 	// Exec starts a process in a trace
 	Exec(name string, args ...string) error
+	ReadWord(address uintptr) (uint64, error)
 }
+
+var Debug = func(string, ...interface{}) {}
 
 // New returns a new Trace. The kind is determined by the parameter.
 func New(n string) (Trace, error) {

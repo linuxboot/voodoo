@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"github.com/linuxboot/fiano/pkg/guid"
-	"github.com/linuxboot/voodoo/trace"
 	"github.com/linuxboot/voodoo/table"
 	"github.com/linuxboot/voodoo/uefi"
 )
@@ -45,7 +44,7 @@ func (r *Runtime) Call(f *Fault) error {
 	log.Printf("runtimeservices Call: %s(%#x), arg type %T, args %v", t, op, f.Inst.Args, f.Inst.Args)
 	switch op {
 	case table.RTGetVariable:
-		args := trace.Args(f.Proc, f.Regs, 5)
+		args := f.Proc.Args(f.Proc, f.Regs, 5)
 		log.Printf("table.RTGetVariable args %#x", args)
 		ptr := args[0]
 		n, err := f.Proc.ReadStupidString(ptr)
