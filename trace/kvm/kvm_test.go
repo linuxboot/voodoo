@@ -200,6 +200,7 @@ func TestRunUD2(t *testing.T) {
 }
 
 func TestHalt(t *testing.T) {
+	Debug = t.Logf
 	v, err := New()
 	if err != nil {
 		t.Fatalf("Open: got %v, want nil", err)

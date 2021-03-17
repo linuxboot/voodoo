@@ -3,6 +3,7 @@ package kvm
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"reflect"
@@ -801,22 +802,22 @@ func (t *Tracee) archInit() error {
 	low := &lowbios{}
 	blow := []byte(low[:])
 	// poison it with hlt.
-	for i := range blow[0x5000:] {
+	for i := range blow {
 		blow[i] = 0xf4
 	}
 	// Set up page tables for long mode.
-	blow[0x2000] = 3
-	blow[0x2001] = 0x30
+
 	// present, read/write, page table at 0x3000
 	//ptes[0x2000] = 0x3000 | 0x3
 	// Gbyte-aligned page address in to 2 bits
 	// 3 in lowest 2 bits means present and read/write
 	// 0x60 means accessed/dirty
 	// 0x80 means the page size bit -- 0x80 | 0x60 = 0xe0
+	copy(blow[0x2000:], []byte{3, 0x30, 0, 0, 0, 0, 0, 0})
 	for i := byte(0); i < 4; i++ {
-		blow[int(i)+0x3000] = 0xe3
-		blow[int(i)+0x3003] = i * 0x40
+		copy(blow[int(i*8)+0x3000:], []byte{0xe3, 0x0, 0, i * 0x40, 0, 0, 0, 0})
 	}
+	Debug("Page tables: %s", hex.Dump(blow[0x2000:0x4000]))
 	//ptes[0x3000] = 0x000000e3
 	//ptes[0x3001] = 0x400000e3
 	//ptes[0x3002] = 0x800000e3

@@ -231,7 +231,7 @@ func (t *Tracee) createCPU(id int) error {
 	t.cpu.fd = fd
 	t.cpu.m = b
 	// Set this to true and it dies.
-	if false {
+	if true {
 		// Now for the real fun. Long mode.
 		sdata := &bytes.Buffer{}
 		binary.Write(sdata, binary.LittleEndian, bit64)
