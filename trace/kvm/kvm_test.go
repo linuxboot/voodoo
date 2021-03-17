@@ -284,4 +284,58 @@ func TestDecode(t *testing.T) {
 	if err != nil {
 		log.Fatalf("Inst: got %v, want nil", err)
 	}
+	op := i.Op.String()
+	if op != "HLT" {
+		log.Fatalf("opcode: got %s, want HLT", op)
+	}
+}
+
+func TestSegv(t *testing.T) {
+	//1 0000 48A10000 	mov 0xff000000, %rax
+	//1      00FF0000
+	//1      0000
+	segv := []byte{0x48, 0xa1, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x00}
+	Debug = t.Logf
+	v, err := New()
+	if err != nil {
+		t.Fatalf("Open: got %v, want nil", err)
+	}
+	defer v.Detach()
+	if err := v.createCPU(0); err != nil {
+		t.Fatalf("createCPU: got %v, want nil", err)
+	}
+	if err := v.SingleStep(false); err != nil {
+		t.Fatalf("Run: got %v, want nil", err)
+	}
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	r.Rip = 0x10000
+	copy(v.regions[0].data[0x10000:], segv)
+	if err := v.SetRegs(r); err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	Debug = t.Logf
+	if err := v.Run(); err != nil {
+		t.Errorf("Run: got %v, want nil", err)
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	e := v.cpu.VMRun.String()
+	t.Logf("IP is %#x, exit %s", r.Rip, e)
+	if e != "ExitHalt" {
+		t.Errorf("VM exit: got %v, want 'ExitHalt'", e)
+	}
+	i, r, err := v.Inst()
+	t.Logf("Inst returns %v, %v, %v", i, r, err)
+	if err != nil {
+		log.Fatalf("Inst: got %v, want nil", err)
+	}
+	op := i.Op.String()
+	if op != "MOV" {
+		log.Fatalf("opcode: got %s, want 'MOV'", op)
+	}
 }

@@ -778,9 +778,15 @@ func (t *Tracee) SetRegs(pr *syscall.PtraceRegs) error {
 			errchan <- errno
 		}
 
-		binary.Write(sdata, binary.LittleEndian, s)
-		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setSregs, uintptr(unsafe.Pointer(&sdata.Bytes()[0]))); errno != 0 {
-			errchan <- errno
+		// We will not allow setting Sregs. It's too dangerous.
+		// ptraceregs don't have enough useful bits.
+		// At some point we might filter the settings and allow
+		// *some* to be set but that's for later.
+		if false {
+			binary.Write(sdata, binary.LittleEndian, s)
+			if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setSregs, uintptr(unsafe.Pointer(&sdata.Bytes()[0]))); errno != 0 {
+				errchan <- errno
+			}
 		}
 
 		errchan <- nil
@@ -818,23 +824,6 @@ func (t *Tracee) archInit() error {
 		copy(blow[int(i*8)+0x3000:], []byte{0xe3, 0x0, 0, i * 0x40, 0, 0, 0, 0})
 	}
 	Debug("Page tables: %s", hex.Dump(blow[0x2000:0x4000]))
-	//ptes[0x3000] = 0x000000e3
-	//ptes[0x3001] = 0x400000e3
-	//ptes[0x3002] = 0x800000e3
-	//ptes[0x3003] = 0xc00000e3
-	// ps bit set,
-	// uint64_t pml4_addr = 0x2000;
-	// uint64_t *pml4 = (void *)(vm->mem + pml4_addr);
-
-	// uint64_t pdpt_addr = 0x3000;
-	// uint64_t *pdpt = (void *)(vm->mem + pdpt_addr);
-
-	// uint64_t pd_addr = 0x4000;
-	// uint64_t *pd = (void *)(vm->mem + pd_addr);
-
-	// pml4[0] = PDE64_PRESENT | PDE64_RW | PDE64_USER | pdpt_addr;
-	// pdpt[0] = PDE64_PRESENT | PDE64_RW | PDE64_USER | pd_addr;
-	// pd[0] = PDE64_PRESENT | PDE64_RW | PDE64_USER | PDE64_PS;
 	if err := t.mem(blow, 0x0); err != nil {
 		return fmt.Errorf("creating %d byte region: got %v, want nil", len(blow), err)
 	}
@@ -848,8 +837,12 @@ func (t *Tracee) archInit() error {
 	//1 0000 48FFC0   	inc %rax
 	// 2 0003 F4       	hlt
 	//copy(hlt[0xfffff0:], []byte{0xc0, 0xff, 0x48})
-	if err := t.mem([]byte(b[:]), 0xff000000); err != nil {
-		return fmt.Errorf("creating %d byte region: got %v, want nil", len(b), err)
+	// on second thought, let's just exit every time.
+	// This is a good place for UEFI shit.
+	if false {
+		if err := t.mem([]byte(b[:]), 0xff000000); err != nil {
+			return fmt.Errorf("creating %d byte region: got %v, want nil", len(b), err)
+		}
 	}
 
 	return nil
