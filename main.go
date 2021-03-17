@@ -213,9 +213,11 @@ func main() {
 	//Addr uintptr // Memory location which caused fault
 	// We have the tracer, and only one. The tracer
 	// will feed us a set of SigInfo's
-	if err := t.Run(); err != nil {
-		log.Printf("First single step: %v", err)
-	}
+	go func() {
+		if err := t.Run(); err != nil {
+			log.Printf("First single step: %v", err)
+		}
+	}()
 	for i := range t.Events() {
 		line++
 		// This fail needs to be fixed in the ptrace package, not here.
