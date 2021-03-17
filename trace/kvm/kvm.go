@@ -209,9 +209,9 @@ func New() (*Tracee, error) {
 	return t, <-errs
 }
 
-// createCPU creates a CPU, given an id.
+// NewProc creates a CPU, given an id.
 // TODO :we're getting sloppy about the t.do stuff, fix.
-func (t *Tracee) createCPU(id int) error {
+func (t *Tracee) NewProc(id int) error {
 	r1, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), uintptr(createCPU), 0)
 	if errno != 0 {
 		return errno

@@ -87,6 +87,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unknown tracer %s", "kvm")
 	}
+	if err := t.NewProc(0); err != nil {
+		log.Fatalf("Newproc: %v", err)
+	}
 	st, err := services.Base("systemtable")
 	if err != nil {
 		log.Fatal(err)
@@ -125,9 +128,6 @@ func main() {
 		log.Printf("First single step: %v", err)
 	}
 	step()
-	if err := t.Run(); err != nil {
-		log.Printf("First single step: %v", err)
-	}
 	// For now, we do the PE/COFF externally. But leave this here ...
 	// you never know.
 	if true {
@@ -158,8 +158,8 @@ func main() {
 			log.Printf("Copy section to %#x:%#x", addr, s.VirtualSize)
 			bb := make([]byte, s.VirtualSize)
 			if err := t.Write(addr, bb); err != nil {
-				any(fmt.Sprintf("Can't write %d bytes of zero @ %#x for this section to process:", len(bb), addr, err))
-				log.Fatalf("Can't write %d bytes of zero @ %#x for this section to process:", len(bb), addr, err)
+				any(fmt.Sprintf("Can't write %d bytes of zero @ %#x for this section to process:%v", len(bb), addr, err))
+				log.Fatalf("Can't write %d bytes of zero @ %#x for this section to process:%v", len(bb), addr, err)
 			}
 			if err := t.Write(addr, dat); err != nil {
 				any(fmt.Sprintf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err))
@@ -213,6 +213,9 @@ func main() {
 	//Addr uintptr // Memory location which caused fault
 	// We have the tracer, and only one. The tracer
 	// will feed us a set of SigInfo's
+	if err := t.Run(); err != nil {
+		log.Printf("First single step: %v", err)
+	}
 	for i := range t.Events() {
 		line++
 		// This fail needs to be fixed in the ptrace package, not here.
@@ -261,7 +264,7 @@ func main() {
 				log.Fatal(err)
 			}
 			segvasm := trace.Asm(insn, r.Rip)
-			if err := segv(t, i, insn, r, segvasm); err != nil {
+			if err := segv(t, &i, insn, r, segvasm); err != nil {
 				if err == io.EOF {
 					fmt.Println("\n===:DXE Exits!")
 					os.Exit(0)
@@ -278,7 +281,7 @@ func main() {
 				log.Fatalf("Can't set stack to %#x: %v", dat, err)
 			}
 
-			if err := t.ClearSignals(); err != nil {
+			if err := t.ReArm(); err != nil {
 				//log.Printf("ClearSignal failed; %v", err)
 				for {
 					any("Waiting for ^C")
@@ -290,15 +293,6 @@ func main() {
 		case unix.SIGTRAP:
 		}
 
-		if false {
-			fmt.Printf("Event: %v,", e)
-			i, err := t.GetSigInfo()
-			if err != nil {
-				log.Printf("%v,", err)
-			} else {
-				log.Printf("%v,", i)
-			}
-		}
 		if err := trace.RegDiff(os.Stdout, r, p); err != nil {
 			log.Fatal(err)
 		}

@@ -13,6 +13,7 @@ type Event interface{}
 // Trace is the interface to a traced process
 type Trace interface {
 	// Exec starts a process in a trace
+	NewProc(id int) error
 	Exec(name string, args ...string) error
 	ReadWord(address uintptr) (uint64, error)
 	Read(address uintptr, data []byte) error
@@ -22,7 +23,7 @@ type Trace interface {
 	SingleStep(onoff bool) error
 	ReArm() error
 	Run() error
-	Events() <-chan *unix.SignalfdSiginfo
+	Events() <-chan unix.SignalfdSiginfo
 }
 
 var Debug = func(string, ...interface{}) {}

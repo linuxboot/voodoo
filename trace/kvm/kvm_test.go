@@ -70,8 +70,8 @@ func TestCreateCpu(t *testing.T) {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
 	defer v.Detach()
-	if err := v.createCPU(0); err != nil {
-		t.Fatalf("createCPU: got %v, want nil", err)
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
 	}
 }
 
@@ -82,8 +82,8 @@ func TestGetRegs(t *testing.T) {
 	}
 	defer v.Detach()
 	t.Logf("%v", v)
-	if err := v.createCPU(0); err != nil {
-		t.Fatalf("createCPU: got %v, want nil", err)
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
 	}
 	r, err := v.GetRegs()
 	if err != nil {
@@ -122,8 +122,8 @@ func TestSetRegs(t *testing.T) {
 	}
 	defer v.Detach()
 	t.Logf("%v", v)
-	if err := v.createCPU(0); err != nil {
-		t.Fatalf("createCPU: got %v, want nil", err)
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
 	}
 	r, err := v.GetRegs()
 	if err != nil {
@@ -196,8 +196,8 @@ func testRunUD2(t *testing.T) {
 	}
 	defer v.Detach()
 	t.Logf("%v", v)
-	if err := v.createCPU(0); err != nil {
-		t.Fatalf("createCPU: got %v, want nil", err)
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
 	}
 	r, err := v.GetRegs()
 	if err != nil {
@@ -231,8 +231,8 @@ func TestHalt(t *testing.T) {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
 	defer v.Detach()
-	if err := v.createCPU(0); err != nil {
-		t.Fatalf("createCPU: got %v, want nil", err)
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
 	}
 	if err := v.SingleStep(false); err != nil {
 		t.Fatalf("Run: got %v, want nil", err)
@@ -285,8 +285,8 @@ func TestDecode(t *testing.T) {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
 	defer v.Detach()
-	if err := v.createCPU(0); err != nil {
-		t.Fatalf("createCPU: got %v, want nil", err)
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
 	}
 	if err := v.SingleStep(false); err != nil {
 		t.Fatalf("Run: got %v, want nil", err)
@@ -336,8 +336,8 @@ func TestSegv(t *testing.T) {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
 	defer v.Detach()
-	if err := v.createCPU(0); err != nil {
-		t.Fatalf("createCPU: got %v, want nil", err)
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
 	}
 	if err := v.SingleStep(false); err != nil {
 		t.Fatalf("Run: got %v, want nil", err)
@@ -389,8 +389,8 @@ func TestCall(t *testing.T) {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
 	defer v.Detach()
-	if err := v.createCPU(0); err != nil {
-		t.Fatalf("createCPU: got %v, want nil", err)
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
 	}
 	if err := v.SingleStep(false); err != nil {
 		t.Fatalf("Run: got %v, want nil", err)
