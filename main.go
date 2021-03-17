@@ -134,7 +134,7 @@ func main() {
 	step()
 	// For now, we do the PE/COFF externally. But leave this here ...
 	// you never know.
-	if false {
+	if true {
 		// Now fill it up
 		f, err := pe.Open(flag.Args()[0])
 		if err != nil {
