@@ -343,75 +343,39 @@ func (t *Tracee) SendSignal(sig syscall.Signal) error {
 	return ErrTraceeExited
 }
 
-// grabs a word at the given address.
-func peek(pid int, address uintptr) (uint64, error) {
-	word := make([]byte, 8 /* 8 should really be sizeof(uintptr)... */)
-	nbytes, err := syscall.PtracePeekData(pid, address, word)
-	if err != nil || nbytes != 8 /*sizeof(uintptr)*/ {
-		return 0, err
-	}
-	v := uint64(0x2Bc0ffee)
-	err = binary.Read(bytes.NewReader(word), binary.LittleEndian, &v)
-	return v, err
-}
-
 // ReadWord reads the given word from the inferior's address space.
+// Only allowed to read from Region 0 for now.
 func (t *Tracee) ReadWord(address uintptr) (uint64, error) {
 	err := make(chan error, 1)
 	value := make(chan uint64, 1)
 	if t.do(func() {
-		v, e := peek(int(t.dev.Fd()), address)
-		value <- v
-		err <- e
+		r := t.regions[0]
+		last := r.gpa + uint64(len(r.data))
+		if address > uintptr(last)-8 {
+			err <- fmt.Errorf("Address %#x is out of range", address)
+			value <- 0
+			return
+		}
+		value <- binary.LittleEndian.Uint64(r.data[address:])
+		err <- nil
 	}) {
 		return <-value, <-err
 	}
 	return 0, errors.New("ReadWord: Unreachable")
 }
 
-// grabs a word at the given address.
-func poke(pid int, address uintptr, word uint64) error {
-	/* convert the word into the byte array that PtracePokeData needs. */
-	buf := new(bytes.Buffer)
-	err := binary.Write(buf, binary.LittleEndian, word)
-	if err != nil {
-		return err
-	}
-
-	nbytes, err := syscall.PtracePokeData(pid, address, buf.Bytes())
-	if err != nil || nbytes != 8 /*sizeof(uint64)*/ {
-		return err
-	}
-	return nil
-}
-
-// WriteWord writes the given word into the inferior's address space.
-func (t *Tracee) WriteWord(address uintptr, word uint64) error {
-	err := make(chan error, 1)
-	if t.do(func() { err <- poke(int(t.dev.Fd()), address, word) }) {
-		return <-err
-	}
-	return ErrTraceeExited
-}
-
-func (t *Tracee) Write(address uintptr, data []byte) error {
-	err := make(chan error, 1)
-	Debug("Write %#x %#x", address, data)
-	if t.do(func() {
-		_, e := syscall.PtracePokeData(int(t.dev.Fd()), address, data)
-		err <- e
-	}) {
-		return <-err
-	}
-	return ErrTraceeExited
-}
-
 // Read grabs memory starting at the given address, for len(data) bytes.
 func (t *Tracee) Read(address uintptr, data []byte) error {
 	err := make(chan error, 1)
 	if t.do(func() {
-		_, e := syscall.PtracePeekData(int(t.dev.Fd()), address, data)
-		err <- e
+		r := t.regions[0]
+		last := r.gpa + uint64(len(r.data))
+		if address > uintptr(last) {
+			err <- fmt.Errorf("Address %#x is out of range", address)
+			return
+		}
+		copy(data, r.data[address:])
+		err <- nil
 	}) {
 		return <-err
 	}
@@ -434,6 +398,27 @@ func (t *Tracee) ReadStupidString(address uintptr) (string, error) {
 		address += 2
 	}
 	return s, nil
+}
+
+// WriteWord writes the given word into the inferior's address space.
+func (t *Tracee) WriteWord(address uintptr, word uint64) error {
+	err := make(chan error, 1)
+	if t.do(func() { log.Panicf("writeword") }) {
+		return <-err
+	}
+	return ErrTraceeExited
+}
+
+func (t *Tracee) Write(address uintptr, data []byte) error {
+	err := make(chan error, 1)
+	Debug("Write %#x %#x", address, data)
+	if t.do(func() {
+		log.Panic("Write")
+		err <- nil
+	}) {
+		return <-err
+	}
+	return ErrTraceeExited
 }
 
 // GetSiginfo reads the signal information for the signal that stopped the inferior.  Only

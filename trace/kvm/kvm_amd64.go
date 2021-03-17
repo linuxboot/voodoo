@@ -641,7 +641,7 @@ func (e Exit) String() string {
 	case ExitDebug:
 		return "ExitDebug"
 	case ExitHlt:
-		return "ExitHlt"
+		return "ExitHalt"
 	case ExitMmio:
 		return "ExitMmio"
 	case ExitIrqWindowOpen:

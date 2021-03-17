@@ -1,6 +1,7 @@
 package kvm
 
 import (
+	"log"
 	"syscall"
 	"testing"
 )
@@ -240,6 +241,47 @@ func TestHalt(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GetRegs: got %v, want nil", err)
 		}
-		t.Logf("IP is %#x, exit %s", r.Rip, v.cpu.VMRun.String())
+		e := v.cpu.VMRun.String()
+		t.Logf("IP is %#x, exit %s", r.Rip, e)
+		if e != "ExitHalt" {
+			t.Errorf("VM exit: got %v, want 'ExitHalt'", e)
+		}
+	}
+}
+
+func TestDecode(t *testing.T) {
+	Debug = t.Logf
+	v, err := New()
+	if err != nil {
+		t.Fatalf("Open: got %v, want nil", err)
+	}
+	defer v.Detach()
+	if err := v.createCPU(0); err != nil {
+		t.Fatalf("createCPU: got %v, want nil", err)
+	}
+	if err := v.SingleStep(false); err != nil {
+		t.Fatalf("Run: got %v, want nil", err)
+	}
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	Debug = t.Logf
+	if err := v.Run(); err != nil {
+		t.Errorf("Run: got %v, want nil", err)
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	e := v.cpu.VMRun.String()
+	t.Logf("IP is %#x, exit %s", r.Rip, e)
+	if e != "ExitHalt" {
+		t.Errorf("VM exit: got %v, want 'ExitHalt'", e)
+	}
+	i, r, err := v.Inst()
+	t.Logf("Inst returns %v, %v, %v", i, r, err)
+	if err != nil {
+		log.Fatalf("Inst: got %v, want nil", err)
 	}
 }

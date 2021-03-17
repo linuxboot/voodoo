@@ -18,8 +18,8 @@ import (
 	"os/exec"
 	"reflect"
 
-	"github.com/linuxboot/voodoo/trace"
 	"github.com/linuxboot/voodoo/services"
+	"github.com/linuxboot/voodoo/trace"
 	"golang.org/x/sys/unix"
 )
 
@@ -208,21 +208,22 @@ func main() {
 	for e := range t.Events() {
 		line++
 		// Sometimes it fails with ESRCH but the process is there.
-		i, err := t.GetSiginfo()
-		for err != nil {
-			log.Printf("%v,", err)
-			i, err = t.GetSiginfo()
-			any("Waiting for ^C, or hit return to try GetSigInfo again")
-		}
-		log.Printf("SIGNAL INFO: %#x", i)
-		s := unix.Signal(i.Signo)
+		// will need to restore this if we ever want ptrace back.
+		// i, err := t.GetSiginfo()
+		// for err != nil {
+		// 	log.Printf("%v,", err)
+		// 	i, err = t.GetSiginfo()
+		// 	any("Waiting for ^C, or hit return to try GetSigInfo again")
+		// }
+		// log.Printf("SIGNAL INFO: %#x", i)
+		// s := unix.Signal(i.Signo)
 		insn, r, err := t.Inst()
 		if err != nil {
 			if err == io.EOF {
 				fmt.Println("\n===:DXE Exits!")
 				os.Exit(0)
 			}
-			log.Printf("Could not get regs: %v", err)
+			log.Printff("Could not get regs: %v", err)
 			os.Exit(1)
 		}
 		step()
