@@ -39,9 +39,6 @@ type DebugControl struct {
 	debugreg [8]uint64
 }
 
-// An Event is sent on a Tracee's event channel whenever it changes state.
-type Event interface{}
-
 // A Region defines a memory region.
 // This is likely overkill; we likely don't want
 // anything more than a single 2G region starting at 0.
@@ -55,7 +52,7 @@ type Region struct {
 type Tracee struct {
 	dev     *os.File
 	vm      uintptr
-	events  chan Event
+	events  chan interface{}
 	err     chan error
 	cmds    chan func()
 	slot    uint32
@@ -146,7 +143,7 @@ func (t *Tracee) Run() error {
 func (t *Tracee) PID() int { return int(t.cpu.id) }
 
 // Events returns the events channel for the tracee.
-func (t *Tracee) Events() <-chan Event {
+func (t *Tracee) Events() <-chan interface{} {
 	return t.events
 }
 
@@ -185,7 +182,7 @@ func New() (*Tracee, error) {
 	t := &Tracee{
 		dev:    k,
 		vm:     vm,
-		events: make(chan Event, 1),
+		events: make(chan interface{}, 1),
 		err:    make(chan error, 1),
 		cmds:   make(chan func()),
 	}
@@ -388,24 +385,6 @@ func (t *Tracee) Read(address uintptr, data []byte) error {
 	return ErrTraceeExited
 }
 
-// ReadStupidString reads a UEFI-style string, i.e. one composed of words, not bytes.
-// We're gonna party like it's 1899.
-func (t *Tracee) ReadStupidString(address uintptr) (string, error) {
-	var s string
-	var w [2]byte
-	for {
-		if err := t.Read(address, w[:]); err != nil {
-			return "", err
-		}
-		if w[0] == 0 && w[1] == 0 {
-			break
-		}
-		s = s + string(w[:1])
-		address += 2
-	}
-	return s, nil
-}
-
 // WriteWord writes the given word into the inferior's address space.
 func (t *Tracee) WriteWord(address uintptr, word uint64) error {
 	err := make(chan error, 1)
@@ -436,10 +415,10 @@ func (t *Tracee) GetSiginfo() (*unix.SignalfdSiginfo, error) {
 // ClearSignal clears the last signal the inferior received.
 // This could allow the inferior
 // to continue after a segfault, for example.
-func (t *Tracee) ClearSignal() error {
+func (t *Tracee) ClearSignals() error {
 	errchan := make(chan error, 1)
 	if t.do(func() {
-		errchan <- ClearSignals(int(int(t.dev.Fd())))
+		errchan <- nil
 	}) {
 		return <-errchan
 	}

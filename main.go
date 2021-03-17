@@ -83,6 +83,10 @@ func main() {
 		log.Fatal("arg count")
 	}
 
+	t, err := trace.New("kvm")
+	if err != nil {
+		log.Fatalf("Unknown tracer %s", "kvm")
+	}
 	st, err := services.Base("systemtable")
 	if err != nil {
 		log.Fatal(err)
@@ -112,16 +116,18 @@ func main() {
 	}
 	eip := uintptr(e.Entry)
 	e.Close()
-	t, err := trace.Exec(*elfFile, []string{*elfFile})
-	if err != nil {
+	if err := t.Exec(*elfFile, []string{*elfFile}...); err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("Process started with PID %d", t.PID())
+	//	log.Printf("Process started with PID %d", t.PID())
 	step()
-	if err := t.SingleStep(); err != nil {
+	if err := t.SingleStep(*singlestep); err != nil {
 		log.Printf("First single step: %v", err)
 	}
 	step()
+	if err := t.Run(); err != nil {
+		log.Printf("First single step: %v", err)
+	}
 	// For now, we do the PE/COFF externally. But leave this here ...
 	// you never know.
 	if true {
@@ -169,11 +175,11 @@ func main() {
 		eip = uintptr(*start)
 	}
 	log.Printf("Start at %#x", eip)
-	if err := t.SetIPtr(uintptr(eip)); err != nil {
+	if err := trace.SetIPtr(t, uintptr(eip)); err != nil {
 		log.Fatalf("Can't set IPtr to %#x: %v", eip, err)
 	}
 	log.Printf("IPtr is %#x, let's go.", eip)
-	if err := t.Params(uintptr(services.ImageHandle), uintptr(st)); err != nil {
+	if err := trace.Params(t, uintptr(services.ImageHandle), uintptr(st)); err != nil {
 		log.Fatalf("Setting params: %v", err)
 	}
 	if err := trace.Header(os.Stdout); err != nil {
@@ -209,22 +215,21 @@ func main() {
 		line++
 		// Sometimes it fails with ESRCH but the process is there.
 		// will need to restore this if we ever want ptrace back.
-		i, err := t.GetSiginfo()
+		i, err := t.GetSigInfo()
 		for err != nil {
-		log.Printf("%v,", err)
-		i, err = t.GetSiginfo()
-		any("Waiting for ^C, or hit return to try GetSigInfo again")
+			log.Printf("%v,", err)
+			i, err = t.GetSigInfo()
+			any("Waiting for ^C, or hit return to try GetSigInfo again")
 		}
 		log.Printf("SIGNAL INFO: %#x", i)
 		s := unix.Signal(i.Signo)
-		insn, r, err := t.Inst()
+		insn, r, err := trace.Inst(t)
 		if err != nil {
 			if err == io.EOF {
 				fmt.Println("\n===:DXE Exits!")
 				os.Exit(0)
 			}
-			log.Printff("Could not get regs: %v", err)
-			os.Exit(1)
+			log.Fatalf("Could not get regs: %v", err)
 		}
 		step()
 		switch s {
@@ -268,13 +273,14 @@ func main() {
 			if err := t.SetRegs(r); err != nil {
 				log.Fatalf("Can't set stack to %#x: %v", dat, err)
 			}
-			if err := t.ClearSignal(); err != nil {
+
+			if err := t.ClearSignals(); err != nil {
 				//log.Printf("ClearSignal failed; %v", err)
 				for {
 					any("Waiting for ^C")
 				}
 			}
-			//showone(os.Stderr, "", &r)
+			//Debug(showone("", &r))
 			any("move along")
 
 		case unix.SIGTRAP:
@@ -282,7 +288,7 @@ func main() {
 
 		if false {
 			fmt.Printf("Event: %v,", e)
-			i, err := t.GetSiginfo()
+			i, err := t.GetSigInfo()
 			if err != nil {
 				log.Printf("%v,", err)
 			} else {
@@ -298,7 +304,7 @@ func main() {
 			trace.Header(os.Stdout)
 		}
 		p = r
-		if err := t.SingleStep(); err != nil {
+		if err := t.Run(); err != nil {
 			log.Print(err)
 		}
 	}

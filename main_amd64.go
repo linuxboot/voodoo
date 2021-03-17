@@ -10,13 +10,13 @@ import (
 	"log"
 	"syscall"
 
-	"github.com/linuxboot/voodoo/trace"
 	"github.com/linuxboot/voodoo/services"
+	"github.com/linuxboot/voodoo/trace"
 	"golang.org/x/arch/x86/x86asm"
 	"golang.org/x/sys/unix"
 )
 
-func segv(p *trace.Tracee, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.PtraceRegs, asm string) error {
+func segv(p trace.Trace, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.PtraceRegs, asm string) error {
 	addr := uintptr(i.Addr)
 	pc := r.Rip
 	if r.Rip == 0x100000 {
@@ -25,7 +25,7 @@ func segv(p *trace.Tracee, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscal
 	nextpc := r.Rip + uint64(inst.Len)
 	if pc < 0x200000 {
 		var err error
-		nextpc, err = p.Pop(r)
+		nextpc, err = trace.Pop(p, r)
 		if err != nil {
 			return err
 		}

@@ -746,25 +746,6 @@ func (t *Tracee) GetIPtr() (uintptr, error) {
 	return 0, ErrTraceeExited
 }
 
-// SetIPtr sets the instruction pointer for a Tracee.
-func (t *Tracee) SetIPtr(addr uintptr) error {
-	errchan := make(chan error, 1)
-	if t.do(func() {
-		var regs syscall.PtraceRegs
-		err := syscall.PtraceGetRegs(int(t.dev.Fd()), &regs)
-		if err != nil {
-			errchan <- err
-			return
-		}
-		regs.Rip = uint64(addr)
-		err = syscall.PtraceSetRegs(int(t.dev.Fd()), &regs)
-		errchan <- err
-	}) {
-		return <-errchan
-	}
-	return ErrTraceeExited
-}
-
 // SetRegs sets regs for a Tracee.
 // The ability to set sregs is limited by what can be set in ptraceregs.
 func (t *Tracee) SetRegs(pr *syscall.PtraceRegs) error {

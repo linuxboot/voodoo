@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/linuxboot/voodoo/table"
+	"github.com/linuxboot/voodoo/trace"
 	"github.com/linuxboot/voodoo/uefi"
 )
 
@@ -50,9 +51,9 @@ func (t *TextOut) Call(f *Fault) error {
 	f.Regs.Rax = uefi.EFI_SUCCESS
 	switch op {
 	case table.STOutOutputString:
-		args := f.Proc.Args(f.Proc, f.Regs, 6)
+		args := trace.Args(f.Proc, f.Regs, 6)
 		log.Printf("StOutOutputString args %#x", args)
-		n, err := f.Proc.ReadStupidString(uintptr(args[1]))
+		n, err := trace.ReadStupidString(f.Proc, uintptr(args[1]))
 		if err != nil {
 			return err
 		}
