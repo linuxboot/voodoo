@@ -7,19 +7,17 @@
 package main
 
 import (
-	"debug/elf"
 	"debug/pe"
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
 	"reflect"
 
 	"github.com/linuxboot/voodoo/services"
 	"github.com/linuxboot/voodoo/trace"
+	"github.com/linuxboot/voodoo/trace/kvm"
 	"golang.org/x/sys/unix"
 )
 
@@ -30,12 +28,9 @@ var ()
 type msg func()
 
 var (
-	start      = flag.Uint64("start", 0, "starting address -- default is from PE/COFF but you can override")
 	optional   = flag.Bool("optional", false, "Print optional registers")
-	offset     = flag.Uint64("offset", 0x400000, "offset for objcopy")
 	singlestep = flag.Bool("singlestep", false, "single step instructions")
 	debug      = flag.Bool("debug", true, "Enable debug prints")
-	elfFile    = flag.String("elf", "binstart", "file to use for initial ptrace startup")
 	v          = log.Printf
 	step       = func(...string) {}
 	dat        uintptr
@@ -104,87 +99,79 @@ func main() {
 	// ptrace will need one set up, but there's no
 	// reason to do that in main any more. ptrace
 	// will have have to adapt.
-	eip := uintptr(0xffff0)
-	if false {
-		f, err := ioutil.TempFile("", "voodoo")
-		if err != nil {
-			log.Fatal(err)
-		}
-		*elfFile = f.Name()
-		o, err := exec.Command("objcopy", "--adjust-vma", fmt.Sprintf("%#x", *offset), "-O", "elf64-x86-64", a[0], *elfFile).CombinedOutput()
-		if err != nil {
-			log.Fatalf("objcopy to %s failed: %s %v", *elfFile, string(o), err)
-		}
-		f.Close()
-		e, err := elf.Open(*elfFile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		eip = uintptr(e.Entry)
-		e.Close()
-		if err := t.Exec(*elfFile, []string{*elfFile}...); err != nil {
-			log.Fatal(err)
-		}
-		//	log.Printf("Process started with PID %d", t.PID())
-		step()
-	}
+
 	if err := t.SingleStep(*singlestep); err != nil {
 		log.Printf("First single step: %v", err)
 	}
 	step()
 	// For now, we do the PE/COFF externally. But leave this here ...
 	// you never know.
-	if true {
-		// Now fill it up
-		f, err := pe.Open(flag.Args()[0])
+
+	// Now fill it up
+	f, err := pe.Open(flag.Args()[0])
+	if err != nil {
+		log.Fatal(err)
+	}
+	h, ok := f.OptionalHeader.(*pe.OptionalHeader64)
+	if !ok {
+		log.Fatalf("File type is %T, but has to be %T", f.OptionalHeader, pe.OptionalHeader64{})
+	}
+	log.Print(show("", h))
+	log.Print(show("", &f.FileHeader))
+	// UEFI provides no symbols, of course. Why would it?
+	log.Printf("%v:\n%d syms", f, len(f.COFFSymbols))
+	for _, s := range f.COFFSymbols {
+		log.Printf("\t%v", s)
+	}
+	// We need to relocate to start at *offset.
+	// UEFI runs in page zero. I can't believe it.
+	base := uintptr(h.ImageBase)
+	eip := base + uintptr(h.BaseOfCode)
+	heap := base + uintptr(h.SizeOfImage)
+	// heap is at end  of the image.
+	// Stack goes at top of reserved stack area.
+	sp := heap + uintptr(h.SizeOfHeapReserve+h.SizeOfStackReserve)
+	totalsize := int(h.SizeOfImage) + int(h.SizeOfHeapReserve+h.SizeOfStackReserve)
+	if err := t.Write(base, make([]byte, totalsize)); err != nil {
+		log.Fatalf("Can't write %d bytes of zero @ %#x for this section to process:%v", totalsize, base, err)
+	}
+
+	log.Printf("Base is %#x", base)
+	for i, s := range f.Sections {
+		fmt.Fprintf(os.Stderr, "Section %d", i)
+		fmt.Fprintf(os.Stderr, show("\t", &s.SectionHeader))
+		addr := base + uintptr(s.VirtualAddress)
+		dat, err := s.Data()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Can't get data for this section: %v", err)
 		}
-		log.Print(show("", &f.FileHeader))
-		// UEFI provides no symbols, of course. Why would it?
-		log.Printf("%v:\n%d syms", f, len(f.COFFSymbols))
-		for _, s := range f.COFFSymbols {
-			log.Printf("\t%v", s)
+		// Zero it out.
+		log.Printf("Copy section to %#x:%#x", addr, s.VirtualSize)
+		bb := make([]byte, s.VirtualSize)
+		for i := range bb {
+			bb[i] = 0x90
 		}
-		// We need to relocate to start at *offset.
-		// UEFI runs in page zero. I can't believe it.
-		base := uintptr(*offset)
-		log.Printf("Base is %#x", base)
-		for i, s := range f.Sections {
-			fmt.Fprintf(os.Stderr, "Section %d", i)
-			fmt.Fprintf(os.Stderr, show("\t", &s.SectionHeader))
-			addr := base + uintptr(s.VirtualAddress)
-			dat, err := s.Data()
-			if err != nil {
-				log.Fatalf("Can't get data for this section: %v", err)
-			}
-			// Zero it out.
-			log.Printf("Copy section to %#x:%#x", addr, s.VirtualSize)
-			bb := make([]byte, s.VirtualSize)
-			if err := t.Write(addr, bb); err != nil {
-				any(fmt.Sprintf("Can't write %d bytes of zero @ %#x for this section to process:%v", len(bb), addr, err))
-				log.Fatalf("Can't write %d bytes of zero @ %#x for this section to process:%v", len(bb), addr, err)
-			}
+		if err := t.Write(addr, bb); err != nil {
+			any(fmt.Sprintf("Can't write %d bytes of zero @ %#x for this section to process:%v", len(bb), addr, err))
+			log.Fatalf("Can't write %d bytes of zero @ %#x for this section to process:%v", len(bb), addr, err)
+		}
+		if false {
 			if err := t.Write(addr, dat); err != nil {
 				any(fmt.Sprintf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err))
 				log.Fatalf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err)
 			}
 		}
-		// For now we assume the entry point is the start of the first segment
-		eip = base + uintptr(f.Sections[0].VirtualAddress)
 	}
 	trace.SetDebug(log.Printf)
 
-	// *start overrides it all.
-	if *start != 0 {
-		eip = uintptr(*start)
-	}
 	log.Printf("Start at %#x", eip)
-	if err := trace.SetIPtr(t, uintptr(eip)); err != nil {
-		log.Fatalf("Can't set IPtr to %#x: %v", eip, err)
-	}
-	if err := trace.Params(t, uintptr(services.ImageHandle), uintptr(st)); err != nil {
-		log.Fatalf("Setting params: %v", err)
+	if false {
+		if err := trace.SetIPtr(t, uintptr(eip)); err != nil {
+			log.Fatalf("Can't set IPtr to %#x: %v", eip, err)
+		}
+		if err := trace.Params(t, uintptr(services.ImageHandle), uintptr(st)); err != nil {
+			log.Fatalf("Setting params: %v", err)
+		}
 	}
 	if err := trace.Header(os.Stdout); err != nil {
 		log.Fatal(err)
@@ -199,12 +186,11 @@ func main() {
 		log.Fatal(err)
 	}
 	p := r
-
+	r.Rsp = uint64(sp)
+	r.Rip = uint64(eip)
 	// Reserve space for structs that we will place into the memory.
-	// For now, just drop the stack 1m and use that as a bump pointer.
-	r.Rsp = 0x40000000
-	services.SetAllocator(uintptr(r.Rsp-0x100000), uintptr(r.Rsp))
-	r.Rsp -= 0x100000
+	// We'll try putting it in the bios area.
+	services.SetAllocator(0xff000000, 0xff100000)
 
 	log.Printf("Set stack to %#x", r.Rsp)
 	if err := t.SetRegs(r); err != nil {
@@ -226,6 +212,16 @@ func main() {
 	//Addr uintptr // Memory location which caused fault
 	// We have the tracer, and only one. The tracer
 	// will feed us a set of SigInfo's
+	{
+		insn, r, err := trace.Inst(t)
+		if err != nil {
+			log.Printf("first inst Inst %v", err)
+		} else {
+
+			first := trace.Asm(insn, r.Rip)
+			fmt.Print("First instruction: %s", first)
+		}
+	}
 	go func() {
 		if err := t.Run(); err != nil {
 			log.Printf("First single step: %v", err)
@@ -254,20 +250,20 @@ func main() {
 			log.Fatalf("Could not get regs: %v", err)
 		}
 		step()
-		switch s {
+		switch {
 		default:
 			log.Printf("Can't do %#x(%v)", i.Signo, unix.SignalName(s))
 			for {
 				any("Waiting for ^C")
 			}
-		case unix.SIGILL:
+		case s == unix.SIGILL:
 			log.Printf("SIGILL. you are ILL")
 			if err := trace.Regs(os.Stdout, r); err != nil {
 				log.Fatal(err)
 			}
 			illasm := trace.Asm(insn, r.Rip)
 			fmt.Println(illasm)
-		case unix.SIGSEGV:
+		case s == unix.SIGSEGV:
 			// So far, there seem to be three things that can happen.
 			// Call, Load, and Store.
 			// We don't want to get into pulling apart instructions
@@ -312,7 +308,15 @@ func main() {
 			//Debug(showone("", &r))
 			any("move along")
 
-		case unix.SIGTRAP:
+		case s == unix.SIGTRAP:
+			log.Println("signtrap")
+		case i.Trapno == uint32(kvm.ExitShutdown):
+			illasm := trace.Asm(insn, r.Rip)
+			fmt.Println(illasm)
+			illasm = trace.Asm(insn, uint64(eip))
+			fmt.Println(illasm)
+			log.Printf("Shutdown, sorry!")
+		case i.Trapno == uint32(kvm.ExitMmio):
 		}
 
 		if err := trace.RegDiff(os.Stdout, r, p); err != nil {

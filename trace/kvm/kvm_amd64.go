@@ -944,7 +944,7 @@ func (t *Tracee) readInfo() error {
 		Tid:       0,
 		Band:      0,
 		Overrun:   0,
-		Trapno:    0,
+		Trapno:    uint32(e),
 		Status:    0,
 		Int:       0,
 		Ptr:       0,
@@ -958,16 +958,16 @@ func (t *Tracee) readInfo() error {
 		Signo:     0,
 	}
 
+	// Our convention will be that kvm will set the Trapno,
+	// and ptrace will set the signo. That makes it easy to
+	// figure out how to do the handler.
 	switch e {
 	case ExitHlt:
-		sig.Trapno = uint32(unix.SIGILL)
-		sig.Signo = uint32(unix.SIGILL)
 	case ExitMmio:
 		var x xmmio
 		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {
 			log.Panicf("Read in run failed -- can't happen")
 		}
-		sig.Signo = uint32(unix.SIGSEGV)
 		sig.Addr = x.Addr
 	case ExitShutdown:
 		var x shutdown
@@ -976,8 +976,6 @@ func (t *Tracee) readInfo() error {
 		}
 		n, _ := stype[x.Stype]
 		Debug("Shutdown: %s [%#x]", n, x.Stype)
-		sig.Trapno = x.Stype
-		sig.Signo = uint32(unix.SIGILL)
 		sig.Addr = r.Rip
 	default:
 		log.Panicf("readInfo: unhandled exit %s", Exit(e))

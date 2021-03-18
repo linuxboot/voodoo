@@ -543,7 +543,7 @@ func TestPush(t *testing.T) {
 	if r.Rsp != sp {
 		t.Fatalf("SP: got %#x, want %#x", r.Rsp, sp)
 	}
-	check, err := v.ReadWord(sp-8)
+	check, err := v.ReadWord(sp - 8)
 	if err != nil {
 		t.Fatalf("Reading back word from SP@%#x: got %v, want nil", sp-8, err)
 	}
