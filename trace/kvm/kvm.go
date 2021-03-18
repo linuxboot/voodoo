@@ -347,22 +347,12 @@ func (t *Tracee) SendSignal(sig syscall.Signal) error {
 // ReadWord reads the given word from the inferior's address space.
 // Only allowed to read from Region 0 for now.
 func (t *Tracee) ReadWord(address uintptr) (uint64, error) {
-	err := make(chan error, 1)
-	value := make(chan uint64, 1)
-	if t.do(func() {
-		r := t.regions[0]
-		last := r.gpa + uint64(len(r.data))
-		if address > uintptr(last)-8 {
-			err <- fmt.Errorf("Address %#x is out of range", address)
-			value <- 0
-			return
-		}
-		value <- binary.LittleEndian.Uint64(r.data[address:])
-		err <- nil
-	}) {
-		return <-value, <-err
+	var word [8]byte
+	if err := t.Read(address, word[:]); err != nil {
+		return 0, err
 	}
-	return 0, errors.New("ReadWord: Unreachable")
+	w := binary.LittleEndian.Uint64(word[:])
+	return w, nil
 }
 
 // Read grabs memory starting at the given address, for len(data) bytes.

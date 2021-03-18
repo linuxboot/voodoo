@@ -476,3 +476,81 @@ func TestCall(t *testing.T) {
 	}
 	t.Logf("Rsp is %#x", r.Rsp)
 }
+
+func TestPush(t *testing.T) {
+	//5 000f 55       	push %rbp
+	//6 0010 59       	pop %rcx
+	//7 0011 F4       	hlt
+	call := []byte{0x55, 0x59, 0xf4}
+	Debug = t.Logf
+	v, err := New()
+	if err != nil {
+		t.Fatalf("Open: got %v, want nil", err)
+	}
+	defer v.Detach()
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
+	}
+	if err := v.SingleStep(false); err != nil {
+		t.Fatalf("Run: got %v, want nil", err)
+	}
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	copy(v.regions[0].data[0x10000:], call)
+	const rbp, startpc, startsp, pc, sp = 0x3afef00dd00dfeed, 0x401000, 0x80000, 0x401003, 0x80000
+	r.Rbp = rbp
+	r.Rip = startpc
+	r.Rsp = startsp
+
+	if err := v.Write(startpc, call); err != nil {
+		t.Fatalf("Write(%#x, %#x): got %v, want nil", startpc, len(call), err)
+	}
+	if err := v.SetRegs(r); err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	Debug = t.Logf
+
+	go func() {
+		if err := v.Run(); err != nil {
+			t.Errorf("Run: got %v, want nil", err)
+		}
+	}()
+	ev := <-v.Events()
+	t.Logf("Event %#x", ev)
+	if ev.Trapno != uint32(unix.SIGILL) {
+		t.Errorf("Trapno: got %#x, want %v", ev.Trapno, unix.SIGILL)
+	}
+	if ev.Call_addr != pc {
+		t.Errorf("Addr: got %#x, want %#x", ev.Addr, pc)
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	e := v.cpu.VMRun.String()
+	t.Logf("IP is %#x, exit %s", r.Rip, e)
+	if e != "ExitHalt" {
+		t.Errorf("VM exit: got %v, want 'ExitMHalt'", e)
+	}
+	i, r, err := v.Inst()
+	t.Logf("Inst returns %v, %v, %v", i, r, err)
+	if err != nil {
+		t.Fatalf("Inst: got %v, want nil", err)
+	}
+	t.Logf("Rsp is %#x", r.Rsp)
+	if r.Rsp != sp {
+		t.Fatalf("SP: got %#x, want %#x", r.Rsp, sp)
+	}
+	check, err := v.ReadWord(sp-8)
+	if err != nil {
+		t.Fatalf("Reading back word from SP@%#x: got %v, want nil", sp-8, err)
+	}
+	if check != rbp {
+		t.Fatalf("Check from memory: got %#x, want %#x", check, rbp)
+	}
+	if r.Rbp != r.Rcx {
+		t.Fatalf("Check rcx: got %#x, want %#x", r.Rcx, r.Rbp)
+	}
+}
