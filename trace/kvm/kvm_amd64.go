@@ -30,6 +30,11 @@ type cpu struct {
 // a mistake remedied by the capability stuff.
 const APIVersion = 12
 
+// PageTableBase is where our initial page tables go.
+// For now, it is the start of BIOS in low 1M.
+// EFI apps should not go near this.
+const PageTableBase = 0xe0000
+
 //  {rax=0, rbx=0, rcx=0, rdx=0, rsi=0, rdi=0, rsp=0, rbp=0, r8=0, r9=0, r10=0, r11=0, r12=0, r13=0, r14=0, r15=0, rip=0xfff0, rflags=0x2}
 type regs struct {
 	Rax, Rbx, Rcx, Rdx uint64
@@ -810,19 +815,19 @@ func (t *Tracee) archInit() error {
 		blow[i] = 0xf4
 	}
 	// Set up page tables for long mode.
-
+	// take the first two pages of an area it should not touch -- PageTableBase
 	// present, read/write, page table at 0x3000
-	//ptes[0x2000] = 0x3000 | 0x3
+	// ptes[PageTableBase] = PageTableBase + 0x1000 | 0x3
 	// Gbyte-aligned page address in to 2 bits
 	// 3 in lowest 2 bits means present and read/write
 	// 0x60 means accessed/dirty
 	// 0x80 means the page size bit -- 0x80 | 0x60 = 0xe0
-	copy(blow[0x2000:], []byte{3, 0x30, 0, 0, 0, 0, 0, 0})
+	copy(blow[PageTableBase:], []byte{0x03, 0x10, 0xe, 0, 0, 0, 0, 0})
 	for i := byte(0); i < 4; i++ {
-		copy(blow[int(i*8)+0x3000:], []byte{0xe3, 0x0, 0, i * 0x40, 0, 0, 0, 0})
+		copy(blow[int(i*8)+PageTableBase+0x1000:], []byte{0xe3, 0x0, 0, i * 0x40, 0, 0, 0, 0})
 	}
-	if false {
-		Debug("Page tables: %s", hex.Dump(blow[0x2000:0x4000]))
+	if true {
+		Debug("Page tables: %s", hex.Dump(blow[PageTableBase:PageTableBase + 0x2000]))
 	}
 	if err := t.mem(blow, 0x0); err != nil {
 		return fmt.Errorf("creating %d byte region: got %v, want nil", len(blow), err)
@@ -861,7 +866,7 @@ var bit64 = &sregs{
 	IDT:  dtable{Base: 0, Limit: 65535},
 	CR0:  0x80050033,
 	CR2:  0,
-	CR3:  0x2000,
+	CR3:  PageTableBase,
 	CR4:  0x20,
 	CR8:  0,
 	EFER: 0x500,
