@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"golang.org/x/arch/x86/x86asm"
-	"golang.org/x/sys/unix"
 )
 
 // this is a simple decoder to get around a circular dependency.
@@ -450,8 +449,8 @@ func TestCall(t *testing.T) {
 	}()
 	ev := <-v.Events()
 	t.Logf("Event %#x", ev)
-	if ev.Trapno != uint32(unix.SIGSEGV) {
-		t.Errorf("Trapno: got %#x, want %#x", ev.Trapno, unix.SIGSEGV)
+	if ev.Trapno != ExitMmio {
+		t.Errorf("Trapno: got %#x, want %#x", ev.Trapno, ExitMmio)
 	}
 	if ev.Addr != bad {
 		t.Errorf("Addr: got %#x, want %#x", ev.Addr, bad)
@@ -479,9 +478,10 @@ func TestCall(t *testing.T) {
 
 func TestPush(t *testing.T) {
 	//5 000f 55       	push %rbp
-	//6 0010 59       	pop %rcx
-	//7 0011 F4       	hlt
-	call := []byte{0x55, 0x59, 0xf4}
+	//6      48 89 e5       mov    %rsp,%rbp
+	//9 0010 59       	pop %rcx
+	//a 0011 F4       	hlt
+	call := []byte{0x55, 0x48, 0x89, 0xe5, 0x59, 0xf4}
 	Debug = t.Logf
 	v, err := New()
 	if err != nil {
@@ -498,8 +498,9 @@ func TestPush(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
-	copy(v.regions[0].data[0x10000:], call)
-	const rbp, startpc, startsp, pc, sp = 0x3afef00dd00dfeed, 0x401000, 0x80000, 0x401003, 0x80000
+
+	const rbp, startpc, startsp = 0x3afef00dd00dfeed, 0x70941000, 0x80000
+	const pc, sp = startpc + 6, startsp
 	r.Rbp = rbp
 	r.Rip = startpc
 	r.Rsp = startsp
@@ -519,8 +520,8 @@ func TestPush(t *testing.T) {
 	}()
 	ev := <-v.Events()
 	t.Logf("Event %#x", ev)
-	if ev.Trapno != uint32(unix.SIGILL) {
-		t.Errorf("Trapno: got %#x, want %v", ev.Trapno, unix.SIGILL)
+	if ev.Trapno != ExitHlt {
+		t.Errorf("Trapno: got %#x, want %v", ev.Trapno, ExitHlt)
 	}
 	if ev.Call_addr != pc {
 		t.Errorf("Addr: got %#x, want %#x", ev.Addr, pc)
@@ -550,7 +551,10 @@ func TestPush(t *testing.T) {
 	if check != rbp {
 		t.Fatalf("Check from memory: got %#x, want %#x", check, rbp)
 	}
-	if r.Rbp != r.Rcx {
-		t.Fatalf("Check rcx: got %#x, want %#x", r.Rcx, r.Rbp)
+	if rbp != r.Rcx {
+		t.Fatalf("Check rcx: got %#x, want %#x", r.Rcx, rbp)
+	}
+	if r.Rbp != r.Rsp-8 {
+		t.Fatalf("Check rbp: got %#x, want %#x", r.Rsp-8, r.Rbp)
 	}
 }

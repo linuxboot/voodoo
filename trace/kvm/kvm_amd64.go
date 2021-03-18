@@ -963,6 +963,7 @@ func (t *Tracee) readInfo() error {
 	// figure out how to do the handler.
 	switch e {
 	case ExitHlt:
+		sig.Addr = r.Rip
 	case ExitMmio:
 		var x xmmio
 		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {
