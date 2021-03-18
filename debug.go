@@ -46,6 +46,6 @@ Signo %d
 		i.Addr_lsb,
 		i.Syscall,
 		i.Call_addr,
-		i.Arch, 
+		i.Arch,
 		i.Signo)
 }

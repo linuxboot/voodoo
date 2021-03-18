@@ -955,7 +955,7 @@ func (t *Tracee) readInfo() error {
 		Syscall:   0,
 		Call_addr: r.Rip,
 		Arch:      0, // no idea
-		Signo: 0,
+		Signo:     0,
 	}
 
 	switch e {

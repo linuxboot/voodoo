@@ -324,8 +324,15 @@ func main() {
 			trace.Header(os.Stdout)
 		}
 		p = r
-		if err := t.Run(); err != nil {
-			log.Print(err)
+		go func() {
+			if err := t.Run(); err != nil {
+				log.Printf("First single step: %v", err)
+			}
+		}()
+		if false {
+			if err := t.Run(); err != nil {
+				log.Print(err)
+			}
 		}
 	}
 }
