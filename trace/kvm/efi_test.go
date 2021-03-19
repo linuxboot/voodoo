@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os"
 	"testing"
-
-	"golang.org/x/sys/unix"
 )
 
 func TestEFI(t *testing.T) {
@@ -131,7 +129,7 @@ func TestEFI(t *testing.T) {
 	if err := v.WriteWord(efisp, sp); err != nil {
 		t.Fatalf("Writing stack %#x at %#x: got %v, want nil", efisp, efisp-8, err)
 	}
-	pc := uint64(efisp)
+	//pc := uint64(efisp)
 	r.Rip = eip
 	r.Rbp = rbp
 	r.Rsp = uint64(efisp)
@@ -142,33 +140,33 @@ func TestEFI(t *testing.T) {
 	}
 	Debug = t.Logf
 
-	go func() {
-		if err := v.Run(); err != nil {
-			t.Errorf("Run: got %v, want nil", err)
+	for {
+		go func() {
+			if err := v.Run(); err != nil {
+				t.Errorf("Run: got %v, want nil", err)
+			}
+		}()
+		ev := <-v.Events()
+		t.Logf("Event %#x", ev)
+		if ev.Trapno != ExitDebug {
+			t.Logf("Trapno: got %#x", ev.Trapno)
+			break
 		}
-	}()
-	ev := <-v.Events()
-	t.Logf("Event %#x", ev)
-	if ev.Trapno != uint32(unix.SIGILL) {
-		t.Errorf("Trapno: got %#x, want %v", ev.Trapno, unix.SIGILL)
-	}
-	if ev.Call_addr != pc {
-		t.Errorf("Addr: got %#x, want %#x", ev.Addr, pc)
-	}
-	r, err = v.GetRegs()
-	if err != nil {
-		t.Fatalf("GetRegs: got %v, want nil", err)
-	}
-	t.Logf("REGS: %s", show("", r))
-	e := v.cpu.VMRun.String()
-	t.Logf("IP is %#x, exit %s", r.Rip, e)
-	if e != "ExitHalt" {
-		t.Errorf("VM exit: got %v, want 'ExitMHalt'", e)
-	}
-	i, r, err := v.Inst()
-	t.Logf("Inst returns %v, %v, %v", i, r, err)
-	if err != nil {
-		t.Fatalf("Inst: got %v, want nil", err)
+		r, err = v.GetRegs()
+		if err != nil {
+			t.Fatalf("GetRegs: got %v, want nil", err)
+		}
+		t.Logf("REGS: %s", show("", r))
+		e := v.cpu.VMRun.String()
+		t.Logf("IP is %#x, exit %s", r.Rip, e)
+		if r.Rip < uint64(base) {
+			break
+		}
+		i, r, err := v.Inst()
+		t.Logf("Inst returns %v, %v, %v", i, r, err)
+		if err != nil {
+			t.Fatalf("Inst: got %v, want nil", err)
+		}
 	}
 	t.Logf("Rsp is %#x", r.Rsp)
 	if r.Rsp != sp {

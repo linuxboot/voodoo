@@ -967,6 +967,8 @@ func (t *Tracee) readInfo() error {
 	// and ptrace will set the signo. That makes it easy to
 	// figure out how to do the handler.
 	switch e {
+	case ExitDebug:
+		sig.Addr = r.Rip
 	case ExitHlt:
 		sig.Addr = r.Rip
 	case ExitMmio:
