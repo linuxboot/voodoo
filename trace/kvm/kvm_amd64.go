@@ -812,7 +812,7 @@ func (t *Tracee) archInit() error {
 	blow := []byte(low[:])
 	// poison it with hlt.
 	for i := range blow {
-		blow[i] = 0xf4
+		blow[i] = 0//xf4
 	}
 	// Set up page tables for long mode.
 	// take the first two pages of an area it should not touch -- PageTableBase
@@ -981,7 +981,7 @@ func (t *Tracee) readInfo() error {
 			log.Panicf("Read in run failed -- can't happen")
 		}
 		n, _ := stype[x.Stype]
-		Debug("Shutdown: %s [%#x]", n, x.Stype)
+		Debug("Shutdown: %s [%#x] flags %#x", n, x.Stype, x.Flags)
 		sig.Addr = r.Rip
 	default:
 		log.Panicf("readInfo: unhandled exit %s", Exit(e))

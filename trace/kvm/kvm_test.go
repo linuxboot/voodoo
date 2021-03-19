@@ -558,3 +558,30 @@ func TestPush(t *testing.T) {
 		t.Fatalf("Check rbp: got %#x, want %#x", r.Rsp-8, r.Rbp)
 	}
 }
+
+func TestWriteWord(t *testing.T) {
+	Debug = t.Logf
+	v, err := New()
+	if err != nil {
+		t.Fatalf("Open: got %v, want nil", err)
+	}
+	defer v.Detach()
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
+	}
+	if err := v.SingleStep(false); err != nil {
+		t.Fatalf("Run: got %v, want nil", err)
+	}
+	const addr = 0x8086
+	w := uint64(0x700ddeadfeedbeef)
+	if err := v.WriteWord(addr, w); err != nil {
+		t.Fatalf("Writing %#x at %#x: got %v, want nil", w, addr, err)
+	}
+	rw, err := v.ReadWord(addr)
+	if err != nil {
+		t.Fatalf("Reading %#x: got %v, want nil", addr, err)
+	}
+	if rw != w {
+		t.Fatalf("Reading %#x: got %#x, want %#x", addr, rw, w)
+	}
+}

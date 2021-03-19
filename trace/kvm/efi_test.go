@@ -2,6 +2,7 @@ package kvm
 
 import (
 	"debug/pe"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"testing"
@@ -14,7 +15,6 @@ func TestEFI(t *testing.T) {
 	//6 0010 59       	pop %rcx
 	//7 0011 F4       	hlt
 	call := []byte{0x55, 0x59, 0xf4}
-	Debug = t.Logf
 	f, err := pe.Open("data/test.efi")
 	if err != nil {
 		t.Fatal(err)
@@ -27,7 +27,7 @@ func TestEFI(t *testing.T) {
 	if err := v.NewProc(0); err != nil {
 		t.Fatalf("NewProc: got %v, want nil", err)
 	}
-	if err := v.SingleStep(false); err != nil {
+	if err := v.SingleStep(true); err != nil {
 		t.Fatalf("Run: got %v, want nil", err)
 	}
 	r, err := v.GetRegs()
@@ -47,12 +47,13 @@ func TestEFI(t *testing.T) {
 	// We need to relocate to start at *offset.
 	// UEFI runs in page zero. I can't believe it.
 	base := uintptr(h.ImageBase)
-	eip := base + uintptr(h.BaseOfCode)
+	eip := uint64(base + uintptr(h.BaseOfCode))
 	heap := base + uintptr(h.SizeOfImage)
 
 	// heap is at end  of the image.
 	// Stack goes at top of reserved stack area.
 	efisp := heap + uintptr(h.SizeOfHeapReserve+h.SizeOfStackReserve)
+
 	t.Logf("base %#x eip %#x efisp %#x", heap, eip, efisp)
 	efitotalsize := int(h.SizeOfImage) + int(h.SizeOfHeapReserve+h.SizeOfStackReserve)
 	if err := v.Write(base, make([]byte, efitotalsize)); err != nil {
@@ -68,31 +69,74 @@ func TestEFI(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Can't get data for this section: %v", err)
 		}
+		if len(dat) == 0 {
+			continue
+		}
 		// Zero it out.
 		t.Logf("Copy section to %#x:%#x", addr, s.VirtualSize)
 		bb := make([]byte, s.VirtualSize)
 		for i := range bb {
-			bb[i] = 0x90
+			bb[i] = 0
 		}
-		if err := v.Write(addr, bb); err != nil {
-			t.Fatalf("Can't write %d bytes of zero @ %#x for this section to process:%v", len(bb), addr, err)
-		}
-		if false {
-			if err := v.Write(addr, dat); err != nil {
-				t.Fatalf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err)
+		if true {
+			if err := v.Write(addr, bb); err != nil {
+				t.Fatalf("Can't write %d bytes of zero @ %#x for this section to process:%v", len(bb), addr, err)
 			}
 		}
+		if err := v.Write(addr, dat[:]); err != nil {
+			t.Fatalf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err)
+		}
+	}
+	Debug = t.Logf
+	if false {
+		bb := []byte{0xf4}
+		const x = 0x709412bb // 0x70945520 // 0x7094127e // 7094122e
+		if err := v.Write(x, bb[:]); err != nil {
+			t.Fatalf("Write(%#x, %#x): got %v, want nil", x, len(call), err)
+		}
+
+		t.Logf("What's at %#x: %s", eip, hex.Dump(bb[:]))
+	}
+	if true {
+		var bb [16]byte
+		if err := v.Read(uintptr(eip), bb[:]); err != nil {
+			t.Fatalf("Write(%#x, %#x): got %v, want nil", eip, len(call), err)
+		}
+
+		t.Logf("What's at %#x: %s", eip, hex.Dump(bb[:]))
+	}
+	if false {
+		call[1] = 0xf4
+		if err := v.Write(uintptr(eip+1), call); err != nil {
+			t.Fatalf("Write(%#x, %#x): got %v, want nil", eip, len(call), err)
+		}
+		var bb [16]byte
+		if err := v.Read(uintptr(eip), bb[:]); err != nil {
+			t.Fatalf("Write(%#x, %#x): got %v, want nil", eip, len(call), err)
+		}
+
+		t.Logf("What's at %#x: %s", eip, hex.Dump(bb[:]))
 	}
 
-	copy(v.regions[0].data[0x10000:], call)
-	const rbp, startpc, startsp, pc, sp = 0x3afef00dd00dfeed, 0x401000, 0x80000, 0x401003, 0x80000
+	const rbp = 0x3afef00dd00dfeed
+
+	// When it does the final return, it has to halt.
+	// Put a halt on top of stack, and point top of stack to it.
+	if err := v.WriteWord(efisp, 0xf4f4f4f4f4f4f4f4); err != nil {
+		t.Fatalf("Writing halts at %#x: got %v, want nil", efisp, err)
+	}
+
+	sp := uint64(efisp)
+	efisp -= 8
+	if err := v.WriteWord(efisp, sp); err != nil {
+		t.Fatalf("Writing stack %#x at %#x: got %v, want nil", efisp, efisp-8, err)
+	}
+	pc := uint64(efisp)
+	r.Rip = eip
 	r.Rbp = rbp
-	r.Rip = startpc
-	r.Rsp = startsp
+	r.Rsp = uint64(efisp)
+	r.Eflags |= 0x100
 
-	if err := v.Write(startpc, call); err != nil {
-		t.Fatalf("Write(%#x, %#x): got %v, want nil", startpc, len(call), err)
-	}
 	if err := v.SetRegs(r); err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
@@ -115,6 +159,7 @@ func TestEFI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
+	t.Logf("REGS: %s", show("", r))
 	e := v.cpu.VMRun.String()
 	t.Logf("IP is %#x, exit %s", r.Rip, e)
 	if e != "ExitHalt" {
@@ -129,7 +174,7 @@ func TestEFI(t *testing.T) {
 	if r.Rsp != sp {
 		t.Fatalf("SP: got %#x, want %#x", r.Rsp, sp)
 	}
-	check, err := v.ReadWord(sp - 8)
+	check, err := v.ReadWord(efisp + 8)
 	if err != nil {
 		t.Fatalf("Reading back word from SP@%#x: got %v, want nil", sp-8, err)
 	}

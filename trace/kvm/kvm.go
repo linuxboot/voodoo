@@ -106,7 +106,11 @@ func (t *Tracee) SingleStep(onoff bool) error {
 	if t.do(func() {
 		var debug [unsafe.Sizeof(DebugControl{})]byte
 		if onoff {
-			debug[0] = Enable | SingleStep
+			debug[0] = Enable | SingleStep 
+			debug[2] = 0x0002 // 0000
+			//for i := range debug {
+				//debug[i] = 0xff
+			//}
 		}
 		// this is not very nice, but it is easy.
 		// And TBH, the tricks the Linux kernel people
@@ -375,11 +379,9 @@ func (t *Tracee) Read(address uintptr, data []byte) error {
 
 // WriteWord writes the given word into the inferior's address space.
 func (t *Tracee) WriteWord(address uintptr, word uint64) error {
-	err := make(chan error, 1)
-	if t.do(func() { log.Panicf("writeword") }) {
-		return <-err
-	}
-	return ErrTraceeExited
+	var b [8]byte
+	binary.LittleEndian.PutUint64(b[:], word)
+	return t.Write(address, b[:])
 }
 
 func (t *Tracee) Write(address uintptr, data []byte) error {
