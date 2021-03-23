@@ -2,6 +2,7 @@ package kvm
 
 import (
 	"fmt"
+	"strings"
 	"syscall"
 	"testing"
 
@@ -556,6 +557,66 @@ func TestPush(t *testing.T) {
 	}
 	if r.Rbp != r.Rsp-8 {
 		t.Fatalf("Check rbp: got %#x, want %#x", r.Rsp-8, r.Rbp)
+	}
+}
+
+func TestCallEFI(t *testing.T) {
+	// 1 0000 48A10000 	mov $0xff000000, %rax
+	// 1      00FF0000
+	// 1      0000
+	// 3 000d FF10     	call *(%rax)
+	call := []byte{0x48, 0xb8, 0x00, 0x00, 0x00, 0xef, 0x00, 0x00, 0x00, 0x00, 0xff, 0x10, 0xf4}
+	v, err := New()
+	if err != nil {
+		t.Fatalf("Open: got %v, want nil", err)
+	}
+	defer v.Detach()
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
+	}
+	if err := v.SingleStep(false); err != nil {
+		t.Fatalf("Run: got %v, want nil", err)
+	}
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+
+	const efi, startpc, startsp = 0xef000000, 0x70941000, 0x80000
+	const pc, sp = startpc + 10, startsp - 8
+	r.Rip = startpc
+	r.Rsp = startsp
+
+	if err := v.Write(startpc, call); err != nil {
+		t.Fatalf("Write(%#x, %#x): got %v, want nil", startpc, len(call), err)
+	}
+	if err := v.SetRegs(r); err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+
+	go func() {
+		if err := v.Run(); err != nil {
+			t.Errorf("Run: got %v, want nil", err)
+		}
+	}()
+	ev := <-v.Events()
+	if ev.Trapno != ExitMmio {
+		t.Errorf("Trapno: got %#x, want %v", ev.Trapno, ExitHlt)
+	}
+	if ev.Call_addr != pc {
+		t.Errorf("Addr: got %#x, want %#x", ev.Call_addr, pc)
+	}
+	e := v.cpu.VMRun.String()
+	if e != "ExitMmio" {
+		t.Errorf("VM exit: got %v, want 'ExitMmio'", e)
+	}
+	i, r, err := v.Inst()
+	if err != nil {
+		t.Fatalf("Inst: got %v, want nil", err)
+	}
+	g := x86asm.GNUSyntax(*i, uint64(r.Rip), nil)
+	if !strings.Contains(g, "call") {
+		t.Errorf("Inst: got %s, want call", g)
 	}
 }
 
