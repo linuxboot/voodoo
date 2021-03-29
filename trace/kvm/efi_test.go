@@ -189,8 +189,8 @@ func TestEFI(t *testing.T) {
 		if check != rbp {
 			t.Errorf("Check from memory: got %#x, want %#x", check, rbp)
 		}
-	if r.Rbp != r.Rcx {
-		t.Errorf("Check rcx: got %#x, want %#x", r.Rcx, r.Rbp)
-	}
+		if r.Rbp != r.Rcx {
+			t.Errorf("Check rcx: got %#x, want %#x", r.Rcx, r.Rbp)
+		}
 	}
 }

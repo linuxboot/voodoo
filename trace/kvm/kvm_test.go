@@ -436,7 +436,7 @@ func TestCall(t *testing.T) {
 
 	r.Rip = 0x10000
 	r.Rsp = 0x8000
-	const bad = 0xffffff02
+	const bad = 0xff000002
 	r.Rax = bad
 	if err := v.SetRegs(r); err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)

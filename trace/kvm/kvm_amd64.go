@@ -822,8 +822,7 @@ func (t *Tracee) archInit() error {
 	// 3 in lowest 2 bits means present and read/write
 	// 0x60 means accessed/dirty
 	// 0x80 means the page size bit -- 0x80 | 0x60 = 0xe0
-	//copy(blow[PageTableBase:], []byte{0x03, 0x10, 0xe, 0, 0, 0, 0, 0})
-	copy(blow[PageTableBase:], []byte{0x03, 0x10 | uint8((PageTableBase>>8)&0xff), uint8((PageTableBase>>16)&0xff), uint8((PageTableBase>>24)&0xff), 0, 0, 0, 0})
+	copy(blow[PageTableBase:], []byte{0x03, 0x10 | uint8((PageTableBase>>8)&0xff), uint8((PageTableBase >> 16) & 0xff), uint8((PageTableBase >> 24) & 0xff), 0, 0, 0, 0})
 	for i := byte(0); i < 4; i++ {
 		copy(blow[int(i*8)+PageTableBase+0x1000:], []byte{0xe3, 0x0, 0, i * 0x40, 0, 0, 0, 0})
 	}
@@ -833,22 +832,15 @@ func (t *Tracee) archInit() error {
 	if err := t.mem(blow, 0x0); err != nil {
 		return fmt.Errorf("creating %d byte region: got %v, want nil", len(blow), err)
 	}
-	// slot 1 is high bios, at top of 4g.
-	type page [16 * 1048576]byte
+	// slot 1 is high bios, 64k at top of 4g.
+	type page [64 * 1024]byte
 	b := &page{}
 	hlt := []byte(b[:])
 	for i := range hlt {
 		hlt[i] = 0xf4
 	}
-	//1 0000 48FFC0   	inc %rax
-	// 2 0003 F4       	hlt
-	//copy(hlt[0xfffff0:], []byte{0xc0, 0xff, 0x48})
-	// on second thought, let's just exit every time.
-	// This is a good place for UEFI shit.
-	if false {
-		if err := t.mem([]byte(b[:]), 0xff000000); err != nil {
-			return fmt.Errorf("creating %d byte region: got %v, want nil", len(b), err)
-		}
+	if err := t.mem([]byte(b[:]), 0xffff0000); err != nil {
+		return fmt.Errorf("creating %d byte region: got %v, want nil", len(b), err)
 	}
 
 	return nil
