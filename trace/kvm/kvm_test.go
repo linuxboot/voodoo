@@ -14,21 +14,21 @@ import (
 // Inst retrieves an instruction from the traced process.
 // It gets messy if the Rip is in unaddressable space; that means we
 // must fetch the saved Rip from [Rsp].
-func (t *Tracee) Inst() (*x86asm.Inst, *syscall.PtraceRegs, error) {
+func (t *Tracee) Inst() (*x86asm.Inst, *syscall.PtraceRegs, string, error) {
 	r, err := t.GetRegs()
 	if err != nil {
-		return nil, nil, fmt.Errorf("Inst:Getregs:%v", err)
+		return nil, nil, "", fmt.Errorf("Inst:Getregs:%v", err)
 	}
 	pc := r.Rip
 	insn := make([]byte, 16)
 	if err := t.Read(uintptr(pc), insn); err != nil {
-		return nil, nil, fmt.Errorf("Can' read PC at #%x, err %v", pc, err)
+		return nil, nil, "", fmt.Errorf("Can' read PC at #%x, err %v", pc, err)
 	}
 	d, err := x86asm.Decode(insn, 64)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Can't decode %#02x: %v", insn, err)
+		return nil, nil, "", fmt.Errorf("Can't decode %#02x: %v", insn, err)
 	}
-	return &d, r, nil
+	return &d, r, x86asm.GNUSyntax(d, uint64(r.Rip), nil), nil
 }
 
 func TestNew(t *testing.T) {
@@ -347,7 +347,7 @@ func TestDecode(t *testing.T) {
 	if e != "ExitHalt" {
 		t.Errorf("VM exit: got %v, want 'ExitHalt'", e)
 	}
-	i, r, err := v.Inst()
+	i, r, _, err := v.Inst()
 	t.Logf("Inst returns %v, %v, %v", i, r, err)
 	if err != nil {
 		t.Fatalf("Inst: got %v, want nil", err)
@@ -402,7 +402,7 @@ func TestSegv(t *testing.T) {
 	if e != "ExitMmio" {
 		t.Errorf("VM exit: got %v, want 'ExitMmio'", e)
 	}
-	i, r, err := v.Inst()
+	i, r, _, err := v.Inst()
 	t.Logf("Inst returns %v, %v, %v", i, r, err)
 	if err != nil {
 		t.Fatalf("Inst: got %v, want nil", err)
@@ -465,7 +465,7 @@ func TestCall(t *testing.T) {
 	if e != "ExitMmio" {
 		t.Errorf("VM exit: got %v, want 'ExitMmio'", e)
 	}
-	i, r, err := v.Inst()
+	i, r, _, err := v.Inst()
 	t.Logf("Inst returns %v, %v, %v", i, r, err)
 	if err != nil {
 		t.Fatalf("Inst: got %v, want nil", err)
@@ -536,7 +536,7 @@ func TestPush(t *testing.T) {
 	if e != "ExitHalt" {
 		t.Errorf("VM exit: got %v, want 'ExitMHalt'", e)
 	}
-	i, r, err := v.Inst()
+	i, r, _, err := v.Inst()
 	t.Logf("Inst returns %v, %v, %v", i, r, err)
 	if err != nil {
 		t.Fatalf("Inst: got %v, want nil", err)
@@ -610,11 +610,10 @@ func TestCallEFI(t *testing.T) {
 	if e != "ExitMmio" {
 		t.Errorf("VM exit: got %v, want 'ExitMmio'", e)
 	}
-	i, r, err := v.Inst()
+	_, r, g, err := v.Inst()
 	if err != nil {
 		t.Fatalf("Inst: got %v, want nil", err)
 	}
-	g := x86asm.GNUSyntax(*i, uint64(r.Rip), nil)
 	if !strings.Contains(g, "call") {
 		t.Errorf("Inst: got %s, want call", g)
 	}

@@ -162,8 +162,9 @@ func TestEFI(t *testing.T) {
 		if r.Rip < uint64(base) {
 			break
 		}
-		i, r, err := v.Inst()
-		t.Logf("Inst returns %v, %v, %v", i, r, err)
+		i, r, g, err := v.Inst()
+		t.Logf("Inst returns %v, %v, %v, %v", i, r, g, err)
+		t.Logf("CODE:%v", g)
 		if err != nil {
 			t.Fatalf("Inst: got %v, want nil", err)
 		}

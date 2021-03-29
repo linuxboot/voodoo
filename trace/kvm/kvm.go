@@ -106,10 +106,10 @@ func (t *Tracee) SingleStep(onoff bool) error {
 	if t.do(func() {
 		var debug [unsafe.Sizeof(DebugControl{})]byte
 		if onoff {
-			debug[0] = Enable | SingleStep 
+			debug[0] = Enable | SingleStep
 			debug[2] = 0x0002 // 0000
 			//for i := range debug {
-				//debug[i] = 0xff
+			//debug[i] = 0xff
 			//}
 		}
 		// this is not very nice, but it is easy.

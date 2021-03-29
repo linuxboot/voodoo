@@ -812,7 +812,7 @@ func (t *Tracee) archInit() error {
 	blow := []byte(low[:])
 	// poison it with hlt.
 	for i := range blow {
-		blow[i] = 0//xf4
+		blow[i] = 0 //xf4
 	}
 	// Set up page tables for long mode.
 	// take the first two pages of an area it should not touch -- PageTableBase
@@ -827,7 +827,7 @@ func (t *Tracee) archInit() error {
 		copy(blow[int(i*8)+PageTableBase+0x1000:], []byte{0xe3, 0x0, 0, i * 0x40, 0, 0, 0, 0})
 	}
 	if true {
-		Debug("Page tables: %s", hex.Dump(blow[PageTableBase:PageTableBase + 0x2000]))
+		Debug("Page tables: %s", hex.Dump(blow[PageTableBase:PageTableBase+0x2000]))
 	}
 	if err := t.mem(blow, 0x0); err != nil {
 		return fmt.Errorf("creating %d byte region: got %v, want nil", len(blow), err)
