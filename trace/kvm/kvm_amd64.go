@@ -835,11 +835,18 @@ func (t *Tracee) archInit() error {
 	// slot 1 is high bios, 64k at top of 4g.
 	type page [64 * 1024]byte
 	b := &page{}
-	hlt := []byte(b[:])
-	for i := range hlt {
-		hlt[i] = 0xf4
+	high64k := []byte(b[:])
+	for i := range high64k {
+		high64k[i] = 0xf4
 	}
-	if err := t.mem([]byte(b[:]), 0xffff0000); err != nil {
+	copy(high64k[:], []byte{0x03, 0x10 | uint8((PageTableBase>>8)&0xff), uint8((PageTableBase >> 16) & 0xff), uint8((PageTableBase >> 24) & 0xff), 0, 0, 0, 0})
+	for i := byte(0); i < 4; i++ {
+		copy(high64k[int(i*8)+0x1000:], []byte{0xe3, 0x0, 0, i * 0x40, 0, 0, 0, 0})
+	}
+	if true {
+		Debug("Page tables: %s", hex.Dump(high64k[:0x2000]))
+	}
+	if err := t.mem([]byte(high64k[:]), 0xffff0000); err != nil {
 		return fmt.Errorf("creating %d byte region: got %v, want nil", len(b), err)
 	}
 
