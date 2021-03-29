@@ -586,6 +586,9 @@ func TestCallEFI(t *testing.T) {
 	const pc, sp = startpc + 10, startsp - 8
 	r.Rip = startpc
 	r.Rsp = startsp
+	// bogus params to see if we can manages a segv
+	r.Rcx = uint64(imageHandle)
+	r.Rdx = uint64(systemTable)
 
 	if err := v.Write(startpc, call); err != nil {
 		t.Fatalf("Write(%#x, %#x): got %v, want nil", startpc, len(call), err)

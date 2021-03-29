@@ -909,6 +909,10 @@ type xmmio struct {
 	Write uint8
 }
 
+func (x *xmmio) String() string {
+	return fmt.Sprintf("Addr %#x Len %#x Write %#x", x.Addr, x.Len, x.Write)
+}
+
 type shutdown struct {
 	Stype uint32
 	Flags uint64
@@ -971,12 +975,20 @@ func (t *Tracee) readInfo() error {
 		sig.Addr = r.Rip
 	case ExitHlt:
 		sig.Addr = r.Rip
+	case ExitIo:
+		var x xmmio
+		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {
+			log.Panicf("Read in run failed -- can't happen")
+		}
+		sig.Addr = x.Addr
+		log.Printf("ExitIO: %s", x.String())
 	case ExitMmio:
 		var x xmmio
 		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {
 			log.Panicf("Read in run failed -- can't happen")
 		}
 		sig.Addr = x.Addr
+		log.Printf("ExitMMiO: %s", x.String())
 	case ExitShutdown:
 		var x shutdown
 		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {
