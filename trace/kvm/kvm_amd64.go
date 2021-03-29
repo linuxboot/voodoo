@@ -812,7 +812,7 @@ func (t *Tracee) archInit() error {
 	blow := []byte(low[:])
 	// poison it with hlt.
 	for i := range blow {
-		blow[i] = 0 //xf4
+		blow[i] = 0xf4
 	}
 	// Set up page tables for long mode.
 	// take the first two pages of an area it should not touch -- PageTableBase
@@ -822,7 +822,8 @@ func (t *Tracee) archInit() error {
 	// 3 in lowest 2 bits means present and read/write
 	// 0x60 means accessed/dirty
 	// 0x80 means the page size bit -- 0x80 | 0x60 = 0xe0
-	copy(blow[PageTableBase:], []byte{0x03, 0x10, 0xe, 0, 0, 0, 0, 0})
+	//copy(blow[PageTableBase:], []byte{0x03, 0x10, 0xe, 0, 0, 0, 0, 0})
+	copy(blow[PageTableBase:], []byte{0x03, 0x10 | uint8((PageTableBase>>8)&0xff), uint8((PageTableBase>>16)&0xff), uint8((PageTableBase>>24)&0xff), 0, 0, 0, 0})
 	for i := byte(0); i < 4; i++ {
 		copy(blow[int(i*8)+PageTableBase+0x1000:], []byte{0xe3, 0x0, 0, i * 0x40, 0, 0, 0, 0})
 	}
