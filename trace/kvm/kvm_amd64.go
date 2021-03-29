@@ -811,9 +811,11 @@ func (t *Tracee) archInit() error {
 	low := &lowbios{}
 	blow := []byte(low[:])
 	// poison it with hlt.
+	if false {
 	for i := range blow {
 		blow[i] = 0xf4
 	}
+}
 	if err := t.mem(blow, 0x0); err != nil {
 		return fmt.Errorf("creating %d byte region: got %v, want nil", len(blow), err)
 	}
@@ -821,9 +823,11 @@ func (t *Tracee) archInit() error {
 	type page [64 * 1024]byte
 	b := &page{}
 	high64k := []byte(b[:])
+	if false {
 	for i := range high64k {
 		high64k[i] = 0xf4
 	}
+}
 	// Set up page tables for long mode.
 	// take the first two pages of an area it should not touch -- PageTableBase
 	// present, read/write, page table at 0x3000

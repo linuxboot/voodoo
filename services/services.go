@@ -10,7 +10,9 @@ import (
 const (
 	allocAmt = ServPtr(1 << 16)
 	// ImageHandle is the ServBase of the UEFI Image Handle
-	ImageHandle = ServPtr(0x100000)
+	// We place it at the start of Classic BIOS memory, i.e.
+	// the last 16M
+	ImageHandle = ServPtr(0xff000000)
 	servBaseFmt = "SB%#x"
 )
 

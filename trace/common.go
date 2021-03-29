@@ -1,6 +1,7 @@
 package trace
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io"
 	"reflect"
@@ -382,17 +383,6 @@ var (
 	RegsPrint = GenregsPrint
 )
 
-// Params sets paramers in %rcx, %rdx
-func Params(t Trace, ImageHandle, SystemTable uintptr) error {
-	r, err := t.GetRegs()
-	if err != nil {
-		return err
-	}
-	r.Rcx = uint64(ImageHandle)
-	r.Rdx = uint64(SystemTable)
-	return t.SetRegs(r)
-}
-
 // Inst retrieves an instruction from the traced process.
 // It gets messy if the Rip is in unaddressable space; that means we
 // must fetch the saved Rip from [Rsp].
@@ -496,4 +486,20 @@ func CallInfo(_ *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.PtraceRegs)
 	return l
 }
 
-// I *think* everything below could be generic.
+// WriteWord writes the given word into the inferior's address space.
+func WriteWord(t Trace, address uintptr, word uint64) error {
+	var b [8]byte
+	binary.LittleEndian.PutUint64(b[:], word)
+	return t.Write(address, b[:])
+}
+
+// ReadWord reads the given word from the inferior's address space.
+func ReadWord(t Trace, address uintptr) (uint64, error) {
+	var b [8]byte
+	if err := t.Read(address, b[:]); err != nil {
+		return 0, err
+	}
+	var w uint64
+	w = binary.LittleEndian.Uint64(b[:])
+	return w, nil
+}
