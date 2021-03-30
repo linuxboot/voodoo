@@ -92,7 +92,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-//	r.Eflags |= 0x100
+	//	r.Eflags |= 0x100
 
 	st, err := services.Base("systemtable")
 	if err != nil {
