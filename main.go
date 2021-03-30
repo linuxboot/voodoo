@@ -9,6 +9,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"reflect"
@@ -16,6 +17,7 @@ import (
 	"github.com/linuxboot/voodoo/services"
 	"github.com/linuxboot/voodoo/trace"
 	"github.com/linuxboot/voodoo/trace/kvm"
+	"golang.org/x/sys/unix"
 )
 
 const ()
@@ -123,18 +125,73 @@ func main() {
 	trace.Debug = log.Printf
 
 	for {
-		w, err := v.ReadWord(0x7094b020)
-		log.Printf("Reading 0x7094b020: (%#x, %v)", w, err)
+		line++
 		go func() {
 			if err := v.Run(); err != nil {
 				log.Fatalf("Run: got %v, want nil", err)
 			}
 		}()
 		ev := <-v.Events()
+		s := unix.Signal(ev.Signo)
 		log.Printf("Event %#x", ev)
-		if ev.Trapno != kvm.ExitDebug {
+		insn, r, g, err := trace.Inst(v)
+		if err != nil {
+			if err == io.EOF {
+				fmt.Println("\n===:DXE Exits!")
+				os.Exit(0)
+			}
+			log.Fatalf("Could not get regs: %v", err)
+		}
+
+		switch {
+		case ev.Trapno == kvm.ExitDebug:
+		case ev.Trapno == kvm.ExitMmio:
+			// So far, there seem to be three things that can happen.
+			// Call, Load, and Store.
+			// We don't want to get into pulling apart instructions
+			// to figure out which it is; the Asm and other instructions
+			// can go a long way toward helping us instead.
+			// Figure out it is a Call is easy: does the assembly start with CALL?
+			// Done.
+			// Next is figuring out if it is a load or store and that
+			// is similarly easy. Is Arg[0] a memory address? Then it's a store.
+			// We know of no usage of memory-to-memory so we should be safe.
+			// Now don't use the miss the ARM already? We sure do. On that one
+			// it's easy.
+			//showone(os.Stderr, "", &r)
+			//any(fmt.Sprintf("Handle the segv at %#x", i.Addr))
+			if err := trace.Regs(os.Stdout, r); err != nil {
+				log.Fatal(err)
+			}
+			segvasm := trace.Asm(insn, r.Rip)
+			if err := segv(v, &ev, insn, r, segvasm); err != nil {
+				if err == io.EOF {
+					fmt.Println("\n===:DXE Exits!")
+					os.Exit(0)
+				}
+				//showone(os.Stderr, "", &r)
+				log.Printf("Can't do %#x(%v): %v", ev.Signo, unix.SignalName(s), err)
+				for {
+					any("Waiting for ^C")
+				}
+			}
+			// The handlers will always change, at least, eip, so just blindly set them
+			// back. TODO: see if we need more granularity.
+			if err := v.SetRegs(r); err != nil {
+				log.Fatalf("Can't set stack to %#x: %v", dat, err)
+			}
+
+			// if err := t.ReArm(); err != nil {
+			// 	//log.Printf("ClearSignal failed; %v", err)
+			// 	for {
+			// 		any("Waiting for ^C")
+			// 	}
+			// }
+			//Debug(showone("", &r))
+			any("move along")
+
+		default:
 			log.Printf("Trapno: got %#x", ev.Trapno)
-			break
 		}
 		r, err = v.GetRegs()
 		if err != nil {
