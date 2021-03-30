@@ -384,12 +384,14 @@ var (
 )
 
 // Inst retrieves an instruction from the traced process.
+// It returns an x86asm.Inst, Ptraceregs, a string in GNU syntax, and
+// and error
 // It gets messy if the Rip is in unaddressable space; that means we
 // must fetch the saved Rip from [Rsp].
-func Inst(t Trace) (*x86asm.Inst, *syscall.PtraceRegs, error) {
+func Inst(t Trace) (*x86asm.Inst, *syscall.PtraceRegs, string, error) {
 	r, err := t.GetRegs()
 	if err != nil {
-		return nil, nil, fmt.Errorf("Inst:Getregs:%v", err)
+		return nil, nil, "", fmt.Errorf("Inst:Getregs:%v", err)
 	}
 	pc := r.Rip
 	sp := r.Rsp
@@ -399,16 +401,16 @@ func Inst(t Trace) (*x86asm.Inst, *syscall.PtraceRegs, error) {
 	if r.Rip > 0xff000000 {
 		cpc, err := t.ReadWord(uintptr(sp))
 		if err != nil {
-			return nil, nil, fmt.Errorf("Inst:ReadWord at %#x::%v", sp, err)
+			return nil, nil, "", fmt.Errorf("Inst:ReadWord at %#x::%v", sp, err)
 		}
 		Debug("cpc is %#x from sp", cpc)
 		// what a hack.
 		if cpc == 0x100000 {
-			return nil, nil, io.EOF
+			return nil, nil, "", io.EOF
 		}
 		var call [5]byte
 		if err := t.Read(uintptr(cpc-5), call[:]); err != nil {
-			return nil, nil, fmt.Errorf("Can' read PC at #%x, err %v", pc, err)
+			return nil, nil, "", fmt.Errorf("Can' read PC at #%x, err %v", pc, err)
 		}
 
 		// It's simple, if call[0] is 0xff, it's 5 bytes, else if call[2] is 0xff, it's 3,
@@ -421,29 +423,29 @@ func Inst(t Trace) (*x86asm.Inst, *syscall.PtraceRegs, error) {
 		case call[3] == 0xff:
 			cpc -= 2
 		default:
-			return nil, nil, fmt.Errorf("Can't interpret call @ %#x: %#x", cpc-5, call)
+			return nil, nil, "", fmt.Errorf("Can't interpret call @ %#x: %#x", cpc-5, call)
 		}
 		pc = cpc
 	}
 	// We know the PC; grab a bunch of bytes there, then decode and print
 	insn := make([]byte, 16)
 	if err := t.Read(uintptr(pc), insn); err != nil {
-		return nil, nil, fmt.Errorf("Can' read PC at #%x, err %v", pc, err)
+		return nil, nil, "", fmt.Errorf("Can' read PC at #%x, err %v", pc, err)
 	}
 	d, err := x86asm.Decode(insn, 64)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Can't decode %#02x: %v", insn, err)
+		return nil, nil, "", fmt.Errorf("Can't decode %#02x: %v", insn, err)
 	}
-	return &d, r, nil
+	return &d, r, x86asm.GNUSyntax(d, uint64(r.Rip), nil), nil
 }
 
 // Disasm returns a string for the disassembled instruction.
 func Disasm(t Trace) (string, error) {
-	d, r, err := Inst(t)
+	d, _, g, err := Inst(t)
 	if err != nil {
 		return "", fmt.Errorf("Can't decode %#02x: %v", d, err)
 	}
-	return x86asm.GNUSyntax(*d, uint64(r.Rip), nil), nil
+	return g, nil
 }
 
 // Asm returns a string for the given instruction at the given pc

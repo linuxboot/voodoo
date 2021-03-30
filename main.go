@@ -144,11 +144,11 @@ func main() {
 		//		e := ev.cpu.VMRun.String()
 		//		log.Printf("IP is %#x, exit %s", r.Rip, e)
 
-		i, r, err := trace.Inst(v)
+		i, r, g, err := trace.Inst(v)
 		if err != nil {
 			log.Fatalf("Inst: got %v, want nil", err)
 		}
-		log.Printf("Inst returns %v, %v, %v", i, r, err)
+		log.Printf("Inst returns %v, %v, %q, %v", i, r, g, err)
 	}
 	log.Printf("Rsp is %#x", r.Rsp)
 	// we "just know" for now.
