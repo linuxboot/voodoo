@@ -970,8 +970,10 @@ func (t *Tracee) readInfo() error {
 	switch e {
 	case ExitDebug:
 		sig.Addr = r.Rip
+		log.Printf("ExitDebug: %#x", r.Rip)
 	case ExitHlt:
 		sig.Addr = r.Rip
+		log.Printf("ExitHalt: %#x", r.Rip)
 	case ExitIo:
 		var x xmmio
 		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {

@@ -92,7 +92,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	r.Eflags |= 0x100
+//	r.Eflags |= 0x100
 
 	st, err := services.Base("systemtable")
 	if err != nil {
@@ -107,6 +107,10 @@ func main() {
 	if err := v.SetRegs(r); err != nil {
 		log.Fatalf("GetRegs: got %v, want nil", err)
 	}
+
+	// Reserve space for structs that we will place into the memory.
+	// We'll try putting it in the bios area.
+	services.SetAllocator(0xff000000, 0xff100000)
 
 	trace.Debug = log.Printf
 
@@ -133,7 +137,7 @@ func main() {
 		}()
 		ev := <-v.Events()
 		s := unix.Signal(ev.Signo)
-		log.Printf("Event %#x", ev)
+		log.Printf("------------------------------------------------------------------->> %d: Event %#x, trap %d", line, ev, ev.Trapno)
 		insn, r, g, err := trace.Inst(v)
 		if err != nil {
 			if err == io.EOF {

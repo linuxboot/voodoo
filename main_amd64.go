@@ -19,7 +19,9 @@ import (
 func segv(p trace.Trace, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.PtraceRegs, asm string) error {
 	addr := uintptr(i.Addr)
 	pc := r.Rip
+	log.Printf("SEGV@%#x, rip %#x", addr, pc)
 	if r.Rip == 0x100000 {
+		log.Printf("SEGV: return io.EOF")
 		return io.EOF
 	}
 	nextpc := r.Rip + uint64(inst.Len)
@@ -27,6 +29,7 @@ func segv(p trace.Trace, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.
 		var err error
 		nextpc, err = trace.Pop(p, r)
 		if err != nil {
+			log.Printf("SEGV: return Pop failure")
 			return err
 		}
 		// TODO: adjust PC to be "the one before the one we popped"
@@ -38,7 +41,9 @@ func segv(p trace.Trace, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.
 		return fmt.Errorf("Don't know what to do with %v: %v", trace.CallInfo(i, inst, r), err)
 	}
 	// Advance to the next instruction. This advance should only happen if the dispatch worked?
-	r.Rip = nextpc
+	if false { // only for strace.
+		r.Rip = nextpc
+	}
 	defer log.Printf("===========} done SEGV @ %#x, rip was %#x, advance to %#x", addr, pc, r.Rip)
 	return nil
 }

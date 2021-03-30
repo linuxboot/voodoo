@@ -131,12 +131,12 @@ func (t *Tracee) Run() error {
 		errc <- e
 	}) {
 		err := <-errc
-		Debug("run returns with %v", err)
+		Debug("kvm.Run: run returns with %v", err)
 		if err := t.readInfo(); err != nil {
 			log.Panicf("run: info %v", err)
 		}
 		// Now yank out the exit info.
-		t.events <- t.info
+		//t.events <- t.info
 		return err
 	}
 	return ErrTraceeExited
