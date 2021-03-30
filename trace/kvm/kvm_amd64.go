@@ -838,6 +838,10 @@ func (t *Tracee) archInit() error {
 	// 0x80 means the page size bit -- 0x80 | 0x60 = 0xe0
 	copy(high64k[:], []byte{0x03, 0x10 | uint8((PageTableBase>>8)&0xff), uint8((PageTableBase >> 16) & 0xff), uint8((PageTableBase >> 24) & 0xff), 0, 0, 0, 0})
 	for i := byte(0); i < 4; i++ {
+		if i == 2 {
+			copy(high64k[int(i*8)+0x1000:], []byte{0xe3, 0x0, 0, i * 0x40, 0, 0, 0, 0})
+			continue
+		}
 		copy(high64k[int(i*8)+0x1000:], []byte{0xe3, 0x0, 0, i * 0x40, 0, 0, 0, 0})
 	}
 	if true {
@@ -847,6 +851,12 @@ func (t *Tracee) archInit() error {
 		return fmt.Errorf("creating %d byte region: got %v, want nil", len(b), err)
 	}
 
+	// Set up 1M of image table data at 0xff000000
+	// UEFI mixes function pointers and data in the protocol structs.
+	// yegads it's so bad.
+	//
+	// The pattern needs to work if there is a deref via load/store
+	// or via call.
 	return nil
 }
 
@@ -931,11 +941,11 @@ var stype = map[uint32]string{
 
 func (t *Tracee) readInfo() error {
 	vmr := bytes.NewBuffer(t.cpu.m)
-	Debug("vmr len %d", vmr.Len())
+	//Debug("vmr len %d", vmr.Len())
 	if err := binary.Read(vmr, binary.LittleEndian, &t.cpu.VMRun); err != nil {
 		log.Panicf("Read in run failed -- can't happen")
 	}
-	Debug("vmr len %d", vmr.Len())
+	//Debug("vmr len %d", vmr.Len())
 	r, _, err := t.getRegs()
 	if err != nil {
 		return fmt.Errorf("readInfo: %v", err)
@@ -970,24 +980,24 @@ func (t *Tracee) readInfo() error {
 	switch e {
 	case ExitDebug:
 		sig.Addr = r.Rip
-		log.Printf("ExitDebug: %#x", r.Rip)
+		Debug("ExitDebug: %#x", r.Rip)
 	case ExitHlt:
 		sig.Addr = r.Rip
-		log.Printf("ExitHalt: %#x", r.Rip)
+		Debug("ExitHalt: %#x", r.Rip)
 	case ExitIo:
 		var x xmmio
 		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {
 			log.Panicf("Read in run failed -- can't happen")
 		}
 		sig.Addr = x.Addr
-		log.Printf("ExitIO: %s", x.String())
+		Debug("ExitIO: %s", x.String())
 	case ExitMmio:
 		var x xmmio
 		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {
 			log.Panicf("Read in run failed -- can't happen")
 		}
 		sig.Addr = x.Addr
-		log.Printf("ExitMMiO: %s", x.String())
+		Debug("ExitMMiO: %s", x.String())
 	case ExitShutdown:
 		var x shutdown
 		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {

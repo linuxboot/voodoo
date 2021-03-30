@@ -415,7 +415,9 @@ func TestSegv(t *testing.T) {
 
 func TestCall(t *testing.T) {
 	// 000d FF10     	call *(%rax)
-	call := []byte{0xff, 0x10}
+	//  ff 90 98 00 00 00       callq  *0x98(%rax)
+	// nop hlt
+	call := []byte{0xff, 0x90, 0x98, 0, 0, 0, 0x90, 0xf4}
 	Debug = t.Logf
 	v, err := New()
 	if err != nil {
@@ -436,8 +438,12 @@ func TestCall(t *testing.T) {
 
 	r.Rip = 0x10000
 	r.Rsp = 0x8000
-	const bad = 0xff000002
-	r.Rax = bad
+	t.Logf("jmp target is %#x", v.regions[0].data[0x90:0x90+16])
+	const initrax = 0x10000
+	const bad = 0x10008
+	// Put a pointer at initrax + 98
+	copy(v.regions[0].data[initrax + 0x98:], []byte{0xa0, 0x00, 0x01, 0x00, 0, 0, 0, 0, 0xc3})
+	r.Rax = initrax
 	if err := v.SetRegs(r); err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
@@ -450,8 +456,8 @@ func TestCall(t *testing.T) {
 	}()
 	ev := <-v.Events()
 	t.Logf("Event %#x", ev)
-	if ev.Trapno != ExitMmio {
-		t.Errorf("Trapno: got %#x, want %#x", ev.Trapno, ExitMmio)
+	if ev.Trapno != ExitHlt {
+		t.Errorf("Trapno: got %#x, want %#x", ev.Trapno, ExitHlt)
 	}
 	if ev.Addr != bad {
 		t.Errorf("Addr: got %#x, want %#x", ev.Addr, bad)
@@ -460,10 +466,11 @@ func TestCall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
+	t.Logf("Rsp is %#x, regs %s", r.Rsp, show("After Call: ", r))
 	e := v.cpu.VMRun.String()
 	t.Logf("IP is %#x, exit %s", r.Rip, e)
-	if e != "ExitMmio" {
-		t.Errorf("VM exit: got %v, want 'ExitMmio'", e)
+	if e != "ExitHalt" {
+		t.Errorf("VM exit: got %v, want 'ExitHalt'", e)
 	}
 	i, r, _, err := v.Inst()
 	t.Logf("Inst returns %v, %v, %v", i, r, err)
@@ -471,10 +478,42 @@ func TestCall(t *testing.T) {
 		t.Fatalf("Inst: got %v, want nil", err)
 	}
 	op := i.Op.String()
-	if op != "CALL" {
-		t.Fatalf("opcode: got %s, want 'CALL'", op)
+	if op != "HLT" {
+		t.Errorf("opcode: got %s, want 'HLT'", op)
 	}
-	t.Logf("Rsp is %#x", r.Rsp)
+	t.Logf("Rip stopped at %#x, %#x", r.Rip, v.regions[0].data[r.Rip-1:r.Rip-1+8])
+	t.Logf("Rsp is %#x, regs %s", r.Rsp, show("After Call: ", r))
+	// Now for the fun. Try to resume it.
+	// We should, then, see an ExitHlt
+	// This actually doesn't work yet -- don't know how to make
+	// it NOT take a reset
+	if false {
+		r.Rip += 6
+		if err := v.SetRegs(r); err != nil {
+			t.Fatalf("GetRegs: got %v, want nil", err)
+		}
+		rr, s, err := v.getRegs()
+		if err != nil {
+			t.Fatalf("GetRegs: got %v, want nil", err)
+		}
+		t.Logf("Try to resume the vm at %#x, regs now %s", r.Rip, show("resume: ", rr, s))
+		go func() {
+			if err := v.Run(); err != nil {
+				t.Errorf("Run: got %v, want nil", err)
+			}
+		}()
+		ev = <-v.Events()
+		e = v.cpu.VMRun.String()
+		t.Logf("Event %#x, %s", ev, e)
+		if ev.Trapno != ExitHlt {
+			t.Errorf("Trapno: got %#x, want %#x", ev.Trapno, ExitMmio)
+		}
+		rr, s, err = v.getRegs()
+		if err != nil {
+			t.Fatalf("GetRegs: got %v, want nil", err)
+		}
+		t.Logf(show("AFTER resume: ", rr, s))
+	}
 }
 
 func TestPush(t *testing.T) {

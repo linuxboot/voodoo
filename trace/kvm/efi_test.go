@@ -8,8 +8,8 @@ import (
 	"testing"
 )
 
-const imageHandle = 0xff000000
-const systemTable = 0xff010000
+const imageHandle = 0x80000000
+const systemTable = 0x80010000
 
 func TestEFI(t *testing.T) {
 	//5 000f 55       	push %rbp
