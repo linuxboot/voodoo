@@ -236,14 +236,11 @@ func (t *Tracee) NewProc(id int) error {
 	t.cpu.id = id
 	t.cpu.fd = fd
 	t.cpu.m = b
-	// Set this to true and it dies.
-	if true {
-		// Now for the real fun. Long mode.
-		sdata := &bytes.Buffer{}
-		binary.Write(sdata, binary.LittleEndian, bit64)
-		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setSregs, uintptr(unsafe.Pointer(&sdata.Bytes()[0]))); errno != 0 {
-			return fmt.Errorf("can not set sregs: %v", errno)
-		}
+	// Now for the real fun. Long mode.
+	sdata := &bytes.Buffer{}
+	binary.Write(sdata, binary.LittleEndian, bit64)
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setSregs, uintptr(unsafe.Pointer(&sdata.Bytes()[0]))); errno != 0 {
+		return fmt.Errorf("can not set sregs: %v", errno)
 	}
 
 	return nil
