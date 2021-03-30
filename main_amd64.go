@@ -6,7 +6,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"syscall"
 
@@ -20,12 +19,11 @@ func segv(p trace.Trace, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.
 	addr := uintptr(i.Addr)
 	pc := r.Rip
 	log.Printf("SEGV@%#x, rip %#x", addr, pc)
-	if r.Rip == 0x100000 {
-		log.Printf("SEGV: return io.EOF")
-		return io.EOF
+	if r.Rip < 0x1000 {
+		log.Panicf("SEGV: BOGUS PC!")
 	}
 	nextpc := r.Rip + uint64(inst.Len)
-	if pc < 0x200000 {
+	if pc >= uint64(services.ImageHandle) {
 		var err error
 		nextpc, err = trace.Pop(p, r)
 		if err != nil {
