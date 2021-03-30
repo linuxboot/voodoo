@@ -147,6 +147,9 @@ func main() {
 			log.Fatalf("Could not get regs: %v", err)
 		}
 
+		if r.Rip < 0x10000 {
+			log.Fatalf("Bogus RIP %s, dying", showone("", &r))
+		}
 		switch {
 		case ev.Trapno == kvm.ExitDebug:
 		case ev.Trapno == kvm.ExitMmio:
