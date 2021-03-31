@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/binary"
 	"log"
 	"os"
 
@@ -21,7 +22,16 @@ func init() {
 }
 
 // NewTextIn returns a TextIn Service
-func NewTextIn(b []byte, u ServPtr) (Service, error) {
+func NewTextIn(tab []byte, u ServPtr) (Service, error) {
+	log.Printf("textin services table u is %#x", u)
+	base := int(u) & 0xffffff
+	for p := range table.SimpleTextInServicesNames {
+		x := base + int(p)
+		r := uint64(p) + 0xff400000 + uint64(base)
+		log.Printf("Install %#x at off %#x", r, x)
+		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
+	}
+
 	return &TextIn{u: ServBase(u.String()), up: u}, nil
 }
 

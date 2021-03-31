@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/binary"
 	"fmt"
 	"log"
 
@@ -21,7 +22,16 @@ func init() {
 }
 
 // NewRuntime returns a Runtime Service
-func NewRuntime(b []byte, u ServPtr) (Service, error) {
+func NewRuntime(tab []byte, u ServPtr) (Service, error) {
+	log.Printf("runtime services table u is %#x", u)
+	base := int(u) & 0xffffff
+	for p := range table.RuntimeServicesNames {
+		x := base + int(p)
+		r := uint64(p) + 0xff400000 + uint64(base)
+		log.Printf("Install %#x at off %#x", r, x)
+		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
+	}
+
 	return &Runtime{u: u.Base(), up: u}, nil
 }
 
