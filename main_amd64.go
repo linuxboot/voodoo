@@ -68,6 +68,6 @@ func halt(p trace.Trace, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.
 	}
 	// Advance to the next instruction. This advance should only happen if the dispatch worked?
 	r.Rip = nextpc
-	defer log.Printf("===========} done SEGV @ %#x, rip was %#x, advance to %#x", addr, pc, r.Rip)
+	defer log.Printf("===========} done HALT @ %#x, rip was %#x, advance to %#x", addr, pc, r.Rip)
 	return nil
 }
