@@ -21,7 +21,7 @@ func init() {
 }
 
 // NewRuntime returns a Runtime Service
-func NewRuntime(u ServPtr) (Service, error) {
+func NewRuntime(b []byte, u ServPtr) (Service, error) {
 	return &Runtime{u: u.Base(), up: u}, nil
 }
 

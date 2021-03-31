@@ -22,8 +22,25 @@ func init() {
 }
 
 // NewBoot returns a Boot Service
-func NewBoot(u ServPtr) (Service, error) {
+func NewBoot(tab []byte, u ServPtr) (Service, error) {
+	// Put the pointer for one thing to see what happens.
+	log.Printf("boot services table u is %#x", u)
+	base := int(u) & 0xffffff
+	for p := range table.BootServicesNames {
+		x := base + int(p)
+		r := uint64(p) + 0xff400000 + uint64(base)
+		log.Printf("Install %#x at off %#x", r, x)
+		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
+	}
+
 	return &Boot{u: u.Base(), up: u}, nil
+}
+
+func (r *Boot) SetFun(t trace.Trace) error {
+	if err := trace.WriteWord(t, uintptr(r.up)+0x98, uint64(r.up)+0x400000); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Base implements service.Base

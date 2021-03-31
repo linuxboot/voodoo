@@ -24,9 +24,9 @@ func init() {
 }
 
 // NewTextOut returns a TextOut Service
-func NewTextOut(u ServPtr) (Service, error) {
+func NewTextOut(b []byte, u ServPtr) (Service, error) {
 	// We need to get to the TextOutMode.
-	tm, err := Base("textoutmode")
+	tm, err := Base(b, "textoutmode")
 	if err != nil {
 		return nil, err
 	}

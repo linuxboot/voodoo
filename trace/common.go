@@ -408,8 +408,8 @@ func Inst(t Trace) (*x86asm.Inst, *syscall.PtraceRegs, string, error) {
 		if cpc == 0x100000 {
 			return nil, nil, "", io.EOF
 		}
-		var call [5]byte
-		if err := t.Read(uintptr(cpc-5), call[:]); err != nil {
+		var call [6]byte
+		if err := t.Read(uintptr(cpc-6), call[:]); err != nil {
 			return nil, nil, "", fmt.Errorf("Can' read PC at #%x, err %v", pc, err)
 		}
 
@@ -417,11 +417,13 @@ func Inst(t Trace) (*x86asm.Inst, *syscall.PtraceRegs, string, error) {
 		// else we're screwed.
 		switch {
 		case call[0] == 0xff:
+			cpc -= 6
+		case call[1] == 0xff:
 			cpc -= 5
 		case call[2] == 0xff:
-			cpc -= 3
+			cpc -= 4
 		case call[3] == 0xff:
-			cpc -= 2
+			cpc -= 3
 		default:
 			return nil, nil, "", fmt.Errorf("Can't interpret call @ %#x: %#x", cpc-5, call)
 		}

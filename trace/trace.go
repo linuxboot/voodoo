@@ -24,6 +24,7 @@ type Trace interface {
 	ReArm() error
 	Run() error
 	Events() <-chan unix.SignalfdSiginfo
+	Tab() []byte
 }
 
 var Debug = func(string, ...interface{}) {}

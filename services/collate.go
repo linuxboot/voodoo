@@ -18,7 +18,7 @@ func init() {
 }
 
 // NewCollate returns a Collate Service
-func NewCollate(u ServPtr) (Service, error) {
+func NewCollate(b []byte, u ServPtr) (Service, error) {
 	return &Collate{u: u.Base(), up: u}, nil
 }
 

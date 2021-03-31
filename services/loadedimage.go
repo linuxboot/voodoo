@@ -20,7 +20,7 @@ func init() {
 }
 
 // NewLoadedImage returns a LoadedImage Service
-func NewLoadedImage(u ServPtr) (Service, error) {
+func NewLoadedImage(b []byte, u ServPtr) (Service, error) {
 	return &LoadedImage{u: u.Base(), up: u}, nil
 }
 

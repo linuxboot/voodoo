@@ -851,12 +851,27 @@ func (t *Tracee) archInit() error {
 		return fmt.Errorf("creating %d byte region: got %v, want nil", len(b), err)
 	}
 
-	// Set up 1M of image table data at 0xff000000
+	// Set up 4M of image table data at 0xff400000
 	// UEFI mixes function pointers and data in the protocol structs.
 	// yegads it's so bad.
 	//
 	// The pattern needs to work if there is a deref via load/store
 	// or via call.
+	type functions [8 * 1048576]byte
+	fun := &functions{}
+	ffun := []byte(fun[:])
+	// poison it with hlt.
+	if true {
+		for i := 0; i < len(ffun); i += 8 {
+			// bogus pointer but the low 16 bits are hlt; retq
+			bogus := uint64(0x10000c3f4)
+			binary.LittleEndian.PutUint64(ffun[i:], bogus)
+		}
+	}
+	if err := t.mem(ffun, 0xff000000); err != nil {
+		return fmt.Errorf("creating %d byte region: got %v, want nil", len(ffun), err)
+	}
+	t.tab = ffun
 	return nil
 }
 

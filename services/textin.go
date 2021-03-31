@@ -21,7 +21,7 @@ func init() {
 }
 
 // NewTextIn returns a TextIn Service
-func NewTextIn(u ServPtr) (Service, error) {
+func NewTextIn(b []byte, u ServPtr) (Service, error) {
 	return &TextIn{u: ServBase(u.String()), up: u}, nil
 }
 

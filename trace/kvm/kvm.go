@@ -62,10 +62,16 @@ type Tracee struct {
 	// return common faultinfo, and other packages
 	// understand it.
 	info unix.SignalfdSiginfo
+	// UEFI protocol tables
+	tab []byte
 }
 
 func (t *Tracee) String() string {
 	return fmt.Sprintf("%s", t.dev.Name())
+}
+
+func (t *Tracee) Tab() []byte {
+	return t.tab
 }
 
 func (t *Tracee) vmioctl(option uintptr, data interface{}) (r1, r2 uintptr, err error) {

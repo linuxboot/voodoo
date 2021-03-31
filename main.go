@@ -30,6 +30,7 @@ var (
 	optional   = flag.Bool("optional", false, "Print optional registers")
 	singlestep = flag.Bool("singlestep", false, "single step instructions")
 	debug      = flag.Bool("debug", true, "Enable debug prints")
+	dryrun     = flag.Bool("dryrun", false, "set up but don't run")
 	v          = log.Printf
 	step       = func(...string) {}
 	dat        uintptr
@@ -92,9 +93,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	//	r.Eflags |= 0x100
-
-	st, err := services.Base("systemtable")
+	st, err := services.Base(v.Tab(), "systemtable")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -103,6 +102,7 @@ func main() {
 	// bogus params to see if we can manages a segv
 	//r.Rcx = uint64(imageHandle)
 	//r.Rdx = uint64(systemTable)
+	r.Eflags |= 0x100
 
 	if err := v.SetRegs(r); err != nil {
 		log.Fatalf("GetRegs: got %v, want nil", err)
@@ -127,9 +127,13 @@ func main() {
 		log.Fatalf("Writing stack %#x at %#x: got %v, want nil", efisp, efisp-8, err)
 	}
 	trace.Debug = log.Printf
+	if *dryrun {
+		log.Panic("dry run")
+	}
 
 	for {
 		line++
+		log.Printf("------------------------------------------------------------------->> %d: ", line)
 		go func() {
 			if err := v.Run(); err != nil {
 				log.Fatalf("Run: got %v, want nil", err)
@@ -137,7 +141,7 @@ func main() {
 		}()
 		ev := <-v.Events()
 		s := unix.Signal(ev.Signo)
-		log.Printf("------------------------------------------------------------------->> %d: Event %#x, trap %d", line, ev, ev.Trapno)
+		log.Printf("\t %d: Event %#x, trap %d", line, ev, ev.Trapno)
 		insn, r, g, err := trace.Inst(v)
 		if err != nil {
 			if err == io.EOF {
@@ -148,7 +152,7 @@ func main() {
 		}
 
 		if r.Rip < 0x10000 {
-			log.Fatalf("Bogus RIP %s, dying", showone("", &r))
+			log.Fatalf("Bogus RIP %s, dying", showone("", r))
 		}
 		switch {
 		case ev.Trapno == kvm.ExitDebug:
@@ -195,7 +199,7 @@ func main() {
 			// 	}
 			// }
 			//Debug(showone("", &r))
-			any("move along")
+			any("returned from segv, set regs, move along")
 
 		default:
 			log.Printf("Trapno: got %#x", ev.Trapno)

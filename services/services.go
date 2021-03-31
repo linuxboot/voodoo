@@ -12,6 +12,8 @@ const (
 	// ImageHandle is the ServBase of the UEFI Image Handle
 	// We place it at the start of Classic BIOS memory, i.e.
 	// the last 16M
+	// Pointers for functions point to ImageHandle+4M.
+	// Placed there are functions that for now are poisoned with hlt.
 	ImageHandle = ServPtr(0xff000000)
 	servBaseFmt = "SB%#x"
 )
@@ -62,7 +64,7 @@ type Service interface {
 // serviceCreator returns a service. The parameter, u,
 // is passed to it as an identifier. The serviceCreator
 // may itself call other serviceCreators.
-type serviceCreator func(u ServPtr) (Service, error)
+type serviceCreator func(b []byte, u ServPtr) (Service, error)
 
 var creators = map[string]serviceCreator{}
 
@@ -103,7 +105,7 @@ func RegisterGUIDCreator(n string, s serviceCreator) {
 // and then dispatch to the correct Call function.
 // Note that because this uses a string, one might set up names based
 // on both a service name and a guid. Why, I have no idea.
-func Base(n string) (ServPtr, error) {
+func Base(tab []byte, n string) (ServPtr, error) {
 	s, ok := creators[n]
 	log.Printf("Base for %s: %v, %v", n, s, ok)
 	if !ok {
@@ -118,7 +120,7 @@ func Base(n string) (ServPtr, error) {
 	if d, ok := dispatches[b]; ok {
 		log.Panicf("Base %v for %s is in use by %v", b, n, d)
 	}
-	srv, err := s(base)
+	srv, err := s(tab, base)
 	if err != nil {
 		return 0, err
 	}
@@ -127,6 +129,15 @@ func Base(n string) (ServPtr, error) {
 	dispatches[b] = d
 	dispatches[ServBase(n)] = d
 	return base, nil
+}
+
+// BasePtr returns the base pointer for a service.
+func BasePtr(n string) (ServPtr, bool) {
+	d, ok := dispatches[ServBase(n)]
+	if !ok {
+		return 0, false
+	}
+	return d.up, true
 }
 
 func servBaseName(a uintptr) ServBase {

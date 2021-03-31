@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/binary"
 	"fmt"
 	"log"
 
@@ -24,7 +25,7 @@ func init() {
 
 // NewSystemtable returns a Systemtable Service
 // This must be the FIRST New called for a service.
-func NewSystemtable(u ServPtr) (Service, error) {
+func NewSystemtable(tab []byte, u ServPtr) (Service, error) {
 	var st = &SystemTable{up: u, u: u.Base()}
 
 	for _, t := range []struct {
@@ -36,21 +37,27 @@ func NewSystemtable(u ServPtr) (Service, error) {
 		{"runtime", table.RuntimeServices},
 		{"boot", table.BootServices},
 	} {
-		r, err := Base(t.n)
+		r, err := Base(tab, t.n)
 		if err != nil {
 			log.Fatal(err)
 		}
 		table.SystemTableNames[t.st].Val = uint64(r)
-		log.Printf("-----------> Install service %s at %#x", t.n, uint32(r))
+		log.Printf("-----------> Install service %s ptr t.st %#x at %#x", t.n, t.st, uint32(r))
+		// r is the pointer. Set the pointer in the table.
+		// the pointer is ... well ...wtf. I don't know.
+		log.Printf("system table u is %#x", u)
+		log.Printf("Install %#x at off %#x", r, t.st+0x10000)
+		binary.LittleEndian.PutUint64(tab[t.st+0x10000:], uint64(r))
 	}
 
 	// Now set up all the GUIDServices
 	for _, t := range GUIDServices {
-		if _, err := Base(t); err != nil {
+		if _, err := Base(tab, t); err != nil {
 			log.Fatal(err)
 		}
 	}
 
+	// Now try the one function we know about.
 	return st, nil
 }
 
