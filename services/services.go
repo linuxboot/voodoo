@@ -141,12 +141,14 @@ func BasePtr(n string) (ServPtr, bool) {
 }
 
 func servBaseName(a uintptr) ServBase {
+	// clear out the 0x400000 stuff. TODO: clean this shit up.
+	a &= 0xffbfffff
 	b := ServPtr(((a >> 16) << 16))
 	return b.Base()
 }
 
 func splitBaseOp(a uintptr) (ServBase, Func) {
-	return servBaseName(a), Func(a & 0xffff)
+	return servBaseName(a), Func(a & 0xfff8)
 }
 
 // Service returns a service given an addr.

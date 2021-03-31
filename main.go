@@ -201,6 +201,38 @@ func main() {
 			//Debug(showone("", &r))
 			any("returned from segv, set regs, move along")
 
+		case ev.Trapno == kvm.ExitHlt:
+			// This ONLY happens on an exit OR calling a UEFI function.
+			if err := trace.Regs(os.Stdout, r); err != nil {
+				log.Fatal(err)
+			}
+			haltasm := trace.Asm(insn, r.Rip)
+			if err := halt(v, &ev, insn, r, haltasm); err != nil {
+				if err == io.EOF {
+					fmt.Println("\n===:DXE Exits!")
+					os.Exit(0)
+				}
+				//showone(os.Stderr, "", &r)
+				log.Printf("Can't do %#x(%v): %v", ev.Signo, unix.SignalName(s), err)
+				for {
+					any("Waiting for ^C")
+				}
+			}
+			// The handlers will always change, at least, eip, so just blindly set them
+			// back. TODO: see if we need more granularity.
+			if err := v.SetRegs(r); err != nil {
+				log.Fatalf("Can't set stack to %#x: %v", dat, err)
+			}
+
+			// if err := t.ReArm(); err != nil {
+			// 	//log.Printf("ClearSignal failed; %v", err)
+			// 	for {
+			// 		any("Waiting for ^C")
+			// 	}
+			// }
+			//Debug(showone("", &r))
+			any("returned from halt, set regs, move along")
+
 		default:
 			log.Printf("Trapno: got %#x", ev.Trapno)
 		}
