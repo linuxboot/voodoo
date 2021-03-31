@@ -8,14 +8,11 @@ package main
 
 import (
 	"debug/elf"
-	"debug/pe"
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
 	"reflect"
 
 	"github.com/linuxboot/voodoo/ptrace"
@@ -35,7 +32,6 @@ var (
 	offset     = flag.Uint64("offset", 0x400000, "offset for objcopy")
 	singlestep = flag.Bool("singlestep", false, "single step instructions")
 	debug      = flag.Bool("debug", true, "Enable debug prints")
-	elfFile    = flag.String("elf", "binstart", "file to use for initial ptrace startup")
 	v          = log.Printf
 	step       = func(...string) {}
 	dat        uintptr
@@ -83,6 +79,7 @@ func main() {
 		log.Fatal("arg count")
 	}
 
+	elfFile := a[0]
 	st, err := services.Base("systemtable")
 	if err != nil {
 		log.Fatal(err)
@@ -94,25 +91,13 @@ func main() {
 		step = any
 	}
 	// objcopy seems to corrupt the file, too bad!
-	if false {
-		f, err := ioutil.TempFile("", "voodoo")
-		if err != nil {
-			log.Fatal(err)
-		}
-		*elfFile = f.Name()
-		o, err := exec.Command("objcopy", "--adjust-vma", fmt.Sprintf("%#x", *offset), "-O", "elf64-x86-64", a[0], *elfFile).CombinedOutput()
-		if err != nil {
-			log.Fatalf("objcopy to %s failed: %s %v", *elfFile, string(o), err)
-		}
-		f.Close()
-	}
-	e, err := elf.Open(*elfFile)
+	e, err := elf.Open(elfFile)
 	if err != nil {
 		log.Fatal(err)
 	}
 	eip := uintptr(e.Entry)
 	e.Close()
-	t, err := ptrace.Exec(*elfFile, []string{*elfFile})
+	t, err := ptrace.Exec(elfFile, []string{elfFile})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -124,45 +109,6 @@ func main() {
 	step()
 	// For now, we do the PE/COFF externally. But leave this here ...
 	// you never know.
-	if true {
-		// Now fill it up
-		f, err := pe.Open(flag.Args()[0])
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Print(show("", &f.FileHeader))
-		// UEFI provides no symbols, of course. Why would it?
-		log.Printf("%v:\n%d syms", f, len(f.COFFSymbols))
-		for _, s := range f.COFFSymbols {
-			log.Printf("\t%v", s)
-		}
-		// We need to relocate to start at *offset.
-		// UEFI runs in page zero. I can't believe it.
-		base := uintptr(*offset)
-		log.Printf("Base is %#x", base)
-		for i, s := range f.Sections {
-			fmt.Fprintf(os.Stderr, "Section %d", i)
-			fmt.Fprintf(os.Stderr, show("\t", &s.SectionHeader))
-			addr := base + uintptr(s.VirtualAddress)
-			dat, err := s.Data()
-			if err != nil {
-				log.Fatalf("Can't get data for this section: %v", err)
-			}
-			// Zero it out.
-			log.Printf("Copy section to %#x:%#x", addr, s.VirtualSize)
-			bb := make([]byte, s.VirtualSize)
-			if err := t.Write(addr, bb); err != nil {
-				any(fmt.Sprintf("Can't write %d bytes of zero @ %#x for this section to process:", len(bb), addr, err))
-				log.Fatalf("Can't write %d bytes of zero @ %#x for this section to process:", len(bb), addr, err)
-			}
-			if err := t.Write(addr, dat); err != nil {
-				any(fmt.Sprintf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err))
-				log.Fatalf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err)
-			}
-		}
-		// For now we assume the entry point is the start of the first segment
-		eip = base + uintptr(f.Sections[0].VirtualAddress)
-	}
 	ptrace.Debug = log.Printf
 	// *start overrides it all.
 	if *start != 0 {
