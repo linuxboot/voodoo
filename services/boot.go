@@ -63,13 +63,13 @@ func (r *Boot) Call(f *Fault) error {
 		// Status = gBS->AllocatePool (EfiBootServicesData, sizeof (EXAMPLE_DEVICE), (VOID **)&Device);
 		f.Args = trace.Args(f.Proc, f.Regs, 5)
 		// ignore arg 0 for now.
-		log.Printf("AllocatePool: %d bytes", f.Args[1])
+		d := uint64(bumpAllocate(uintptr(f.Args[1])))
+		log.Printf("AllocatePool: %d bytes @ %#x", f.Args[1], d)
 		var bb [8]byte
-		binary.LittleEndian.PutUint64(bb[:], uint64(dat))
+		binary.LittleEndian.PutUint64(bb[:], d)
 		if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
 			return fmt.Errorf("Can't write %d bytes to %#x: %v", len(bb), dat, err)
 		}
-		dat += f.Args[1]
 		return nil
 	case table.FreePool:
 		// Status = gBS->FreePool (Device);

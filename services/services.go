@@ -31,11 +31,11 @@ var (
 	malloc sync.Mutex
 )
 
-func bumpAllocate() ServPtr {
+func bumpAllocate(amt uintptr) ServPtr {
 	malloc.Lock()
 	defer malloc.Unlock()
 	m := memBase
-	memBase += allocAmt
+	memBase += ServPtr(amt)
 	return m
 }
 
@@ -114,7 +114,7 @@ func Base(tab []byte, n string) (ServPtr, error) {
 	if d, ok := dispatches[ServBase(n)]; ok {
 		log.Panicf(" %s is in use by %v", n, d)
 	}
-	base := bumpAllocate()
+	base := bumpAllocate(uintptr(allocAmt))
 	b := base.Base()
 	log.Printf("Base: base is %#x %s", uint32(base), b)
 	if d, ok := dispatches[b]; ok {
