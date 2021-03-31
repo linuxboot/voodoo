@@ -110,7 +110,7 @@ func main() {
 
 	// Reserve space for structs that we will place into the memory.
 	// We'll try putting it in the bios area.
-	services.SetAllocator(0xff800000, 0xff900000)
+	services.SetAllocator(0xff000000, 0xff100000)
 
 	trace.Debug = log.Printf
 
