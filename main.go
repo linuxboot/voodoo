@@ -29,7 +29,7 @@ type msg func()
 var (
 	start      = flag.Uint64("start", 0, "starting address -- default is from PE/COFF but you can override")
 	optional   = flag.Bool("optional", false, "Print optional registers")
-	offset     = flag.Uint64("offset", 0x400000, "offset for objcopy")
+	offset     = flag.Uint64("offset", 0x100000000, "offset for objcopy")
 	singlestep = flag.Bool("singlestep", false, "single step instructions")
 	debug      = flag.Bool("debug", true, "Enable debug prints")
 	v          = log.Printf
@@ -75,11 +75,12 @@ func show(indent string, l ...interface{}) string {
 func main() {
 	flag.Parse()
 	a := flag.Args()
-	if len(a) != 1 {
+	if len(a) != 2 {
 		log.Fatal("arg count")
 	}
 
 	elfFile := a[0]
+	efiFile := a[1]
 	st, err := services.Base("systemtable")
 	if err != nil {
 		log.Fatal(err)
@@ -106,11 +107,21 @@ func main() {
 	if err := t.SingleStep(); err != nil {
 		log.Printf("First single step: %v", err)
 	}
+
 	step()
+	r, err := t.GetRegs()
+	if err != nil {
+		log.Fatalf("Could not get regs: %v", err)
+	}
+	if err := loadPE(t, efiFile, r, uintptr(*offset), log.Printf); err != nil {
+		any(fmt.Sprintf("%v", err))
+		log.Fatalf("Loading PE %s: %v", efiFile, err)
+	}
 	// For now, we do the PE/COFF externally. But leave this here ...
 	// you never know.
 	ptrace.Debug = log.Printf
 	// *start overrides it all.
+	eip = uintptr(r.Rip)
 	if *start != 0 {
 		eip = uintptr(*start)
 	}
@@ -126,10 +137,6 @@ func main() {
 		log.Fatal(err)
 	}
 	line++
-	r, err := t.GetRegs()
-	if err != nil {
-		log.Fatalf("Could not get regs: %v", err)
-	}
 	if err := ptrace.Regs(os.Stdout, r); err != nil {
 		log.Fatal(err)
 	}
