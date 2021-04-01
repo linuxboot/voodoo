@@ -27,6 +27,26 @@ var (
 	malloc sync.Mutex
 )
 
+func writeDXE(f *Fault, addr uintptr, data []byte) error {
+	p := addr
+	if p < 0x100000000 {
+		p = p + 0x100000000
+	}
+	return f.Proc.Write(p, data[:])
+}
+
+func readDXE(f *Fault, addr uintptr, data []byte) error {
+	p := addr
+	if p < 0x100000000 {
+		p = p + 0x100000000
+	}
+	return f.Proc.Read(p, data[:])
+}
+
+func toptr(p uint64) uint64 {
+	return p - 0x100000000
+}
+
 func bumpAllocate() ServPtr {
 	malloc.Lock()
 	defer malloc.Unlock()

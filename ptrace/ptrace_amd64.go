@@ -279,7 +279,7 @@ func (t *Tracee) Inst() (*x86asm.Inst, *syscall.PtraceRegs, error) {
 	pc := r.Rip
 	sp := r.Rsp
 	// We maintain all the function pointers in non-addressable space for now.
-	if r.Rip < 0x200000 {
+	if r.Rip > 0x200000000 {
 		cpc, err := t.ReadWord(uintptr(sp))
 		if err != nil {
 			return nil, nil, err

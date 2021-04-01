@@ -26,6 +26,8 @@ func fromReg(r *syscall.PtraceRegs, arg x86asm.Arg) uint64 {
 		return r.Rcx
 	case x86asm.RDX:
 		return r.Rdx
+	case x86asm.EDX:
+		return r.Rdx & 0xffffffff
 	case x86asm.RAX:
 		return r.Rax
 	case x86asm.R8:
@@ -122,7 +124,7 @@ func segv(p *ptrace.Tracee, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *sysca
 		return io.EOF
 	}
 	nextpc := r.Rip + uint64(inst.Len)
-	if pc < 0x200000 {
+	if pc >= 0x200000000 {
 		var err error
 		nextpc, err = p.Pop(r)
 		if err != nil {
