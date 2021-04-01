@@ -73,6 +73,9 @@ func show(indent string, l ...interface{}) string {
 }
 
 func main() {
+	if uint64(services.ImageHandle) == 0 {
+		log.Panicf("ih %#x", services.ImageHandle)
+	}
 	flag.Parse()
 	a := flag.Args()
 	if len(a) != 2 {
@@ -129,10 +132,9 @@ func main() {
 	if err := t.SetIPtr(uintptr(eip)); err != nil {
 		log.Fatalf("Can't set IPtr to %#x: %v", eip, err)
 	}
+	any(show("SetIPtr", r))
 	log.Printf("IPtr is %#x, let's go.", eip)
-	if err := t.Params(uintptr(services.ImageHandle), uintptr(st)); err != nil {
-		log.Fatalf("Setting params: %v", err)
-	}
+	log.Printf("Set params %#x %#x", uintptr(services.ImageHandle), uintptr(st))
 	if err := ptrace.Header(os.Stdout); err != nil {
 		log.Fatal(err)
 	}
@@ -146,11 +148,13 @@ func main() {
 	// For now, just drop the stack 1m and use that as a bump pointer.
 	services.SetAllocator(uintptr(r.Rsp-0x100000), uintptr(r.Rsp))
 	r.Rsp -= 0x100000
+	ptrace.Params(r, uintptr(services.ImageHandle), uintptr(st))
 
 	log.Printf("Set stack to %#x", r.Rsp)
 	if err := t.SetRegs(r); err != nil {
 		log.Fatalf("Can't set stack to %#x: %v", dat, err)
 	}
+	any(show("regs before event loop", r))
 	//type Siginfo struct {
 	//Signo  int // signal number
 	//Errno  int // An errno value
@@ -227,7 +231,7 @@ func main() {
 				}
 			}
 			//showone(os.Stderr, "", &r)
-			any("move along")
+			any(show("move along", r))
 
 		case unix.SIGTRAP:
 		}

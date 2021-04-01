@@ -10,7 +10,7 @@ import (
 const (
 	allocAmt = ServPtr(1 << 16)
 	// ImageHandle is the ServBase of the UEFI Image Handle
-	ImageHandle = ServPtr(0x100000)
+	ImageHandle = ServPtr(0x2cafe0000)
 	servBaseFmt = "SB%#x"
 )
 
@@ -18,7 +18,7 @@ const (
 type Func uint16
 
 type ServBase string
-type ServPtr uint32
+type ServPtr uint64
 
 var (
 	// memBase is the default allocation base for UEFI structs.
@@ -37,7 +37,7 @@ func bumpAllocate() ServPtr {
 
 // String is a stringer for ServBase
 func (p *ServPtr) String() string {
-	return fmt.Sprintf(servBaseFmt, uint32(*p))
+	return fmt.Sprintf(servBaseFmt, *p)
 }
 
 // String is a stringer for ServBase
@@ -112,7 +112,7 @@ func Base(n string) (ServPtr, error) {
 	}
 	base := bumpAllocate()
 	b := base.Base()
-	log.Printf("Base: base is %#x %s", uint32(base), b)
+	log.Printf("Base: base is %#x %s", base, b)
 	if d, ok := dispatches[b]; ok {
 		log.Panicf("Base %v for %s is in use by %v", b, n, d)
 	}
