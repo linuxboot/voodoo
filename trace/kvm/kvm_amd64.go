@@ -747,6 +747,7 @@ func (t *Tracee) GetRegs() (*syscall.PtraceRegs, error) {
 		return nil, err
 	}
 	pr := &syscall.PtraceRegs{}
+	log.Printf("interrupts %#x", s.InterruptBitmap)
 	kvmRegstoPtraceRegs(pr, r, s)
 	return pr, nil
 }
@@ -1021,8 +1022,18 @@ func (t *Tracee) readInfo() error {
 		n, _ := stype[x.Stype]
 		Debug("Shutdown: %s [%#x] flags %#x", n, x.Stype, x.Flags)
 		sig.Addr = r.Rip
+	case ExitIntr:
+		r, s, err := t.getRegs()
+		if err != nil {
+			return fmt.Errorf("readInfo: %v", err)
+		}
+		Debug("Intr: regs %#x sregs %#x", s, r)
 	default:
-		log.Panicf("readInfo: unhandled exit %s", Exit(e))
+		r, s, err := t.getRegs()
+		if err != nil {
+			return fmt.Errorf("readInfo: %v", err)
+		}
+		log.Panicf("readInfo: unhandled exit %s, regs %#x sregs %#x", Exit(e), r, s)
 	}
 	t.info = sig
 	t.events <- sig
