@@ -32,7 +32,7 @@ func NewSystemtable(tab []byte, u ServPtr) (Service, error) {
 		n  string
 		st uint64
 	}{
-		{"textout", table.ConOut},
+		{"F42F7782-012E-4C12-9956-49F94304F721", table.ConOut},
 		{"textin", table.ConIn},
 		{"runtime", table.RuntimeServices},
 		{"boot", table.BootServices},
