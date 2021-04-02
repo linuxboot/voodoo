@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/binary"
 	"fmt"
 	"log"
 
@@ -24,9 +25,18 @@ func init() {
 }
 
 // NewTextOut returns a TextOut Service
-func NewTextOut(b []byte, u ServPtr) (Service, error) {
+func NewTextOut(tab []byte, u ServPtr) (Service, error) {
+	log.Printf("textout services table u is %#x", u)
+	base := int(u) & 0xffffff
+	for p := range table.SimpleTextOutServicesNames {
+		x := base + int(p)
+		r := uint64(p) + 0xff400000 + uint64(base)
+		log.Printf("Install %#x at off %#x", r, x)
+		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
+	}
+
 	// We need to get to the TextOutMode.
-	tm, err := Base(b, "textoutmode")
+	tm, err := Base(tab, "textoutmode")
 	if err != nil {
 		return nil, err
 	}

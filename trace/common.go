@@ -427,8 +427,8 @@ func Inst(t Trace) (*x86asm.Inst, *syscall.PtraceRegs, string, error) {
 		default:
 			// If this was a halt, well ... we go with what we got. Which is the pc.
 			if false { // for the strace tracer ... what a mess.
-			return nil, nil, "", fmt.Errorf("Can't interpret call @ %#x: %#x", cpc-5, call)
-		}
+				return nil, nil, "", fmt.Errorf("Can't interpret call @ %#x: %#x", cpc-5, call)
+			}
 		}
 		pc = cpc
 	}

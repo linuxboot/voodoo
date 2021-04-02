@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/binary"
 	"log"
 
 	"github.com/linuxboot/voodoo/table"
@@ -26,8 +27,16 @@ func init() {
 }
 
 // NewTextMode returns a TextMode Service
-func NewTextMode(b []byte, u ServPtr) (Service, error) {
+func NewTextMode(tab []byte, u ServPtr) (Service, error) {
 	log.Printf("NewTextMode %#x", u)
+	base := int(u) & 0xffffff
+	for p := range table.SimpleTextModeServicesNames {
+		x := base + int(p)
+		r := uint64(p) + 0xff400000 + uint64(base)
+		log.Printf("Install %#x at off %#x", r, x)
+		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
+	}
+
 	return &TextMode{u: u.Base(), up: u}, nil
 }
 
