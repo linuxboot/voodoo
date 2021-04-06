@@ -153,6 +153,20 @@ func (r *Boot) Call(f *Fault) error {
 		log.Printf("WaitForEvent: %#x", f.Args)
 		// Just pretend it worked.
 		return nil
+	// This one is a serious shitshow.
+	case table.OpenProtocol:
+		//EFI_STATUS
+		//(EFIAPI * EFI_OPEN_PROTOCOL)(
+		//  IN EFI_HANDLE  Handle,
+		//  IN EFI_GUID                     *Protocol,
+		//  OUT VOID                        **Interface, OPTIONAL
+		//  IN EFI_HANDLE                   AgentHandle,
+		//  IN EFI_HANDLE                   ControllerHandle,
+		//  IN UINT32                       Attributes
+		//  );
+		f.Args = trace.Args(f.Proc, f.Regs, 6)
+		log.Printf("OpenProtocol: %#x", f.Args)
+		log.Panic("fix me")
 	default:
 		log.Panic("unsupported boot service")
 		f.Regs.Rax = uefi.EFI_UNSUPPORTED

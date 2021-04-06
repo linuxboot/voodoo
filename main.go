@@ -135,8 +135,8 @@ func main() {
 		line++
 		log.Printf("------------------------------------------------------------------->> %d: ", line)
 		go func() {
-			if err := v.Run(); err != nil {
-				log.Fatalf("Run: got %v, want nil", err)
+			for err := v.Run(); err != nil; err = v.Run() {
+				log.Printf("Run: got %v, want nil", err)
 			}
 		}()
 		ev := <-v.Events()
@@ -151,8 +151,11 @@ func main() {
 			log.Fatalf("Could not get regs: %v", err)
 		}
 
-		if r.Rip < 0x10000 {
-			log.Fatalf("Bogus RIP %s, dying", showone("", r))
+		// TODO: add a test for bogus RIP. In a VM, anything goes, however.
+		if false {
+			if r.Rip < 0x10000 {
+				log.Fatalf("Bogus RIP %s, dying", showone("", r))
+			}
 		}
 		switch {
 		case ev.Trapno == kvm.ExitDebug:
