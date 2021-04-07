@@ -131,6 +131,7 @@ func main() {
 		log.Panic("dry run")
 	}
 
+	p := r
 	for {
 		line++
 		log.Printf("------------------------------------------------------------------->> %d: ", line)
@@ -243,7 +244,11 @@ func main() {
 		if err != nil {
 			log.Fatalf("GetRegs: got %v, want nil", err)
 		}
-		log.Printf("REGS: %s", show("", r))
+		if err := trace.RegDiff(os.Stdout, r, p); err != nil {
+			log.Fatal(err)
+		}
+		p = r
+		//log.Printf("REGS: %s", show("", r))
 		//		e := ev.cpu.VMRun.String()
 		//		log.Printf("IP is %#x, exit %s", r.Rip, e)
 
