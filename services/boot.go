@@ -56,9 +56,9 @@ func (b *Boot) Ptr() ServPtr {
 // Call implements service.Call
 func (r *Boot) Call(f *Fault) error {
 	op := f.Op
+	f.Regs.Rax = uefi.EFI_SUCCESS
 	log.Printf("Boot services: %s(%#x), arg type %T, args %v", table.BootServicesNames[int(op)], op, f.Inst.Args, f.Inst.Args)
 	switch op {
-
 	case table.AllocatePool:
 		// Status = gBS->AllocatePool (EfiBootServicesData, sizeof (EXAMPLE_DEVICE), (VOID **)&Device);
 		f.Args = trace.Args(f.Proc, f.Regs, 5)
@@ -166,7 +166,12 @@ func (r *Boot) Call(f *Fault) error {
 		//  );
 		f.Args = trace.Args(f.Proc, f.Regs, 6)
 		log.Printf("OpenProtocol: %#x", f.Args)
-		log.Panic("fix me")
+		var g guid.GUID
+		if err := f.Proc.Read(f.Args[1], g[:]); err != nil {
+			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
+		}
+		log.Printf("OpenProtocol: GUID %s", g)
+		log.Printf("OpenProtocol: whatever, assume success")
 	default:
 		log.Panic("unsupported boot service")
 		f.Regs.Rax = uefi.EFI_UNSUPPORTED
