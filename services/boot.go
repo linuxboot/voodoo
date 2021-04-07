@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"log"
@@ -59,6 +60,30 @@ func (r *Boot) Call(f *Fault) error {
 	f.Regs.Rax = uefi.EFI_SUCCESS
 	log.Printf("Boot services: %s(%#x), arg type %T, args %v", table.BootServicesNames[int(op)], op, f.Inst.Args, f.Inst.Args)
 	switch op {
+	case table.GetMemoryMap:
+		// EFI_STATUS efi_get_memorymap(IN OUT UINTN *MemoryMapSize, IN OUT EFI_MEMORY_DESCRIPTOR *MemoryMap, ...);
+		// Go simple for now. You own 2G. That's all you own.
+		var b = &bytes.Buffer{}
+		if err := binary.Write(b, binary.LittleEndian, &uefi.MemRegion{
+			MType:  uefi.EfiConventionalMemory,
+			PA:     0,
+			VA:     0,
+			Npages: 0x20000000 / 0x1000,
+			Attr:   uefi.All,
+		}); err != nil {
+			log.Fatalf("Can't encode memory: %v", err)
+		}
+		f.Args = trace.Args(f.Proc, f.Regs, 2)
+		log.Printf("GetMemoryMap: %#x", f.Args)
+		// Just one region.
+		var bb = [8]byte{1}
+		if err := f.Proc.Write(f.Args[0], bb[:]); err != nil {
+			return fmt.Errorf("Can't write %d bytes to %#x: %v", len(bb), dat, err)
+		}
+		if err := f.Proc.Write(f.Args[1], b.Bytes()); err != nil {
+			return fmt.Errorf("Can't write %d bytes to %#x: %v", len(bb), dat, err)
+		}
+		return nil
 	case table.AllocatePool:
 		// Status = gBS->AllocatePool (EfiBootServicesData, sizeof (EXAMPLE_DEVICE), (VOID **)&Device);
 		f.Args = trace.Args(f.Proc, f.Regs, 5)
@@ -85,11 +110,15 @@ func (r *Boot) Call(f *Fault) error {
 		log.Printf("AllocatePages %d pages @ %#x", f.Args[1], d)
 		var bb [8]byte
 		binary.LittleEndian.PutUint64(bb[:], d)
-		if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
+		if err := f.Proc.Write(f.Args[3], bb[:]); err != nil {
 			return fmt.Errorf("Can't write %d bytes to %#x: %v", len(bb), dat, err)
 		}
 		return nil
-
+	case table.FreePages:
+		//Status = gBS->AllocatePages (AllocateAnyPages,EfiBootServicesData,Pages,&PhysicalBuffer);
+		f.Args = trace.Args(f.Proc, f.Regs, 2)
+		log.Printf("FreePages %#x", f.Args)
+		return nil
 	case table.LocateHandle:
 		// EFI_STATUS LocateHandle (IN EFI_LOCATE_SEARCH_TYPE SearchType, IN EFI_GUID *Protocol OPTIONAL, IN VOID *SearchKey OPTIONAL,IN OUT UINTN *NoHandles,  OUT EFI_HANDLE **Buffer);
 		// We had hoped to ignore this nonsense, but ... we can't
@@ -185,6 +214,12 @@ func (r *Boot) Call(f *Fault) error {
 		}
 		log.Printf("OpenProtocol: GUID %s", g)
 		log.Printf("OpenProtocol: whatever, assume success")
+	case table.SetWatchdogTimer:
+		f.Args = trace.Args(f.Proc, f.Regs, 5)
+		log.Printf("SetWatchdogTimer: %#x", f.Args)
+		// Just pretend it worked.
+		return nil
+
 	default:
 		log.Panic("unsupported boot service")
 		f.Regs.Rax = uefi.EFI_UNSUPPORTED
