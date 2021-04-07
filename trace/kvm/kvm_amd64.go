@@ -852,7 +852,7 @@ func (t *Tracee) archInit() error {
 		return fmt.Errorf("creating %d byte region: got %v, want nil", len(b), err)
 	}
 
-	// Set up 4M of image table data at 0xff400000
+	// Set up 8M of image table data at 0xff000000
 	// UEFI mixes function pointers and data in the protocol structs.
 	// yegads it's so bad.
 	//
