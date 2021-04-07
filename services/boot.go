@@ -63,7 +63,7 @@ func (r *Boot) Call(f *Fault) error {
 		// Status = gBS->AllocatePool (EfiBootServicesData, sizeof (EXAMPLE_DEVICE), (VOID **)&Device);
 		f.Args = trace.Args(f.Proc, f.Regs, 5)
 		// ignore arg 0 for now.
-		d := uint64(bumpAllocate(uintptr(f.Args[1])))
+		d := uint64(UEFIAllocate(uintptr(f.Args[1]), false))
 		log.Printf("AllocatePool: %d bytes @ %#x", f.Args[1], d)
 		var bb [8]byte
 		binary.LittleEndian.PutUint64(bb[:], d)
@@ -77,6 +77,19 @@ func (r *Boot) Call(f *Fault) error {
 		// Free? Forget it.
 		log.Printf("FreePool: %#x", f.Args[0])
 		return nil
+	case table.AllocatePages:
+		//Status = gBS->AllocatePages (AllocateAnyPages,EfiBootServicesData,Pages,&PhysicalBuffer);
+		f.Args = trace.Args(f.Proc, f.Regs, 4)
+		// ignore arg 0 for now.
+		d := uint64(UEFIAllocate(uintptr(f.Args[1]*4096), true))
+		log.Printf("AllocatePages %d pages @ %#x", f.Args[1], d)
+		var bb [8]byte
+		binary.LittleEndian.PutUint64(bb[:], d)
+		if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
+			return fmt.Errorf("Can't write %d bytes to %#x: %v", len(bb), dat, err)
+		}
+		return nil
+
 	case table.LocateHandle:
 		// EFI_STATUS LocateHandle (IN EFI_LOCATE_SEARCH_TYPE SearchType, IN EFI_GUID *Protocol OPTIONAL, IN VOID *SearchKey OPTIONAL,IN OUT UINTN *NoHandles,  OUT EFI_HANDLE **Buffer);
 		// We had hoped to ignore this nonsense, but ... we can't

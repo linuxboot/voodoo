@@ -27,6 +27,8 @@ type ServPtr uint32
 var (
 	// memBase is the default allocation base for UEFI structs.
 	memBase = ImageHandle + allocAmt
+	// AllocBase is the allocation base for DXE structs.
+	allocBase uint32
 	// resource allocation mutex.
 	malloc sync.Mutex
 )
@@ -36,6 +38,25 @@ func bumpAllocate(amt uintptr) ServPtr {
 	defer malloc.Unlock()
 	m := memBase
 	memBase += ServPtr(amt)
+	return m
+}
+
+func SetAllocBase(b uint32) {
+	allocBase = b
+}
+
+// UEFIAllocate allocates memory for the DXE. If page is set,
+// the alignment is 4k, else it is 8 bytes.
+func UEFIAllocate(amt uintptr, page bool) uint32 {
+	align := 3
+	if page {
+		amt *= 4096
+		align = 12
+	}
+	malloc.Lock()
+	defer malloc.Unlock()
+	m := ((allocBase >> align) + 1) << align
+	allocBase = m + uint32(amt)
 	return m
 }
 

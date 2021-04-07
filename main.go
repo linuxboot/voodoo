@@ -108,9 +108,8 @@ func main() {
 		log.Fatalf("GetRegs: got %v, want nil", err)
 	}
 
-	// Reserve space for structs that we will place into the memory.
-	// We'll try putting it in the bios area.
-	services.SetAllocator(0xff000000, 0xff100000)
+	// Reserve space for DXE data.
+	services.SetAllocBase(0x40000000)
 
 	trace.Debug = log.Printf
 
