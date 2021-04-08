@@ -3,7 +3,6 @@ package services
 import (
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 )
 
@@ -76,8 +75,6 @@ func (p *ServPtr) Base() ServBase {
 // a parameter.
 type Service interface {
 	Call(f *Fault) error
-	Load(f *Fault) error
-	Store(f *Fault) error
 	Base() ServBase
 	Ptr() ServPtr
 }
@@ -197,17 +194,5 @@ func Dispatch(f *Fault) error {
 	}
 	f.Op = op
 	log.Printf("base %v op %#x d %v", b, op, d)
-	// Go (Plan 9) is CALL
-	// gnu is call
-	if f.Regs.Rip > 0xff000000 || strings.Contains(f.Asm, "CALL") || strings.Contains(f.Asm, "call") ||
-		strings.Contains(f.Asm, "jmp") { // tail call
-		return d.s.Call(f)
-	}
-	log.Printf("Arg 0 is %v, %T", f.Inst.Args[0], f.Inst.Args[0])
-	switch f.Inst.Args[0].(type) {
-	case Register:
-		return d.s.Load(f)
-	}
-	return d.s.Store(f)
-
+	return d.s.Call(f)
 }

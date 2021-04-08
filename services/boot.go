@@ -226,36 +226,3 @@ func (r *Boot) Call(f *Fault) error {
 	}
 	return nil
 }
-
-// Load implements service.Load
-func (r *Boot) Load(f *Fault) error {
-	f.Regs.Rax = uefi.EFI_SUCCESS
-	op := f.Op
-	t, ok := table.BootServicesNames[int(op)]
-	if !ok {
-		log.Panicf("unsupported Boot Load of %#x", op)
-	}
-	ret := uintptr(op) + uintptr(r.up)
-	log.Printf("Boot Load services: %v(%#x), arg type %T, args %v return %#x", t, op, f.Inst.Args, f.Inst.Args, ret)
-	if err := retval(f, ret); err != nil {
-		log.Panic(err)
-	}
-	return nil
-}
-
-// Store implements service.Store
-func (r *Boot) Store(f *Fault) error {
-	op := f.Op
-	log.Printf("Boot Store services: %s(%#x), arg type %T, args %v", table.BootServicesNames[int(op)], op, f.Inst.Args, f.Inst.Args)
-	switch op {
-	case table.FreePool:
-		f.Args = trace.Args(f.Proc, f.Regs, 1)
-		// Free? Forget it.
-		log.Printf("Boot Store FreePool: Ignoring %#x", f.Args[0])
-		return nil
-	default:
-		log.Panic("unsupported Boot Store")
-		f.Regs.Rax = uefi.EFI_UNSUPPORTED
-	}
-	return nil
-}

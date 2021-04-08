@@ -160,20 +160,6 @@ func main() {
 		switch {
 		case ev.Trapno == kvm.ExitDebug:
 		case ev.Trapno == kvm.ExitMmio:
-			// So far, there seem to be three things that can happen.
-			// Call, Load, and Store.
-			// We don't want to get into pulling apart instructions
-			// to figure out which it is; the Asm and other instructions
-			// can go a long way toward helping us instead.
-			// Figure out it is a Call is easy: does the assembly start with CALL?
-			// Done.
-			// Next is figuring out if it is a load or store and that
-			// is similarly easy. Is Arg[0] a memory address? Then it's a store.
-			// We know of no usage of memory-to-memory so we should be safe.
-			// Now don't use the miss the ARM already? We sure do. On that one
-			// it's easy.
-			//showone(os.Stderr, "", &r)
-			//any(fmt.Sprintf("Handle the segv at %#x", i.Addr))
 			if err := trace.Regs(os.Stdout, r); err != nil {
 				log.Fatal(err)
 			}

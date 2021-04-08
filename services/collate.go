@@ -44,35 +44,3 @@ func (t *Collate) Call(f *Fault) error {
 	}
 	return nil
 }
-
-// Load implements service.Load
-func (r *Collate) Load(f *Fault) error {
-	f.Regs.Rax = uefi.EFI_SUCCESS
-	op := f.Op
-	t, ok := table.CollateServicesNames[uint64(op)]
-	if !ok {
-		log.Panicf("unsupported Collate Load of %#x", op)
-	}
-	ret := uintptr(op) + uintptr(r.up)
-	switch op {
-	default:
-	}
-	log.Printf("Collate Load services: %v(%#x), arg type %T, args %v return %#x", t, op, f.Inst.Args, f.Inst.Args, ret)
-	if err := retval(f, ret); err != nil {
-		log.Panic(err)
-	}
-	return nil
-}
-
-// Store implements service.Store
-func (r *Collate) Store(f *Fault) error {
-	f.Regs.Rax = uefi.EFI_SUCCESS
-	op := f.Op
-	log.Printf("Collate Store services: %v(%#x), arg type %T, args %v", table.CollateServicesNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
-	switch op {
-	default:
-		log.Panic("unsupported Collate Store")
-		f.Regs.Rax = uefi.EFI_UNSUPPORTED
-	}
-	return nil
-}

@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/linuxboot/voodoo/table"
-	"github.com/linuxboot/voodoo/uefi"
 )
 
 var ()
@@ -77,27 +76,4 @@ func (r *SystemTable) Call(f *Fault) error {
 	log.Printf("SystemTable Call: %v(%#x), arg type %T, args %v", table.SystemTableNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
 	log.Panic("unsupported SystemTable Call")
 	return fmt.Errorf("SystemTable: No such offset %#x", op)
-}
-
-// Load implements service.Load
-func (r *SystemTable) Load(f *Fault) error {
-	op := f.Op
-	log.Printf("SystemTable Load: %v(%#x), arg type %T, args %v", table.SystemTableNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
-	val, ok := table.SystemTableNames[uint64(op)]
-	if ok {
-		return retval(f, uintptr(val.Val))
-	}
-	return nil
-}
-
-// Store implements service.Store
-func (r *SystemTable) Store(f *Fault) error {
-	op := f.Op
-	log.Printf("SystemTable Store: %v(%#x), arg type %T, args %v", table.SystemTableNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
-	switch op {
-	default:
-		log.Panic("unsupported SystemTable Store")
-		f.Regs.Rax = uefi.EFI_UNSUPPORTED
-	}
-	return nil
 }

@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"github.com/linuxboot/voodoo/table"
-	"github.com/linuxboot/voodoo/uefi"
 )
 
 // TextMode implements Service
@@ -55,33 +54,5 @@ func (t *TextMode) Ptr() ServPtr {
 // just ignore and move on.
 func (t *TextMode) Call(f *Fault) error {
 	log.Panicf("No TextMode Calls allowed")
-	return nil
-}
-
-// Load implements service.Load
-func (t *TextMode) Load(f *Fault) error {
-	op := f.Op
-	f.Regs.Rax = uefi.EFI_SUCCESS
-	tm, ok := table.SimpleTextModeServicesNames[uint64(op)]
-	if !ok {
-		log.Panicf("unsupported TextMode Load of %#x", op)
-	}
-	ret := uintptr(op) + uintptr(t.up)
-	log.Printf("TextMode services: %v(%#x), arg type %T, args %v", tm, op, f.Inst.Args, f.Inst.Args)
-	if err := retval(f, ret); err != nil {
-		log.Panic(err)
-	}
-	return nil
-}
-
-// Store implements service.Store
-func (t *TextMode) Store(f *Fault) error {
-	op := f.Op
-	log.Printf("TextMode services: %v(%#x), arg type %T, args %v", table.SimpleTextModeServicesNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
-	switch op {
-	default:
-		log.Panic("unsupported TextMode Store")
-		f.Regs.Rax = uefi.EFI_UNSUPPORTED
-	}
 	return nil
 }

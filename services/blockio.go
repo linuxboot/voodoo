@@ -40,37 +40,14 @@ func (t *BlockIO) Call(f *Fault) error {
 	log.Printf("BlockIO services: %v(%#x), arg type %T, args %v", table.BlockIOServiceNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
 	f.Regs.Rax = uefi.EFI_SUCCESS
 	switch op {
-	default:
-		log.Panicf("unsup textout Call: %#x", op)
-		f.Regs.Rax = uefi.EFI_UNSUPPORTED
+	case table.BlockIORevision:
+	case table.BlockIOMedia:
+	case table.BlockIOReset:
+	case table.BlockIOReadBlocks:
+	case table.BlockIOWriteBlocks:
+	case table.BlockIOFlushBlocks:
 	}
-	return nil
-}
-
-// Load implements service.Load
-func (r *BlockIO) Load(f *Fault) error {
-	f.Regs.Rax = uefi.EFI_SUCCESS
-	op := f.Op
-	t, ok := table.BlockIOServiceNames[uint64(op)]
-	if !ok {
-		log.Panicf("unsupported BlockIO Load of %#x", op)
-	}
-	switch op {
-	default:
-		log.Panicf("unsup BlockIO Load: %v %#x", t, op)
-	}
-	return nil
-}
-
-// Store implements service.Store
-func (r *BlockIO) Store(f *Fault) error {
-	f.Regs.Rax = uefi.EFI_SUCCESS
-	op := f.Op
-	log.Printf("BlockIO Store services: %v(%#x), arg type %T, args %v", table.BlockIOServiceNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
-	switch op {
-	default:
-		log.Panic("unsupported BlockIO Store")
-		f.Regs.Rax = uefi.EFI_UNSUPPORTED
-	}
+	log.Panicf("unsupported BlockIO Call: %#x", op)
+	f.Regs.Rax = uefi.EFI_UNSUPPORTED
 	return nil
 }

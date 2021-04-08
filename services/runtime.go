@@ -85,35 +85,3 @@ func (r *Runtime) Call(f *Fault) error {
 	}
 	return nil
 }
-
-// Load implements service.Load
-func (r *Runtime) Load(f *Fault) error {
-	op := f.Op
-	f.Regs.Rax = uefi.EFI_SUCCESS
-	t, ok := table.RuntimeServicesNames[uint64(op)]
-	if !ok {
-		log.Panicf("runtimeservices Load: No such op %#x", op)
-	}
-	log.Printf("runtimeservices Load: %s(%#x), arg type %T, args %v", t, op, f.Inst.Args, f.Inst.Args)
-	ret := uintptr(op) + uintptr(r.Ptr())
-	if err := retval(f, ret); err != nil {
-		log.Panic(err)
-	}
-	return nil
-}
-
-// Store implements service.Store
-func (r *Runtime) Store(f *Fault) error {
-	op := f.Op
-	t, ok := table.RuntimeServicesNames[uint64(op)]
-	if !ok {
-		log.Panicf("runtimeservices Store: No such op %#x", op)
-	}
-	log.Printf("runtimeservices Load: %s(%#x), arg type %T, args %v", t, op, f.Inst.Args, f.Inst.Args)
-	switch op {
-	default:
-		log.Panic("unsupported Runtime Store")
-		f.Regs.Rax = uefi.EFI_UNSUPPORTED
-	}
-	return nil
-}

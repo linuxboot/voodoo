@@ -68,31 +68,3 @@ func (t *TextIn) Call(f *Fault) error {
 	}
 	return nil
 }
-
-// Load implements service.Load
-func (r *TextIn) Load(f *Fault) error {
-	f.Regs.Rax = uefi.EFI_SUCCESS
-	op := f.Op
-	t, ok := table.SimpleTextInServicesNames[uint64(op)]
-	if !ok {
-		log.Panicf("unsupported TextIn Load of %#x", op)
-	}
-	ret := uintptr(op) + uintptr(r.up)
-	log.Printf("TextIn Load services: %v(%#x), arg type %T, args %v return %#x", t, op, f.Inst.Args, f.Inst.Args, ret)
-	if err := retval(f, ret); err != nil {
-		log.Panic(err)
-	}
-	return nil
-}
-
-// Store implements service.Store
-func (r *TextIn) Store(f *Fault) error {
-	op := f.Op
-	log.Printf("TextIn Store services: %v(%#x), arg type %T, args %v", table.SimpleTextInServicesNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
-	switch op {
-	default:
-		log.Panic("unsupported TextIn Store")
-		f.Regs.Rax = uefi.EFI_UNSUPPORTED
-	}
-	return nil
-}
