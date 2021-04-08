@@ -5,6 +5,9 @@ CFLAGS         += -fno-stack-protector -Wshadow -Wall -Wunused -Werror-implicit-
 CFLAGS         += -I$(GNUEFI_DIR)/inc -I$(GNUEFI_DIR)/inc/$(GNUEFI_ARCH) -I$(GNUEFI_DIR)/inc/protocol
 CFLAGS         += -DCONFIG_$(GNUEFI_ARCH) -D__MAKEWITH_GNUEFI -DGNU_EFI_USE_MS_ABI
 
+blockio: blockio.c
+	cc $(CFLAGS) -o $@ $<
+
 collate: collate.c
 	cc $(CFLAGS) -o $@ $<
 
