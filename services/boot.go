@@ -214,6 +214,29 @@ func (r *Boot) Call(f *Fault) error {
 		}
 		log.Printf("OpenProtocol: GUID %s", g)
 		log.Printf("OpenProtocol: whatever, assume success")
+	case table.LocateProtocol:
+		// Status = gBS->LocateProtocol (GUID,NULL,(VOID **)&ptr);
+		f.Args = trace.Args(f.Proc, f.Regs, 3)
+		log.Printf("LocateProtocol: %#x", f.Args)
+		var g guid.GUID
+		if err := f.Proc.Read(f.Args[0], g[:]); err != nil {
+			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
+		}
+		log.Printf("LocateProtocol: GUID %s", g)
+		d, ok := dispatches[ServBase(g.String())]
+		log.Printf("HandleProtocol: GUID %s %v ok %v", g, d, ok)
+		if !ok {
+			f.Regs.Rax = uefi.EFI_NOT_FOUND
+			return nil
+		}
+		var bb [8]byte
+		log.Printf("Address is %#x", d.up)
+		binary.LittleEndian.PutUint64(bb[:], uint64(d.up))
+		if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
+			return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[2], err)
+		}
+		fmt.Printf("OK all done handleprotocol")
+		return nil
 	case table.SetWatchdogTimer:
 		f.Args = trace.Args(f.Proc, f.Regs, 5)
 		log.Printf("SetWatchdogTimer: %#x", f.Args)
