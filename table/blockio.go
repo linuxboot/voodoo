@@ -1,21 +1,21 @@
 package table
 
-const BlockioGUID = "1D85CD7F-F43D-11D2-9A0C-0090273FC14D"
+const BlockIOGUID = "964E5B21-6459-11D2-8E39-00A0C969723B"
 
 const (
-	BlockioRevision    = 0
-	BlockioMedia       = 0x8
-	BlockioReset       = 0x10
-	BlockioReadBlocks  = 0x18
-	BlockioWriteBlocks = 0x20
-	BlockioFlushBlocks = 0x28
+	BlockIORevision    = 0
+	BlockIOMedia       = 0x8
+	BlockIOReset       = 0x10
+	BlockIOReadBlocks  = 0x18
+	BlockIOWriteBlocks = 0x20
+	BlockIOFlushBlocks = 0x28
 )
 
-var BlockioServiceNames = map[uint64]*val{
-	CollRevision:    &val{N: "Revision"},
-	CollMedia:       &val{N: "Media"},
-	CollReset:       &val{N: "Reset"},
-	CollReadBlocks:  &val{N: "ReadBlocks"},
-	CollWriteBlocks: &val{N: "WriteBlocks"},
-	CollFlushBlocks: &val{N: "FlushBlocks"},
+var BlockIOServiceNames = map[uint64]*val{
+	BlockIORevision:    &val{N: "Revision"},
+	BlockIOMedia:       &val{N: "Media"},
+	BlockIOReset:       &val{N: "Reset"},
+	BlockIOReadBlocks:  &val{N: "ReadBlocks"},
+	BlockIOWriteBlocks: &val{N: "WriteBlocks"},
+	BlockIOFlushBlocks: &val{N: "FlushBlocks"},
 }

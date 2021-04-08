@@ -4,8 +4,6 @@
 #include <efi.h>
 #include <efilib.h>
 
-// 1D85CD7F-F43D-11D2-9A0C-0090273FC14D
-// UEFI picked the wrong character coding in the age of utf-8
 /*
 typedef struct _EFI_BLOCK_IO_PROTOCOL EFI_BLOCK_IO_PROTOCOL;
 
@@ -36,6 +34,7 @@ extern EFI_GUID gEfiBlockIoProtocolGuid;
 
 int main(int argc, char *argv[])
 {
+	EFI_GUID g = EFI_BLOCK_IO_PROTOCOL_GUID, *Guid = &g;
 	FILE *f = popen("gofmt", "w");
 	if (f == NULL) {
 		perror("open");
@@ -45,9 +44,21 @@ int main(int argc, char *argv[])
 		f = stdout;
 
 	fprintf(f, "package table\n");
-	fprintf(f, "\nconst BlockioGUID = \"1D85CD7F-F43D-11D2-9A0C-0090273FC14D\"\n");
+	fprintf(f, "const BlockIOGUID = \"%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X\"\n",
+		Guid->Data1,
+		Guid->Data2,
+		Guid->Data3,
+		Guid->Data4[0],
+		Guid->Data4[1],
+		Guid->Data4[2],
+		Guid->Data4[3],
+		Guid->Data4[4],
+		Guid->Data4[5],
+		Guid->Data4[6],
+		Guid->Data4[7]
+		);
 	fprintf(f, "\nconst (\n");
-#define t(x) fprintf(f, "Blockio" #x " = %#lx\n", offsetof(EFI_BLOCK_IO_PROTOCOL, x));
+#define t(x) fprintf(f, "BlockIO" #x " = %#lx\n", offsetof(EFI_BLOCK_IO_PROTOCOL, x));
 		t(Revision);
 		t(Media);
 		t(Reset);
@@ -56,10 +67,10 @@ int main(int argc, char *argv[])
 		t(FlushBlocks);
 	fprintf(f, ")\n");
 
-	fprintf(f, "var BlockioServiceNames = map[uint64]*val{\n");
+	fprintf(f, "var BlockIOServiceNames = map[uint64]*val{\n");
 
 #undef t
-#define t(x) fprintf(f, "Coll" #x ": &val{N: \"" #x "\"},\n");
+#define t(x) fprintf(f, "BlockIO" #x ": &val{N: \"" #x "\"},\n");
 		t(Revision);
 		t(Media);
 		t(Reset);
