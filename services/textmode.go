@@ -27,12 +27,12 @@ func init() {
 
 // NewTextMode returns a TextMode Service
 func NewTextMode(tab []byte, u ServPtr) (Service, error) {
-	log.Printf("NewTextMode %#x", u)
+	Debug("NewTextMode %#x", u)
 	base := int(u) & 0xffffff
 	for p := range table.SimpleTextModeServicesNames {
 		x := base + int(p)
 		r := uint64(p) + 0xff400000 + uint64(base)
-		log.Printf("Install %#x at off %#x", r, x)
+		Debug("Install %#x at off %#x", r, x)
 		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
 	}
 

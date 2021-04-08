@@ -29,9 +29,11 @@ type msg func()
 var (
 	optional   = flag.Bool("optional", false, "Print optional registers")
 	singlestep = flag.Bool("singlestep", false, "single step instructions")
-	debug      = flag.Bool("debug", true, "Enable debug prints")
+	debug      = flag.Bool("debug", false, "Enable debug prints")
 	dryrun     = flag.Bool("dryrun", false, "set up but don't run")
-	v          = log.Printf
+	regpath    = flag.String("registerfile", "", "file to log registers to, in .csv format")
+	regfile    *os.File
+	Debug      = func(string, ...interface{}) {}
 	step       = func(...string) {}
 	dat        uintptr
 	line       int
@@ -40,7 +42,6 @@ var (
 func any(f ...string) {
 	var b [1]byte
 	for _, ff := range f {
-
 		log.Println(ff)
 	}
 	log.Printf("hit the any key")
@@ -74,6 +75,18 @@ func show(indent string, l ...interface{}) string {
 func main() {
 	flag.Parse()
 	a := flag.Args()[0]
+	if *debug {
+		Debug = log.Printf
+		trace.Debug = log.Printf
+		services.Debug = log.Printf
+	}
+	if len(*regpath) > 0 {
+		f, err := os.OpenFile(*regpath, os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+		regfile = f
+	}
 	v, err := trace.New("kvm")
 	if err != nil {
 		log.Fatalf("Open: got %v, want nil", err)
@@ -89,7 +102,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("GetRegs: got %v, want nil", err)
 	}
-	if err := loadPE(v, a, r, log.Printf); err != nil {
+	if err := loadPE(v, a, r, Debug); err != nil {
 		log.Fatal(err)
 	}
 
@@ -111,8 +124,6 @@ func main() {
 	// Reserve space for DXE data.
 	services.SetAllocBase(0x40000000)
 
-	trace.Debug = log.Printf
-
 	efisp := r.Rsp
 	// When it does the final return, it has to halt.
 	// Put a halt on top of stack, and point top of stack to it.
@@ -125,7 +136,6 @@ func main() {
 	if err := trace.WriteWord(v, uintptr(efisp), sp); err != nil {
 		log.Fatalf("Writing stack %#x at %#x: got %v, want nil", efisp, efisp-8, err)
 	}
-	trace.Debug = log.Printf
 	if *dryrun {
 		log.Panic("dry run")
 	}
@@ -133,7 +143,8 @@ func main() {
 	p := r
 	for {
 		line++
-		log.Printf("------------------------------------------------------------------->> %d: ", line)
+		Debug("------------------------------------------------------------------->> %d: ", line)
+		// DOUBLE CHECK that run fails to produce an event!
 		go func() {
 			for err := v.Run(); err != nil; err = v.Run() {
 				log.Printf("Run: got %v, want nil", err)
@@ -141,7 +152,7 @@ func main() {
 		}()
 		ev := <-v.Events()
 		s := unix.Signal(ev.Signo)
-		log.Printf("\t %d: Event %#x, trap %d", line, ev, ev.Trapno)
+		Debug("\t %d: Event %#x, trap %d", line, ev, ev.Trapno)
 		insn, r, g, err := trace.Inst(v)
 		if err != nil {
 			if err == io.EOF {
@@ -152,49 +163,16 @@ func main() {
 		}
 
 		// TODO: add a test for bogus RIP. In a VM, anything goes, however.
-		if false {
-			if r.Rip < 0x10000 {
-				log.Fatalf("Bogus RIP %s, dying", showone("", r))
-			}
-		}
+
 		switch {
 		case ev.Trapno == kvm.ExitDebug:
-		case ev.Trapno == kvm.ExitMmio:
-			if err := trace.Regs(os.Stdout, r); err != nil {
-				log.Fatal(err)
-			}
-			segvasm := trace.Asm(insn, r.Rip)
-			if err := segv(v, &ev, insn, r, segvasm); err != nil {
-				if err == io.EOF {
-					fmt.Println("\n===:DXE Exits!")
-					os.Exit(0)
-				}
-				//showone(os.Stderr, "", &r)
-				log.Printf("Can't do %#x(%v): %v", ev.Signo, unix.SignalName(s), err)
-				for {
-					any("Waiting for ^C")
-				}
-			}
-			// The handlers will always change, at least, eip, so just blindly set them
-			// back. TODO: see if we need more granularity.
-			if err := v.SetRegs(r); err != nil {
-				log.Fatalf("Can't set stack to %#x: %v", dat, err)
-			}
-
-			// if err := t.ReArm(); err != nil {
-			// 	//log.Printf("ClearSignal failed; %v", err)
-			// 	for {
-			// 		any("Waiting for ^C")
-			// 	}
-			// }
-			//Debug(showone("", &r))
-			any("returned from segv, set regs, move along")
-
 		case ev.Trapno == kvm.ExitHlt:
 			// This ONLY happens on an exit OR calling a UEFI function.
+			if *debug {
 			if err := trace.Regs(os.Stdout, r); err != nil {
 				log.Fatal(err)
 			}
+		}
 			haltasm := trace.Asm(insn, r.Rip)
 			if err := halt(v, &ev, insn, r, haltasm); err != nil {
 				if err == io.EOF {
@@ -213,14 +191,7 @@ func main() {
 				log.Fatalf("Can't set stack to %#x: %v", dat, err)
 			}
 
-			// if err := t.ReArm(); err != nil {
-			// 	//log.Printf("ClearSignal failed; %v", err)
-			// 	for {
-			// 		any("Waiting for ^C")
-			// 	}
-			// }
-			//Debug(showone("", &r))
-			any("returned from halt, set regs, move along")
+			step("returned from halt, set regs, move along")
 
 		default:
 			log.Printf("Trapno: got %#x", ev.Trapno)
@@ -229,8 +200,10 @@ func main() {
 		if err != nil {
 			log.Fatalf("GetRegs: got %v, want nil", err)
 		}
-		if err := trace.RegDiff(os.Stdout, r, p); err != nil {
-			log.Fatal(err)
+		if regfile != nil {
+			if err := trace.RegDiff(regfile, r, p); err != nil {
+				log.Fatal(err)
+			}
 		}
 		p = r
 		//log.Printf("REGS: %s", show("", r))
@@ -241,11 +214,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Inst: got %v, want nil", err)
 		}
-		log.Printf("Inst returns %v, %v, %q, %v", i, r, g, err)
+		Debug("Inst returns %v, %v, %q, %v", i, r, g, err)
 	}
-	log.Printf("Rsp is %#x", r.Rsp)
-	// we "just know" for now.
-	if r.Rsp != 0x70c4ff70 {
-		log.Fatalf("SP: got %#x, want %#x", r.Rsp, 0x70c4ff70)
-	}
+	log.Printf("Exit: Rsp is %#x", r.Rsp)
 }

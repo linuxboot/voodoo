@@ -30,6 +30,8 @@ var (
 	allocBase uint32
 	// resource allocation mutex.
 	malloc sync.Mutex
+	// Debug is for debugging messages.
+	Debug = func(string, ...interface{}) {}
 )
 
 func bumpAllocate(amt uintptr) ServPtr {
@@ -125,7 +127,7 @@ func RegisterGUIDCreator(n string, s serviceCreator) {
 // on both a service name and a guid. Why, I have no idea.
 func Base(tab []byte, n string) (ServPtr, error) {
 	s, ok := creators[n]
-	log.Printf("Base for %s: %v, %v", n, s, ok)
+	Debug("Base for %s: %v, %v", n, s, ok)
 	if !ok {
 		return 0, fmt.Errorf("Service %q does not exist", n)
 	}
@@ -134,7 +136,7 @@ func Base(tab []byte, n string) (ServPtr, error) {
 	}
 	base := bumpAllocate(uintptr(allocAmt))
 	b := base.Base()
-	log.Printf("Base: base is %#x %s", uint32(base), b)
+	Debug("Base: base is %#x %s", uint32(base), b)
 	if d, ok := dispatches[b]; ok {
 		log.Panicf("Base %v for %s is in use by %v", b, n, d)
 	}
@@ -143,7 +145,7 @@ func Base(tab []byte, n string) (ServPtr, error) {
 		return 0, err
 	}
 	d := &dispatch{s: srv, up: ServPtr(base)}
-	log.Printf("Set up Dispatch for [%v,%v]: %s", b, n, d)
+	Debug("Set up Dispatch for [%v,%v]: %s", b, n, d)
 	dispatches[b] = d
 	dispatches[ServBase(n)] = d
 	return base, nil
@@ -184,15 +186,15 @@ func AddrToService(addr uintptr) (Service, error) {
 // split into a base and 16-bit offset. The base is not
 // right-shifted or changed in any other way.
 func Dispatch(f *Fault) error {
-	log.Printf("Dispatch %s", f.Asm)
+	Debug("Dispatch %s", f.Asm)
 	a := uintptr(f.Info.Addr)
 	b, op := splitBaseOp(a)
 	d, ok := dispatches[b]
 	if !ok {
-		log.Printf("Dispatch %s: Can't find %v", f.Asm, b)
+		Debug("Dispatch %s: Can't find %v", f.Asm, b)
 		return fmt.Errorf("%#x: No such service in %v", a, d)
 	}
 	f.Op = op
-	log.Printf("base %v op %#x d %v", b, op, d)
+	Debug("base %v op %#x d %v", b, op, d)
 	return d.s.Call(f)
 }

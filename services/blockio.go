@@ -37,7 +37,7 @@ func (t *BlockIO) Ptr() ServPtr {
 // Call implements service.Call
 func (t *BlockIO) Call(f *Fault) error {
 	op := f.Op
-	log.Printf("BlockIO services: %v(%#x), arg type %T, args %v", table.BlockIOServiceNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
+	Debug("BlockIO services: %v(%#x), arg type %T, args %v", table.BlockIOServiceNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
 	f.Regs.Rax = uefi.EFI_SUCCESS
 	switch op {
 	case table.BlockIORevision:

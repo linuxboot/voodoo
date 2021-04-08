@@ -36,7 +36,7 @@ func (l *LoadedImage) Ptr() ServPtr {
 // Call implements service.Call
 func (l *LoadedImage) Call(f *Fault) error {
 	op := f.Op
-	log.Printf("LoadedImage Call: %#x, arg type %T, args %v", op, f.Inst.Args, f.Inst.Args)
+	Debug("LoadedImage Call: %#x, arg type %T, args %v", op, f.Inst.Args, f.Inst.Args)
 	log.Fatal("hi")
 	switch op {
 	default:

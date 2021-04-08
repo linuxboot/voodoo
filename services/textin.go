@@ -23,12 +23,12 @@ func init() {
 
 // NewTextIn returns a TextIn Service
 func NewTextIn(tab []byte, u ServPtr) (Service, error) {
-	log.Printf("textin services table u is %#x", u)
+	Debug("textin services table u is %#x", u)
 	base := int(u) & 0xffffff
 	for p := range table.SimpleTextInServicesNames {
 		x := base + int(p)
 		r := uint64(p) + 0xff400000 + uint64(base)
-		log.Printf("Install %#x at off %#x", r, x)
+		Debug("Install %#x at off %#x", r, x)
 		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
 	}
 
@@ -48,7 +48,7 @@ func (t *TextIn) Ptr() ServPtr {
 // Call implements service.Call
 func (t *TextIn) Call(f *Fault) error {
 	op := f.Op
-	log.Printf("TextIn services: %v(%#x), arg type %T, args %v", table.SimpleTextInServicesNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
+	Debug("TextIn services: %v(%#x), arg type %T, args %v", table.SimpleTextInServicesNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
 	f.Regs.Rax = uefi.EFI_SUCCESS
 	switch op {
 	case table.STInReset:

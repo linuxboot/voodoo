@@ -25,12 +25,12 @@ func init() {
 // NewBoot returns a Boot Service
 func NewBoot(tab []byte, u ServPtr) (Service, error) {
 	// Put the pointer for one thing to see what happens.
-	log.Printf("boot services table u is %#x", u)
+	Debug("boot services table u is %#x", u)
 	base := int(u) & 0xffffff
 	for p := range table.BootServicesNames {
 		x := base + int(p)
 		r := uint64(p) + 0xff400000 + uint64(base)
-		log.Printf("Install %#x at off %#x", r, x)
+		Debug("Install %#x at off %#x", r, x)
 		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
 	}
 
@@ -58,7 +58,7 @@ func (b *Boot) Ptr() ServPtr {
 func (r *Boot) Call(f *Fault) error {
 	op := f.Op
 	f.Regs.Rax = uefi.EFI_SUCCESS
-	log.Printf("Boot services: %s(%#x), arg type %T, args %v", table.BootServicesNames[int(op)], op, f.Inst.Args, f.Inst.Args)
+	Debug("Boot services: %s(%#x), arg type %T, args %v", table.BootServicesNames[int(op)], op, f.Inst.Args, f.Inst.Args)
 	switch op {
 	case table.GetMemoryMap:
 		// EFI_STATUS efi_get_memorymap(IN OUT UINTN *MemoryMapSize, IN OUT EFI_MEMORY_DESCRIPTOR *MemoryMap, ...);
@@ -74,7 +74,7 @@ func (r *Boot) Call(f *Fault) error {
 			log.Fatalf("Can't encode memory: %v", err)
 		}
 		f.Args = trace.Args(f.Proc, f.Regs, 2)
-		log.Printf("GetMemoryMap: %#x", f.Args)
+		Debug("GetMemoryMap: %#x", f.Args)
 		// Just one region.
 		var bb = [8]byte{1}
 		if err := f.Proc.Write(f.Args[0], bb[:]); err != nil {
@@ -89,7 +89,7 @@ func (r *Boot) Call(f *Fault) error {
 		f.Args = trace.Args(f.Proc, f.Regs, 5)
 		// ignore arg 0 for now.
 		d := uint64(UEFIAllocate(uintptr(f.Args[1]), false))
-		log.Printf("AllocatePool: %d bytes @ %#x", f.Args[1], d)
+		Debug("AllocatePool: %d bytes @ %#x", f.Args[1], d)
 		var bb [8]byte
 		binary.LittleEndian.PutUint64(bb[:], d)
 		if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
@@ -100,14 +100,14 @@ func (r *Boot) Call(f *Fault) error {
 		// Status = gBS->FreePool (Device);
 		f.Args = trace.Args(f.Proc, f.Regs, 1)
 		// Free? Forget it.
-		log.Printf("FreePool: %#x", f.Args[0])
+		Debug("FreePool: %#x", f.Args[0])
 		return nil
 	case table.AllocatePages:
 		//Status = gBS->AllocatePages (AllocateAnyPages,EfiBootServicesData,Pages,&PhysicalBuffer);
 		f.Args = trace.Args(f.Proc, f.Regs, 4)
 		// ignore arg 0 for now.
 		d := uint64(UEFIAllocate(uintptr(f.Args[1]*4096), true))
-		log.Printf("AllocatePages %d pages @ %#x", f.Args[1], d)
+		Debug("AllocatePages %d pages @ %#x", f.Args[1], d)
 		var bb [8]byte
 		binary.LittleEndian.PutUint64(bb[:], d)
 		if err := f.Proc.Write(f.Args[3], bb[:]); err != nil {
@@ -117,7 +117,7 @@ func (r *Boot) Call(f *Fault) error {
 	case table.FreePages:
 		//Status = gBS->AllocatePages (AllocateAnyPages,EfiBootServicesData,Pages,&PhysicalBuffer);
 		f.Args = trace.Args(f.Proc, f.Regs, 2)
-		log.Printf("FreePages %#x", f.Args)
+		Debug("FreePages %#x", f.Args)
 		return nil
 	case table.LocateHandle:
 		// EFI_STATUS LocateHandle (IN EFI_LOCATE_SEARCH_TYPE SearchType, IN EFI_GUID *Protocol OPTIONAL, IN VOID *SearchKey OPTIONAL,IN OUT UINTN *NoHandles,  OUT EFI_HANDLE **Buffer);
@@ -129,14 +129,12 @@ func (r *Boot) Call(f *Fault) error {
 			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
 		}
 
-		log.Printf("BootServices Call LocateHandle(type %s, guid %s, searchkey %#x, nohandles %#x, EFIHANDLE %#x", table.SearchTypeNames[table.EFI_LOCATE_SEARCH_TYPE(f.Args[0])], g, f.Args[2], f.Args[3], f.Args[4])
-		// This is probably done wrong, the way we do this. Oh well.
-		// I think ServBase should just be a string.
+		Debug("BootServices Call LocateHandle(type %s, guid %s, searchkey %#x, nohandles %#x, EFIHANDLE %#x", table.SearchTypeNames[table.EFI_LOCATE_SEARCH_TYPE(f.Args[0])], g, f.Args[2], f.Args[3], f.Args[4])
 		d, ok := dispatches[ServBase(g.String())]
 		if !ok {
 			log.Panicf("Can't happen: no base for %s", g)
 		}
-		log.Printf("Writing %#x to %#x", uint64(d.up), f.Args[4])
+		Debug("Writing %#x to %#x", uint64(d.up), f.Args[4])
 		var bb [8]byte
 		binary.LittleEndian.PutUint64(bb[:], uint64(d.up))
 		if err := f.Proc.Write(f.Args[4], bb[:]); err != nil {
@@ -146,7 +144,7 @@ func (r *Boot) Call(f *Fault) error {
 		if err := f.Proc.Write(f.Args[3], bb[:]); err != nil {
 			return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[3], err)
 		}
-		log.Printf("BootServices Call LocateHandle: done")
+		Debug("BootServices Call LocateHandle: done")
 		return nil
 	case table.HandleProtocol:
 		// There. All on one line. Not 7. So, UEFI, did that really hurt so much?
@@ -159,17 +157,17 @@ func (r *Boot) Call(f *Fault) error {
 			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
 		}
 		d, ok := dispatches[ServBase(g.String())]
-		log.Printf("HandleProtocol: GUID %s %v ok %v", g, d, ok)
+		Debug("HandleProtocol: GUID %s %v ok %v", g, d, ok)
 		if !ok {
 			return fmt.Errorf("Can't happen: no base for %s", g)
 		}
 		var bb [8]byte
-		log.Printf("Address is %#x", d.up)
+		Debug("Address is %#x", d.up)
 		binary.LittleEndian.PutUint64(bb[:], uint64(d.up))
 		if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
 			return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[2], err)
 		}
-		fmt.Printf("OK all done handleprotocol")
+		Debug("OK all done handleprotocol")
 		return nil
 	case table.PCHandleProtocol:
 		// There. All on one line. Not 7. So, UEFI, did that really hurt so much?
@@ -181,18 +179,18 @@ func (r *Boot) Call(f *Fault) error {
 		if err := f.Proc.Read(f.Args[1], g[:]); err != nil {
 			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
 		}
-		log.Printf("PCHandleProtocol: GUID %s", g)
+		Debug("PCHandleProtocol: GUID %s", g)
 
 		return nil
 	case table.ConnectController:
 		// The arguments are rcx, rdx, r9, r8
 		f.Args = trace.Args(f.Proc, f.Regs, 4)
-		log.Printf("ConnectController: %#x", f.Args)
+		Debug("ConnectController: %#x", f.Args)
 		// Just pretend it worked.
 		return nil
 	case table.WaitForEvent:
 		f.Args = trace.Args(f.Proc, f.Regs, 3)
-		log.Printf("WaitForEvent: %#x", f.Args)
+		Debug("WaitForEvent: %#x", f.Args)
 		// Just pretend it worked.
 		return nil
 	// This one is a serious shitshow.
@@ -207,39 +205,39 @@ func (r *Boot) Call(f *Fault) error {
 		//  IN UINT32                       Attributes
 		//  );
 		f.Args = trace.Args(f.Proc, f.Regs, 6)
-		log.Printf("OpenProtocol: %#x", f.Args)
+		Debug("OpenProtocol: %#x", f.Args)
 		var g guid.GUID
 		if err := f.Proc.Read(f.Args[1], g[:]); err != nil {
 			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
 		}
-		log.Printf("OpenProtocol: GUID %s", g)
-		log.Printf("OpenProtocol: whatever, assume success")
+		Debug("OpenProtocol: GUID %s", g)
+		Debug("OpenProtocol: whatever, assume success")
 	case table.LocateProtocol:
 		// Status = gBS->LocateProtocol (GUID,NULL,(VOID **)&ptr);
 		f.Args = trace.Args(f.Proc, f.Regs, 3)
-		log.Printf("LocateProtocol: %#x", f.Args)
+		Debug("LocateProtocol: %#x", f.Args)
 		var g guid.GUID
 		if err := f.Proc.Read(f.Args[0], g[:]); err != nil {
 			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
 		}
-		log.Printf("LocateProtocol: GUID %s", g)
+		Debug("LocateProtocol: GUID %s", g)
 		d, ok := dispatches[ServBase(g.String())]
-		log.Printf("HandleProtocol: GUID %s %v ok %v", g, d, ok)
+		Debug("HandleProtocol: GUID %s %v ok %v", g, d, ok)
 		if !ok {
 			f.Regs.Rax = uefi.EFI_NOT_FOUND
 			return nil
 		}
 		var bb [8]byte
-		log.Printf("Address is %#x", d.up)
+		Debug("Address is %#x", d.up)
 		binary.LittleEndian.PutUint64(bb[:], uint64(d.up))
 		if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
 			return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[2], err)
 		}
-		fmt.Printf("OK all done handleprotocol")
+		Debug("OK all done LocateProtocol")
 		return nil
 	case table.SetWatchdogTimer:
 		f.Args = trace.Args(f.Proc, f.Regs, 5)
-		log.Printf("SetWatchdogTimer: %#x", f.Args)
+		Debug("SetWatchdogTimer: %#x", f.Args)
 		// Just pretend it worked.
 		return nil
 

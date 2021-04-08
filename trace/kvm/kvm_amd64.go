@@ -747,7 +747,6 @@ func (t *Tracee) GetRegs() (*syscall.PtraceRegs, error) {
 		return nil, err
 	}
 	pr := &syscall.PtraceRegs{}
-	log.Printf("interrupts %#x", s.InterruptBitmap)
 	kvmRegstoPtraceRegs(pr, r, s)
 	return pr, nil
 }

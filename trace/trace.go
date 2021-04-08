@@ -8,8 +8,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type Event interface{}
-
 // Trace is the interface to a traced process
 type Trace interface {
 	// Exec starts a process in a trace

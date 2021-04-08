@@ -15,59 +15,24 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func segv(p trace.Trace, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.PtraceRegs, asm string) error {
-	addr := uintptr(i.Addr)
-	pc := r.Rip
-	log.Printf("SEGV@%#x, rip %#x", addr, pc)
-	if r.Rip < 0x1000 {
-		log.Panicf("SEGV: BOGUS PC!")
-	}
-	nextpc := r.Rip
-	if false { // it should have advanced.
-		nextpc = r.Rip + uint64(inst.Len)
-	}
-	// This is different for what we were doing in strace, leave here for history.
-	if false {
-		if pc >= uint64(services.ImageHandle) {
-			var err error
-			nextpc, err = trace.Pop(p, r)
-			if err != nil {
-				log.Printf("SEGV: return Pop failure")
-				return err
-			}
-			// TODO: adjust PC to be "the one before the one we popped"
-			// but it's HARD.
-			pc = nextpc
-		}
-	}
-	log.Printf("================={SEGV START FUNCTION @ %#x", addr)
-	if err := services.Dispatch(&services.Fault{Proc: p, Info: i, Inst: inst, Regs: r, Asm: asm}); err != nil {
-		return fmt.Errorf("Don't know what to do with %v: %v", trace.CallInfo(i, inst, r), err)
-	}
-	// Advance to the next instruction. This advance should only happen if the dispatch worked?
-	r.Rip = nextpc
-	defer log.Printf("===========} done SEGV @ %#x, rip was %#x, advance to %#x", addr, pc, r.Rip)
-	return nil
-}
-
 // halt handles the halt case. Things differ a bit from segv.
 // First off, the pc will be one off, having been incrementd. Other issues apply as well.
 func halt(p trace.Trace, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.PtraceRegs, asm string) error {
 	addr := uintptr(i.Addr)
 	nextpc := r.Rip
 	pc := r.Rip - 1
-	log.Printf("HALT@%#x, rip %#x", addr, pc)
+	Debug("HALT@%#x, rip %#x", addr, pc)
 	if r.Rip < 0x1000 {
 		log.Panicf("HALT: BOGUS PC!")
 	}
 
 	r.Rip = pc
-	log.Printf("================={HALT START FUNCTION @ %#x", addr)
+	Debug("================={HALT START FUNCTION @ %#x", addr)
 	if err := services.Dispatch(&services.Fault{Proc: p, Info: i, Inst: inst, Regs: r, Asm: asm}); err != nil {
 		return fmt.Errorf("Don't know what to do with %v: %v", trace.CallInfo(i, inst, r), err)
 	}
 	// Advance to the next instruction. This advance should only happen if the dispatch worked?
 	r.Rip = nextpc
-	defer log.Printf("===========} done HALT @ %#x, rip was %#x, advance to %#x", addr, pc, r.Rip)
+	defer Debug("===========} done HALT @ %#x, rip was %#x, advance to %#x", addr, pc, r.Rip)
 	return nil
 }

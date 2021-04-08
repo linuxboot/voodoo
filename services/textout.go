@@ -26,12 +26,12 @@ func init() {
 
 // NewTextOut returns a TextOut Service
 func NewTextOut(tab []byte, u ServPtr) (Service, error) {
-	log.Printf("textout services table u is %#x", u)
+	Debug("textout services table u is %#x", u)
 	base := int(u) & 0xffffff
 	for p := range table.SimpleTextOutServicesNames {
 		x := base + int(p)
 		r := uint64(p) + 0xff400000 + uint64(base)
-		log.Printf("Install %#x at off %#x", r, x)
+		Debug("Install %#x at off %#x", r, x)
 		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
 	}
 
@@ -40,7 +40,7 @@ func NewTextOut(tab []byte, u ServPtr) (Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("NewTextOut: TextMode base is %#x %#x", tm, ServBase(tm))
+	Debug("NewTextOut: TextMode base is %#x %#x", tm, ServBase(tm))
 	return &TextOut{u: u.Base(), up: u, t: tm.Base(), tup: tm}, nil
 }
 
@@ -57,7 +57,7 @@ func (t *TextOut) Ptr() ServPtr {
 // Call implements service.Call
 func (t *TextOut) Call(f *Fault) error {
 	op := f.Op
-	log.Printf("TextOut services: %v(%#x), arg type %T, args %v", table.SimpleTextOutServicesNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
+	Debug("TextOut services: %v(%#x), arg type %T, args %v", table.SimpleTextOutServicesNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
 	f.Regs.Rax = uefi.EFI_SUCCESS
 	switch op {
 	case table.STOutReset:
@@ -66,18 +66,18 @@ func (t *TextOut) Call(f *Fault) error {
 		return nil
 	case table.STOutOutputString:
 		args := trace.Args(f.Proc, f.Regs, 6)
-		log.Printf("StOutOutputString args %#x", args)
+		Debug("StOutOutputString args %#x", args)
 		n, err := trace.ReadStupidString(f.Proc, uintptr(args[1]))
 		if err != nil {
 			return err
 		}
-		fmt.Printf("\n===:%s\n", n)
+		fmt.Printf("%s", n)
 		if err := f.Proc.SetRegs(f.Regs); err != nil {
 			return err
 		}
 		return nil
 	case table.STOutSetAttribute:
-		log.Printf("Fuck STOutSetAttribute")
+		Debug("Fuck STOutSetAttribute")
 	case table.STOutMode:
 		if err := retval(f, uintptr(t.tup)); err != nil {
 			log.Panic(err)

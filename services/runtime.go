@@ -23,12 +23,12 @@ func init() {
 
 // NewRuntime returns a Runtime Service
 func NewRuntime(tab []byte, u ServPtr) (Service, error) {
-	log.Printf("runtime services table u is %#x", u)
+	Debug("runtime services table u is %#x", u)
 	base := int(u) & 0xffffff
 	for p := range table.RuntimeServicesNames {
 		x := base + int(p)
 		r := uint64(p) + 0xff400000 + uint64(base)
-		log.Printf("Install %#x at off %#x", r, x)
+		Debug("Install %#x at off %#x", r, x)
 		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
 	}
 
@@ -52,11 +52,11 @@ func (r *Runtime) Call(f *Fault) error {
 	if !ok {
 		log.Panicf("runtimeservices Call No such op %#x", op)
 	}
-	log.Printf("runtimeservices Call: %s(%#x), arg type %T, args %v", t, op, f.Inst.Args, f.Inst.Args)
+	Debug("runtimeservices Call: %s(%#x), arg type %T, args %v", t, op, f.Inst.Args, f.Inst.Args)
 	switch op {
 	case table.RTGetVariable:
 		args := trace.Args(f.Proc, f.Regs, 5)
-		log.Printf("table.RTGetVariable args %#x", args)
+		Debug("table.RTGetVariable args %#x", args)
 		ptr := args[0]
 		n, err := trace.ReadStupidString(f.Proc, ptr)
 		if err != nil {
@@ -66,7 +66,7 @@ func (r *Runtime) Call(f *Fault) error {
 		if err := f.Proc.Read(args[1], g[:]); err != nil {
 			return fmt.Errorf("Can't read guid at #%x, err %v", args[1], err)
 		}
-		log.Printf("PCHandleProtocol: find %s %s", n, g)
+		Debug("PCHandleProtocol: find %s %s", n, g)
 		f.Regs.Rax = uefi.EFI_SUCCESS
 		v, err := uefi.ReadVariable(n, g)
 		if err != nil {
@@ -75,7 +75,7 @@ func (r *Runtime) Call(f *Fault) error {
 				return err
 			}
 		}
-		log.Printf("%s:%s: v is %v", n, g, v)
+		Debug("%s:%s: v is %v", n, g, v)
 	case table.RTSetVariable:
 		f.Regs.Rax = uefi.EFI_SUCCESS
 		// whatever.

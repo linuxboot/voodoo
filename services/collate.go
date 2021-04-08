@@ -35,7 +35,7 @@ func (c *Collate) Ptr() ServPtr {
 // Call implements service.Call
 func (t *Collate) Call(f *Fault) error {
 	op := f.Op
-	log.Printf("Collate services: %v(%#x), arg type %T, args %v", table.CollateServicesNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
+	Debug("Collate services: %v(%#x), arg type %T, args %v", table.CollateServicesNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
 	f.Regs.Rax = uefi.EFI_SUCCESS
 	switch op {
 	default:

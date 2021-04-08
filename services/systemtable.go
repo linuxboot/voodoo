@@ -41,11 +41,11 @@ func NewSystemtable(tab []byte, u ServPtr) (Service, error) {
 			log.Fatal(err)
 		}
 		table.SystemTableNames[t.st].Val = uint64(r)
-		log.Printf("-----------> Install service %s ptr t.st %#x at %#x", t.n, t.st, uint32(r))
+		Debug("-----------> Install service %s ptr t.st %#x at %#x", t.n, t.st, uint32(r))
 		// r is the pointer. Set the pointer in the table.
 		// the pointer is ... well ...wtf. I don't know.
-		log.Printf("system table u is %#x", u)
-		log.Printf("Install %#x at off %#x", r, t.st+0x10000)
+		Debug("system table u is %#x", u)
+		Debug("Install %#x at off %#x", r, t.st+0x10000)
 		binary.LittleEndian.PutUint64(tab[t.st+0x10000:], uint64(r))
 	}
 
@@ -73,7 +73,7 @@ func (s *SystemTable) Ptr() ServPtr {
 // Call implements service.Call
 func (r *SystemTable) Call(f *Fault) error {
 	op := f.Op
-	log.Printf("SystemTable Call: %v(%#x), arg type %T, args %v", table.SystemTableNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
+	Debug("SystemTable Call: %v(%#x), arg type %T, args %v", table.SystemTableNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
 	log.Panic("unsupported SystemTable Call")
 	return fmt.Errorf("SystemTable: No such offset %#x", op)
 }
