@@ -21,3 +21,10 @@ a
 *~
 *.efi
 shit
+
+generate/blockio
+generate/collate
+generate/io
+generate/loadedimage
+generate/runtime
+generate/systemtable
