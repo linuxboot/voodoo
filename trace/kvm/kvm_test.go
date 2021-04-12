@@ -442,7 +442,7 @@ func TestCall(t *testing.T) {
 	const initrax = 0x10000
 	const bad = 0x10008
 	// Put a pointer at initrax + 98
-	copy(v.regions[0].data[initrax + 0x98:], []byte{0xa0, 0x00, 0x01, 0x00, 0, 0, 0, 0, 0xc3})
+	copy(v.regions[0].data[initrax+0x98:], []byte{0xa0, 0x00, 0x01, 0x00, 0, 0, 0, 0, 0xc3})
 	r.Rax = initrax
 	if err := v.SetRegs(r); err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
@@ -686,4 +686,63 @@ func TestWriteWord(t *testing.T) {
 	if rw != w {
 		t.Fatalf("Reading %#x: got %#x, want %#x", addr, rw, w)
 	}
+}
+
+func TestTSC(t *testing.T) {
+	//1 0000 0F31                  rdtsc
+	//2 0002 F4                    hlt
+	var tsc = []byte{0x0f, 0x31, 0xf4}
+
+	v, err := New()
+	if err != nil {
+		t.Fatalf("Open: got %v, want nil", err)
+	}
+	defer v.Detach()
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
+	}
+	if err := v.SingleStep(false); err != nil {
+		t.Fatalf("Run: got %v, want nil", err)
+	}
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+
+	const efi, startpc, startsp = 0xef000000, 0x70941000, 0x80000
+	const pc, sp = startpc + 3, startsp
+	r.Rip = startpc
+	r.Rsp = startsp
+
+	if err := v.Write(startpc, tsc); err != nil {
+		t.Fatalf("Write(%#x, %#x): got %v, want nil", startpc, len(tsc), err)
+	}
+	if err := v.SetRegs(r); err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+
+	go func() {
+		if err := v.Run(); err != nil {
+			t.Errorf("Run: got %v, want nil", err)
+		}
+	}()
+	ev := <-v.Events()
+	if ev.Trapno != ExitMmio {
+		t.Errorf("Trapno: got %#x, want %v", ev.Trapno, ExitHlt)
+	}
+	if ev.Call_addr != pc {
+		t.Errorf("Addr: got %#x, want %#x", ev.Call_addr, pc)
+	}
+	e := v.cpu.VMRun.String()
+	if e != "ExitMmio" {
+		t.Errorf("VM exit: got %v, want 'ExitMmio'", e)
+	}
+	_, r, g, err := v.Inst()
+	if err != nil {
+		t.Fatalf("Inst: got %v, want nil", err)
+	}
+	if !strings.Contains(g, "hlt") {
+		t.Errorf("Inst: got %s, want call", g)
+	}
+
 }
