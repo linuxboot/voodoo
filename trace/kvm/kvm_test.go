@@ -727,15 +727,15 @@ func TestTSC(t *testing.T) {
 		}
 	}()
 	ev := <-v.Events()
-	if ev.Trapno != ExitMmio {
+	if ev.Trapno != ExitHlt {
 		t.Errorf("Trapno: got %#x, want %v", ev.Trapno, ExitHlt)
 	}
 	if ev.Call_addr != pc {
 		t.Errorf("Addr: got %#x, want %#x", ev.Call_addr, pc)
 	}
 	e := v.cpu.VMRun.String()
-	if e != "ExitMmio" {
-		t.Errorf("VM exit: got %v, want 'ExitMmio'", e)
+	if e != "ExitHalt" {
+		t.Errorf("VM exit: got %v, want 'ExitHalt'", e)
 	}
 	_, r, g, err := v.Inst()
 	if err != nil {
