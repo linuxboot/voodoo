@@ -77,9 +77,9 @@ func main() {
 	a := flag.Args()[0]
 	if *debug {
 		Debug = log.Printf
-		trace.Debug = log.Printf
-		services.Debug = log.Printf
 	}
+	trace.SetDebug(Debug)
+	services.Debug = Debug
 	if len(*regpath) > 0 {
 		f, err := os.OpenFile(*regpath, os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {

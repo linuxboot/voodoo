@@ -22,6 +22,14 @@ type cpu struct {
 	fd    uintptr
 	m     []byte
 	VMRun VMRun
+	// We have to read the CPUIDs from the vmfd,
+	// and then set them into the vcpu
+	idInfo *CPUIDInfo
+}
+
+// String implemnts String
+func (c *cpu) String() string {
+	return fmt.Sprintf("{id %x, fd %d}", c.id, c.fd)
 }
 
 // APIVersion is the KVM API version.
@@ -52,6 +60,56 @@ type segment struct {
 	Present, DPL, DB, S, L, G, AVL uint8
 	_                              uint8
 	_                              uint8
+}
+
+// We really hoped to avoid this but ...
+// This is the cpuid2 struct but there's no reason
+// to adopt that naming
+
+// CPUIDEntry is one cpuid entry returned by
+// KVM.
+type CPUIDEntry struct {
+	function uint32
+	index    uint32
+	flags    uint32
+	eax      uint32
+	ebx      uint32
+	ecx      uint32
+	edx      uint32
+	_        [3]uint32
+}
+
+// CPUIDInfo contains information about CPUID information.
+// We've learned the hard way that it's best for the
+// ents array to be really large -- too large --
+// 256 seems appropriate. KVM does not provide partial
+// results; it just returns an error if len(ents) is too
+// small.
+type CPUIDInfo struct {
+	nent uint32
+	_    uint32
+	ents [256]CPUIDEntry
+}
+
+// String implements String. It returns a string formatted as strace formats it:
+// {nent=54, entries=[{function=0, index=0, flags=0, eax=0xd, ebx=0x68747541, ecx=0x444d4163, edx=0x69746e65},
+func (e *CPUIDEntry) String() string {
+	return fmt.Sprintf("{function=%#x, index=%#x, flags=%#x, eax=%#x, ebx=%#x, ecx=%#x, edx=%#x}", e.function, e.index, e.flags, e.eax, e.ebx, e.ecx, e.edx)
+}
+
+// String implements String. It returns a string formatted as strace would format it:
+// {nent=54, entries=[{function=0, index=0, flags=0, eax=0xd, ebx=0x68747541, ecx=0x444d4163, edx=0x69746e65}, ...
+// With the one difference that there is a single line per cpuid (makes finding issues way easier)
+func (i *CPUIDInfo) String() string {
+	s := fmt.Sprintf("{nent=%d, entries=[", i.nent)
+	// if n.ent is out of range we are in so much trouble we might
+	// as well just die.
+	for _, e := range i.ents[:i.nent] {
+		s += "\n"
+		s += e.String()
+	}
+	s += "\n]}"
+	return s
 }
 
 func showone(indent string, in interface{}) string {
@@ -872,6 +930,28 @@ func (t *Tracee) archInit() error {
 		return fmt.Errorf("creating %d byte region: got %v, want nil", len(ffun), err)
 	}
 	t.tab = ffun
+	// Now for CPUID. What a pain.
+	var i = &CPUIDInfo{
+		nent: uint32(len(CPUIDInfo{}.ents)),
+	}
+	Debug("Check CPUID entries")
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.dev.Fd()), getCPUID, uintptr(unsafe.Pointer(i))); errno != 0 {
+		Debug("Check CPUID entries err %v", errno)
+		return fmt.Errorf("Getting CPUID entries: %v", errno)
+	}
+	Debug("%v", i)
+	t.cpu.idInfo = i
+
+	return nil
+}
+
+func (t *Tracee) archNewProc() error {
+	Debug("Set CPUID entries in %v", t)
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setCPUID, uintptr(unsafe.Pointer(t.cpu.idInfo))); errno != 0 {
+		Debug("Set  CPUID entries err %v", errno)
+		return fmt.Errorf("Setting CPUID entries: %v", errno)
+	}
+
 	return nil
 }
 

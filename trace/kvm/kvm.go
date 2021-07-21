@@ -67,7 +67,7 @@ type Tracee struct {
 }
 
 func (t *Tracee) String() string {
-	return fmt.Sprintf("%s", t.dev.Name())
+	return fmt.Sprintf("%s(kvmfd %d, vmfd %d, vcpufd %d)", t.dev.Name(), t.dev.Fd(), t.vm, t.cpu.fd)
 }
 
 func (t *Tracee) Tab() []byte {
@@ -242,6 +242,9 @@ func (t *Tracee) NewProc(id int) error {
 	t.cpu.id = id
 	t.cpu.fd = fd
 	t.cpu.m = b
+	if err := t.archNewProc(); err != nil {
+		return err
+	}
 	// Now for the real fun. Long mode.
 	sdata := &bytes.Buffer{}
 	binary.Write(sdata, binary.LittleEndian, bit64)
@@ -250,6 +253,7 @@ func (t *Tracee) NewProc(id int) error {
 	}
 
 	return nil
+
 }
 
 // This allows setting up mem for a guest.
