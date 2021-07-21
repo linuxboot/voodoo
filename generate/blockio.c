@@ -30,6 +30,7 @@ struct _EFI_BLOCK_IO_PROTOCOL {
 };
 
 extern EFI_GUID gEfiBlockIoProtocolGuid;
+
 */
 
 int main(int argc, char *argv[])
@@ -66,6 +67,18 @@ int main(int argc, char *argv[])
 		t(WriteBlocks);
 		t(FlushBlocks);
 	fprintf(f, ")\n");
+
+	fprintf(f, "type BlockIOMedia struct {\n"
+		"MediaId uint32\n"
+		"RemovableMedia uint32\n"
+		"MediaPresent uint32\n"
+		"LogicalPartition uint32\n"
+		"ReadOnly uint32\n"
+		"WriteCaching uint32\n"
+		"BlockSize uint32\n"
+		"IoAlign uint32\n"
+		"LastBlock uint64\n"
+		"}\n");
 
 	fprintf(f, "var BlockIOServiceNames = map[uint64]*val{\n");
 

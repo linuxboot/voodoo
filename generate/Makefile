@@ -1,4 +1,4 @@
-all: collate io runtime loadedimage systemtable getsig protocol
+all: collate io runtime loadedimage systemtable getsig protocol blockio
 GNUEFI_DIR?=/home/rminnich/foofi/uefi-simple/gnu-efi/
 GNUEFI_ARCH?=x86_64
 CFLAGS         += -fno-stack-protector -Wshadow -Wall -Wunused -Werror-implicit-function-declaration

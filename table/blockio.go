@@ -11,6 +11,18 @@ const (
 	BlockIOFlushBlocks = 0x28
 )
 
+type BlockIOMedia struct {
+	MediaId          uint32
+	RemovableMedia   uint32
+	MediaPresent     uint32
+	LogicalPartition uint32
+	ReadOnly         uint32
+	WriteCaching     uint32
+	BlockSize        uint32
+	IoAlign          uint32
+	LastBlock        uint64
+}
+
 var BlockIOServiceNames = map[uint64]*val{
 	BlockIORevision:    &val{N: "Revision"},
 	BlockIOMedia:       &val{N: "Media"},

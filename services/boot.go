@@ -129,12 +129,12 @@ func (r *Boot) Call(f *Fault) error {
 			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
 		}
 
-		Debug("BootServices Call LocateHandle(type %s, guid %s, searchkey %#x, nohandles %#x, EFIHANDLE %#x", table.SearchTypeNames[table.EFI_LOCATE_SEARCH_TYPE(f.Args[0])], g, f.Args[2], f.Args[3], f.Args[4])
+		Debug("BootServices Call LocateHandle(type %s, guid %s, searchkey %#x, numhandles %#x, EFIHANDLE %#x", table.SearchTypeNames[table.EFI_LOCATE_SEARCH_TYPE(f.Args[0])], g, f.Args[2], f.Args[3], f.Args[4])
 		d, ok := dispatches[ServBase(g.String())]
 		if !ok {
 			log.Panicf("Can't happen: no base for %s", g)
 		}
-		Debug("Writing %#x to %#x", uint64(d.up), f.Args[4])
+		Debug("Writing Service %v base %#x to %#x", d, uint64(d.up), f.Args[4])
 		var bb [8]byte
 		binary.LittleEndian.PutUint64(bb[:], uint64(d.up))
 		if err := f.Proc.Write(f.Args[4], bb[:]); err != nil {

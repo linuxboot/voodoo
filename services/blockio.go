@@ -16,11 +16,13 @@ type BlockIO struct {
 var _ Service = &BlockIO{}
 
 func init() {
+	Debug("register BlockIO ...")
 	RegisterGUIDCreator(table.BlockIOGUID, NewBlockIO)
 }
 
 // NewBlockIO returns a BlockIO Service
 func NewBlockIO(tab []byte, u ServPtr) (Service, error) {
+	Debug("New BlockIO ...")
 	return &BlockIO{u: u.Base(), up: u}, nil
 }
 
