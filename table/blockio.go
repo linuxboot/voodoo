@@ -11,7 +11,7 @@ const (
 	BlockIOFlushBlocks = 0x28
 )
 
-type BlockIOMedia struct {
+type BlockIOMediaInfo struct {
 	MediaId          uint32
 	RemovableMedia   uint32
 	MediaPresent     uint32

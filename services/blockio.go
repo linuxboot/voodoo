@@ -1,6 +1,9 @@
 package services
 
 import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
 	"log"
 
 	"github.com/linuxboot/voodoo/table"
@@ -9,8 +12,9 @@ import (
 
 // BlockIO implements Service
 type BlockIO struct {
-	u  ServBase
-	up ServPtr
+	u     ServBase
+	up    ServPtr
+	media ServPtr
 }
 
 var _ Service = &BlockIO{}
@@ -23,7 +27,35 @@ func init() {
 // NewBlockIO returns a BlockIO Service
 func NewBlockIO(tab []byte, u ServPtr) (Service, error) {
 	Debug("New BlockIO ...")
-	return &BlockIO{u: u.Base(), up: u}, nil
+	base := int(u) & 0xffffff
+	mtable := base + 0x1000
+	Debug("Install media table for %#x at %#x", base, mtable)
+	var bb = [8]byte{}
+	binary.LittleEndian.PutUint64(bb[:], mtable)
+	if err := f.Proc.Write(base+table.BlockIOMedia, bb[:]); err != nil {
+		return fmt.Errorf("Can't write %d bytes to %#x: %v", len(bb), dat, err)
+	}
+
+	binary.LittleEndian.PutUint64(base+table.BlockIOMedia, mtable)
+	var b = &bytes.Buffer{}
+	if err := binary.Write(b, binary.LittleEndian, &BlockIOMedia{
+		MediaId:          0xdeadbeef,
+		RemovableMedia:   1,
+		MediaPresent:     1,
+		LogicalPartition: 0,
+		ReadOnly:         1,
+		WriteCaching:     0,
+		BlockSize:        4096,
+		IoAlign:          4096,
+		LastBlock:        1048576,
+	}); err != nil {
+		return nil, fmt.Errorf("Can't encode memory: %v", err)
+	}
+	if err := f.Proc.Write(mtable, b[:]); err != nil {
+		return fmt.Errorf("Can't write %d bytes to %#x: %v", len(bb), mtable, err)
+	}
+
+	return &BlockIO{u: u.Base(), up: u, media: mtable}, nil
 }
 
 // Base implements service.Base

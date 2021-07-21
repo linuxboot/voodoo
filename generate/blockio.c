@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
 		t(FlushBlocks);
 	fprintf(f, ")\n");
 
-	fprintf(f, "type BlockIOMedia struct {\n"
+	fprintf(f, "type BlockIOMediaInfo struct {\n"
 		"MediaId uint32\n"
 		"RemovableMedia uint32\n"
 		"MediaPresent uint32\n"
