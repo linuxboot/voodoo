@@ -169,10 +169,10 @@ func main() {
 		case ev.Trapno == kvm.ExitHlt:
 			// This ONLY happens on an exit OR calling a UEFI function.
 			if *debug {
-			if err := trace.Regs(os.Stdout, r); err != nil {
-				log.Fatal(err)
+				if err := trace.Regs(os.Stdout, r); err != nil {
+					log.Fatal(err)
+				}
 			}
-		}
 			haltasm := trace.Asm(insn, r.Rip)
 			if err := halt(v, &ev, insn, r, haltasm); err != nil {
 				if err == io.EOF {
@@ -195,6 +195,18 @@ func main() {
 
 		default:
 			log.Printf("Trapno: got %#x", ev.Trapno)
+			if ev.Trapno == kvm.ExitShutdown {
+				i, r, g, err := trace.Inst(v)
+				if err != nil {
+					log.Fatalf("Inst: got %v, want nil", err)
+				}
+				cpc, err := trace.Pop(v, r)
+				if err != nil {
+					log.Printf("Could not pop stack to get caller pc")
+					cpc = 0xdeadbeef
+				}
+				log.Fatalf("Shutdown from %#x! [%v, %v, %q, %v]", cpc, i, showone("", r), g, err)
+			}
 		}
 		r, err = v.GetRegs()
 		if err != nil {

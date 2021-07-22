@@ -12,15 +12,16 @@ import (
 )
 
 // Args returns the top nargs args, going down the stack if needed. The max is 6.
+// This is UEFI calling convention.
 func Args(t Trace, r *syscall.PtraceRegs, nargs int) []uintptr {
 	sp := uintptr(r.Rsp)
 	switch nargs {
 	case 6:
-		w1, _ := t.ReadWord(sp + 0x20)
-		w2, _ := t.ReadWord(sp + 0x28)
+		w1, _ := t.ReadWord(sp + 0x28)
+		w2, _ := t.ReadWord(sp + 0x30)
 		return []uintptr{uintptr(r.Rcx), uintptr(r.Rdx), uintptr(r.R8), uintptr(r.R9), uintptr(w1), uintptr(w2)}
 	case 5:
-		w1, _ := t.ReadWord(sp + 0x20)
+		w1, _ := t.ReadWord(sp + 0x28)
 		return []uintptr{uintptr(r.Rcx), uintptr(r.Rdx), uintptr(r.R8), uintptr(r.R9), uintptr(w1)}
 	case 4:
 		return []uintptr{uintptr(r.Rcx), uintptr(r.Rdx), uintptr(r.R8), uintptr(r.R9)}

@@ -22,8 +22,8 @@ func halt(p trace.Trace, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.
 	nextpc := r.Rip
 	pc := r.Rip - 1
 	Debug("HALT@%#x, rip %#x", addr, pc)
-	if r.Rip < 0x1000 {
-		log.Panicf("HALT: BOGUS PC!")
+	if pc == 0xfff0 {
+		log.Panicf("HALT: system reset")
 	}
 
 	r.Rip = pc

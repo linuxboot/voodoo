@@ -25,37 +25,51 @@ func init() {
 }
 
 // NewBlockIO returns a BlockIO Service
+// A BlockIO contains an pointer, not an embedded struct.
 func NewBlockIO(tab []byte, u ServPtr) (Service, error) {
 	Debug("New BlockIO ...")
 	base := int(u) & 0xffffff
-	mtable := base + 0x1000
-	Debug("Install media table for %#x at %#x", base, mtable)
-	var bb = [8]byte{}
-	binary.LittleEndian.PutUint64(bb[:], mtable)
-	if err := f.Proc.Write(base+table.BlockIOMedia, bb[:]); err != nil {
-		return fmt.Errorf("Can't write %d bytes to %#x: %v", len(bb), dat, err)
+	// the media table is the next page after blockio.
+	// Why page aligned? Might be useful, someday, to lock
+	// things down.
+	media := base + 0x1000
+	for p := range table.BlockIOServiceNames {
+		x := base + int(p)
+		r := uint64(p) + 0xff400000 + uint64(base)
+		switch p {
+		// What's the right revision? Can't find it in the wall of data.
+		case table.BlockIORevision:
+			r = 1
+		case table.BlockIOMedia:
+			r = uint64(media)
+		}
+		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
+		Debug("Install %#x at off %#x", r, x)
 	}
 
-	binary.LittleEndian.PutUint64(base+table.BlockIOMedia, mtable)
 	var b = &bytes.Buffer{}
-	if err := binary.Write(b, binary.LittleEndian, &BlockIOMedia{
-		MediaId:          0xdeadbeef,
-		RemovableMedia:   1,
+	if err := binary.Write(b, binary.LittleEndian, &table.BlockIOMediaInfo{
+		MediaId:          0,
+		RemovableMedia:   0,
 		MediaPresent:     1,
-		LogicalPartition: 0,
-		ReadOnly:         1,
+		LogicalPartition: 1,
+		ReadOnly:         0,
 		WriteCaching:     0,
-		BlockSize:        4096,
-		IoAlign:          4096,
-		LastBlock:        1048576,
+		BlockSize:        512,
+		IoAlign:          0,
+		LastBlock:        0,
 	}); err != nil {
 		return nil, fmt.Errorf("Can't encode memory: %v", err)
 	}
-	if err := f.Proc.Write(mtable, b[:]); err != nil {
-		return fmt.Errorf("Can't write %d bytes to %#x: %v", len(bb), mtable, err)
-	}
 
-	return &BlockIO{u: u.Base(), up: u, media: mtable}, nil
+	// I'm doing it this way b/c I don't quite recall the common way to do it.
+	// And it's in fact not always clear what's best yet.
+	// In early days, I thought to do the struct deref in RunDXERun (running
+	// under ptrace! Easy!). Now it makes more sense, for data structures,
+	// to just put it there and let the bootloader access it. So this
+	// is a change from how it was done before.
+	Debug("Install mediatable(%#x) at off %#x", b, media)
+	return &BlockIO{u: u.Base(), up: u, media: ServPtr(media)}, nil
 }
 
 // Base implements service.Base

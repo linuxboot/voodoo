@@ -123,7 +123,6 @@ func (r *Boot) Call(f *Fault) error {
 		// EFI_STATUS LocateHandle (IN EFI_LOCATE_SEARCH_TYPE SearchType, IN EFI_GUID *Protocol OPTIONAL, IN VOID *SearchKey OPTIONAL,IN OUT UINTN *NoHandles,  OUT EFI_HANDLE **Buffer);
 		// We had hoped to ignore this nonsense, but ... we can't
 		f.Args = trace.Args(f.Proc, f.Regs, 5)
-
 		var g guid.GUID
 		if err := f.Proc.Read(f.Args[1], g[:]); err != nil {
 			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
@@ -131,6 +130,7 @@ func (r *Boot) Call(f *Fault) error {
 
 		Debug("BootServices Call LocateHandle(type %s, guid %s, searchkey %#x, numhandles %#x, EFIHANDLE %#x", table.SearchTypeNames[table.EFI_LOCATE_SEARCH_TYPE(f.Args[0])], g, f.Args[2], f.Args[3], f.Args[4])
 		d, ok := dispatches[ServBase(g.String())]
+		Debug("LocateHandle: GUID %s %v ok? %v", g, d, ok)
 		if !ok {
 			log.Panicf("Can't happen: no base for %s", g)
 		}
@@ -140,7 +140,7 @@ func (r *Boot) Call(f *Fault) error {
 		if err := f.Proc.Write(f.Args[4], bb[:]); err != nil {
 			return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[4], err)
 		}
-		binary.LittleEndian.PutUint64(bb[:], uint64(1))
+		binary.LittleEndian.PutUint64(bb[:], uint64(table.EfiHandleSize))
 		if err := f.Proc.Write(f.Args[3], bb[:]); err != nil {
 			return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[3], err)
 		}
@@ -157,7 +157,7 @@ func (r *Boot) Call(f *Fault) error {
 			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
 		}
 		d, ok := dispatches[ServBase(g.String())]
-		Debug("HandleProtocol: GUID %s %v ok %v", g, d, ok)
+		Debug("HandleProtocol: GUID %s %v ok? %v", g, d, ok)
 		if !ok {
 			return fmt.Errorf("Can't happen: no base for %s", g)
 		}
@@ -222,7 +222,7 @@ func (r *Boot) Call(f *Fault) error {
 		}
 		Debug("LocateProtocol: GUID %s", g)
 		d, ok := dispatches[ServBase(g.String())]
-		Debug("HandleProtocol: GUID %s %v ok %v", g, d, ok)
+		Debug("HandleProtocol: GUID %s %v ok? %v", g, d, ok)
 		if !ok {
 			f.Regs.Rax = uefi.EFI_NOT_FOUND
 			return nil
