@@ -1,4 +1,4 @@
-all: collate io runtime loadedimage systemtable getsig protocol blockio
+all: collate const io runtime loadedimage systemtable getsig protocol blockio
 GNUEFI_DIR?=/home/rminnich/foofi/uefi-simple/gnu-efi/
 GNUEFI_ARCH?=x86_64
 CFLAGS         += -fno-stack-protector -Wshadow -Wall -Wunused -Werror-implicit-function-declaration
@@ -6,6 +6,9 @@ CFLAGS         += -I$(GNUEFI_DIR)/inc -I$(GNUEFI_DIR)/inc/$(GNUEFI_ARCH) -I$(GNU
 CFLAGS         += -DCONFIG_$(GNUEFI_ARCH) -D__MAKEWITH_GNUEFI -DGNU_EFI_USE_MS_ABI
 
 blockio: blockio.c
+	cc $(CFLAGS) -o $@ $<
+
+const: const.c
 	cc $(CFLAGS) -o $@ $<
 
 collate: collate.c
