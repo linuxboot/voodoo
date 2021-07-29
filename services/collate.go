@@ -14,8 +14,6 @@ type Collate struct {
 }
 
 func init() {
-	// let's not register this idiot service, it may not be needed.
-	return
 	RegisterGUIDCreator("1D85CD7F-F43D-11D2-9A0C-0090273FC14D", NewCollate)
 }
 
