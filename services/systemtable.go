@@ -24,6 +24,8 @@ func init() {
 
 // NewSystemtable returns a Systemtable Service
 // This must be the FIRST New called for a service.
+// The system table is a kind of "root" of UEFI services, with pointers
+// to boot, runtime, and other core services.
 func NewSystemtable(tab []byte, u ServPtr) (Service, error) {
 	var st = &SystemTable{up: u, u: u.Base()}
 
