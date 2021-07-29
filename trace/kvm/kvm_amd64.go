@@ -1100,6 +1100,7 @@ func (t *Tracee) readInfo() error {
 		}
 		n, _ := stype[x.Stype]
 		Debug("Shutdown: %s [%#x] flags %#x", n, x.Stype, x.Flags)
+		Debug("Shutdown: m[%#x] is %#x", x.Flags, t.cpu.m[0x0118:0x0118+16])
 		sig.Addr = r.Rip
 	case ExitIntr:
 		r, s, err := t.getRegs()

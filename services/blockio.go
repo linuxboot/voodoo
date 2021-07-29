@@ -44,7 +44,7 @@ func NewBlockIO(tab []byte, u ServPtr) (Service, error) {
 			r = uint64(media)
 		}
 		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
-		Debug("Install %#x at off %#x", r, x)
+		Debug("blockio: Install %#x at off %#x", r, x)
 	}
 
 	var b = &bytes.Buffer{}
@@ -62,13 +62,8 @@ func NewBlockIO(tab []byte, u ServPtr) (Service, error) {
 		return nil, fmt.Errorf("Can't encode memory: %v", err)
 	}
 
-	// I'm doing it this way b/c I don't quite recall the common way to do it.
-	// And it's in fact not always clear what's best yet.
-	// In early days, I thought to do the struct deref in RunDXERun (running
-	// under ptrace! Easy!). Now it makes more sense, for data structures,
-	// to just put it there and let the bootloader access it. So this
-	// is a change from how it was done before.
 	Debug("Install mediatable(%#x) at off %#x", b, media)
+
 	return &BlockIO{u: u.Base(), up: u, media: ServPtr(media)}, nil
 }
 
