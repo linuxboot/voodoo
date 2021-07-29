@@ -132,7 +132,9 @@ func (r *Boot) Call(f *Fault) error {
 		d, ok := dispatches[ServBase(g.String())]
 		Debug("LocateHandle: GUID %s %v ok? %v", g, d, ok)
 		if !ok {
-			log.Panicf("Can't happen: no base for %s", g)
+			// If it's not there, we can just return with on error, andno handles.
+			log.Printf("no base for %s", g)
+			return nil
 		}
 		Debug("Writing Service %v base %#x to %#x", d, uint64(d.up), f.Args[4])
 		var bb [8]byte
