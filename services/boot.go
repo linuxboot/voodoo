@@ -132,8 +132,9 @@ func (r *Boot) Call(f *Fault) error {
 		d, ok := dispatches[ServBase(g.String())]
 		Debug("LocateHandle: GUID %s %v ok? %v", g, d, ok)
 		if !ok {
-			// If it's not there, we can just return with on error, andno handles.
+			// If it's not there, we can just return with no error and no handles.
 			log.Printf("no base for %s", g)
+			f.Regs.Rax = uefi.EFI_NOT_FOUND
 			return nil
 		}
 		Debug("Writing Service %v base %#x to %#x", d, uint64(d.up), f.Args[4])
@@ -161,7 +162,8 @@ func (r *Boot) Call(f *Fault) error {
 		d, ok := dispatches[ServBase(g.String())]
 		Debug("HandleProtocol: GUID %s %v ok? %v", g, d, ok)
 		if !ok {
-			return fmt.Errorf("Can't happen: no base for %s", g)
+			f.Regs.Rax = uefi.EFI_NOT_FOUND
+			return nil
 		}
 		var bb [8]byte
 		Debug("Address is %#x", d.up)
@@ -195,8 +197,10 @@ func (r *Boot) Call(f *Fault) error {
 		Debug("WaitForEvent: %#x", f.Args)
 		// Just pretend it worked.
 		return nil
-	// This one is a serious shitshow.
 	case table.OpenProtocol:
+		// This one is a serious shitshow.
+		// it's a mess b/c UEFI is a mess.
+		// It's a pretty minimal implementation.
 		//EFI_STATUS
 		//(EFIAPI * EFI_OPEN_PROTOCOL)(
 		//  IN EFI_HANDLE  Handle,
@@ -213,7 +217,21 @@ func (r *Boot) Call(f *Fault) error {
 			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
 		}
 		Debug("OpenProtocol: GUID %s", g)
-		Debug("OpenProtocol: whatever, assume success")
+		d, ok := dispatches[ServBase(g.String())]
+		Debug("Openrotocol: GUID %s %v ok? %v", g, d, ok)
+		if !ok {
+			f.Regs.Rax = uefi.EFI_NOT_FOUND
+			return nil
+		}
+		var bb [8]byte
+		Debug("Address is %#x", d.up)
+		binary.LittleEndian.PutUint64(bb[:], uint64(d.up))
+		if f.Args[2] != 0 {
+			if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
+				return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[2], err)
+			}
+		}
+		Debug("OpenProtocol: done")
 	case table.LocateProtocol:
 		// Status = gBS->LocateProtocol (GUID,NULL,(VOID **)&ptr);
 		f.Args = trace.Args(f.Proc, f.Regs, 3)
