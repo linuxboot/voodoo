@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/binary"
 	"log"
 
 	"github.com/linuxboot/voodoo/table"
@@ -18,7 +19,17 @@ func init() {
 }
 
 // NewCollate returns a Collate Service
-func NewCollate(b []byte, u ServPtr) (Service, error) {
+func NewCollate(tab []byte, u ServPtr) (Service, error) {
+	Debug("New Collate ...")
+	base := int(u) & 0xffffff
+
+	for p := range table.CollateServicesNames {
+		x := base + int(p)
+		r := uint64(p) + 0xff400000 + uint64(base)
+		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
+		Debug("collate: Install %v %#x at off %#x", p, r, x)
+	}
+
 	return &Collate{u: u.Base(), up: u}, nil
 }
 
