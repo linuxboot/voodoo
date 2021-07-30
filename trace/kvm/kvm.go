@@ -63,6 +63,10 @@ type Tracee struct {
 	// understand it.
 	info unix.SignalfdSiginfo
 	// UEFI protocol tables
+	// These consist of the structs for a given service. Some of these have
+	// pointers which represent function calls to UEFI; pointers to data;
+	// and data. The function pointers point to a hlt;ret instruction pair
+	// as shown below.
 	tab []byte
 }
 

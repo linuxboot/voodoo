@@ -1092,7 +1092,7 @@ func (t *Tracee) readInfo() error {
 			log.Panicf("Read in run failed -- can't happen")
 		}
 		sig.Addr = x.Addr
-		Debug("ExitMMiO: %s", x.String())
+		log.Panicf("ExitMMiO: %s", x.String())
 	case ExitShutdown:
 		var x shutdown
 		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {
@@ -1100,7 +1100,7 @@ func (t *Tracee) readInfo() error {
 		}
 		n, _ := stype[x.Stype]
 		Debug("Shutdown: %s [%#x] flags %#x", n, x.Stype, x.Flags)
-		Debug("Shutdown: m[%#x] is %#x", x.Flags, t.cpu.m[0x0118:0x0118+16])
+		Debug("Shutdown: m[%#x] is %#x", x.Flags, t.tab[0x460000:0x460000+0x1000])
 		sig.Addr = r.Rip
 	case ExitIntr:
 		r, s, err := t.getRegs()
