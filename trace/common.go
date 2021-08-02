@@ -397,16 +397,16 @@ func Inst(t Trace) (*x86asm.Inst, *syscall.PtraceRegs, string, error) {
 	pc := r.Rip
 	sp := r.Rsp
 	Debug("Inst: pc %#x, sp %#x", pc, sp)
-		cpc, err := t.ReadWord(uintptr(sp))
-		if err != nil {
-			return nil, nil, "", fmt.Errorf("Inst:ReadWord at %#x::%v", sp, err)
-		}
-		Debug("cpc is %#x from sp", cpc)
-		cpc, err = t.ReadWord(uintptr(sp+8))
-		if err != nil {
-			return nil, nil, "", fmt.Errorf("Inst:ReadWord at %#x::%v", sp+8, err)
-		}
-		Debug("cpc is %#x from sp+8", cpc)
+	cpc, err := t.ReadWord(uintptr(sp))
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("Inst:ReadWord at %#x::%v", sp, err)
+	}
+	Debug("cpc is %#x from sp", cpc)
+	cpc, err = t.ReadWord(uintptr(sp + 8))
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("Inst:ReadWord at %#x::%v", sp+8, err)
+	}
+	Debug("cpc is %#x from sp+8", cpc)
 	// We maintain all the function pointers in non-addressable space for now.
 	// It is in the classic BIOS space.
 	if r.Rip > 0xff000000 {
