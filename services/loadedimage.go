@@ -1,8 +1,10 @@
 package services
 
 import (
+	"encoding/binary"
 	"log"
 
+	"github.com/linuxboot/voodoo/table"
 	"github.com/linuxboot/voodoo/uefi"
 )
 
@@ -19,7 +21,20 @@ func init() {
 }
 
 // NewLoadedImage returns a LoadedImage Service
-func NewLoadedImage(b []byte, u ServPtr) (Service, error) {
+func NewLoadedImage(tab []byte, u ServPtr) (Service, error) {
+	Debug("New LoadedImage ...")
+	base := int(u) & 0xffffff
+	for p := range table.LoadedImageTableNames {
+		x := base + int(p)
+		r := uint64(p) + 0xff400000 + uint64(base)
+		switch p {
+		}
+		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
+		Debug("LoadedImage: Install %#x at off %#x", r, x)
+	}
+
+	Debug("Install LoadedImage(%#x) at %#x", base)
+
 	return &LoadedImage{u: u.Base(), up: u}, nil
 }
 
