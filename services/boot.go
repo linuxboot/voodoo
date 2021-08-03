@@ -279,6 +279,73 @@ func (r *Boot) Call(f *Fault) error {
 
 // OpenProtocol implements service.OpenProtocol
 func (r *Boot) OpenProtocol(h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *dispatch, attr uintptr) error {
-	log.Panicf("here we are")
-	return fmt.Errorf("not yet")
+	// This is a really poor design.
+	// But it's an Interface, so it has to be great, right?
+	// It's hard to image that, in 1999, when this was implemented, there were so many good
+	// examples out there and we ended up with this.
+	ret := EFI_INVALID_PARAMETER
+	Debug("Boot OpenProtocol: handle %v, protocol handle %v, protocol GUID%v, ptr %#x, agent handle %v, controller handle %v, attr %#x", h, prot, g, ptr, ah, ch, attr)
+
+	// YES, the API really is one error for a lot of cases. The mind reels.
+
+	if h == nil {
+		Debug("Error: handle is nil")
+		return EFI_INVALID_PARAMETER
+	}
+
+	if prot == nil {
+		Debug("Error: protocol is nil")
+		return EFI_INVALID_PARAMETER
+	}
+	if ptr == nil && attr != EFI_OPEN_PROTOCOL_TEST_PROTOCOL {
+		Debug("ptr == nil && attr != %#x, it is %#x", EFI_OPEN_PROTOCOL_TEST_PROTOCOL, attr)
+		return EFI_INVALID_PARAMETER
+	}
+
+	switch attr {
+	case EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL:
+	case EFI_OPEN_PROTOCOL_GET_PROTOCOL:
+	case EFI_OPEN_PROTOCOL_TEST_PROTOCOL:
+	case EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER:
+		if controller_handle == handle {
+			return ret
+		}
+		/* Check that the controller handle is valid */
+		if !efi_search_obj(controller_handle) {
+			return ret
+		}
+		if !efi_search_obj(agent_handle) {
+			return ret
+		}
+
+		/* fall-through */
+	case EFI_OPEN_PROTOCOL_BY_DRIVER:
+	case EFI_OPEN_PROTOCOL_BY_DRIVER | EFI_OPEN_PROTOCOL_EXCLUSIVE:
+		/* Check that the controller handle is valid */
+		if !efi_search_obj(controller_handle) {
+			return ret
+		}
+		if !efi_search_obj(agent_handle) {
+			return ret
+		}
+		/* fall-through */
+	case EFI_OPEN_PROTOCOL_EXCLUSIVE:
+		/* Check that the agent handle is valid */
+		if !efi_search_obj(agent_handle) {
+			return ret
+		}
+
+	default:
+		return ret
+	}
+
+	r = efi_search_protocol(handle, protocol, &handler)
+	if r != EFI_SUCCESS {
+		return ret
+	}
+
+	ret = efi_protocol_open(handler, protocol_interface, agent_handle,
+		controller_handle, attributes)
+
+	return ret
 }
