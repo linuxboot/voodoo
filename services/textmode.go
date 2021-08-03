@@ -2,8 +2,10 @@ package services
 
 import (
 	"encoding/binary"
+	"fmt"
 	"log"
 
+	"github.com/linuxboot/fiano/pkg/guid"
 	"github.com/linuxboot/voodoo/table"
 )
 
@@ -55,4 +57,10 @@ func (t *TextMode) Ptr() ServPtr {
 func (t *TextMode) Call(f *Fault) error {
 	log.Panicf("No TextMode Calls allowed")
 	return nil
+}
+
+// OpenProtocol implements service.OpenProtocol
+func (t *TextMode) OpenProtocol(h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *dispatch, attr uintptr) error {
+	log.Panicf("here we are")
+	return fmt.Errorf("not yet")
 }

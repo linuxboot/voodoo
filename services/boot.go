@@ -217,20 +217,29 @@ func (r *Boot) Call(f *Fault) error {
 			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
 		}
 		Debug("OpenProtocol: GUID %s", g)
-		d, ok := dispatches[ServBase(g.String())]
-		Debug("Openrotocol: GUID %s %v ok? %v", g, d, ok)
-		if !ok {
-			f.Regs.Rax = uefi.EFI_NOT_FOUND
-			return nil
+		// these are allowed to be nil
+		h := dispatches[ServBase(f.Args[0])]
+		prot := dispatches[ServBase(g.String())]
+		ptr := f.Args[2]
+		ah := dispatches[ServBase(f.Args[3])]
+		ch := dispatches[ServBase(f.Args[4])]
+		attr := f.Args[5]
+		if err := r.OpenProtocol(h, prot, g, ptr, ah, ch, attr); err != nil {
+			return err
 		}
-		var bb [8]byte
-		Debug("Address is %#x", d.up)
-		binary.LittleEndian.PutUint64(bb[:], uint64(d.up))
-		if f.Args[2] != 0 {
-			if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
-				return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[2], err)
-			}
-		}
+		// Debug("Openrotocol: GUID %s %v ok? %v", g, d, ok)
+		// if !ok {
+		// 	f.Regs.Rax = uefi.EFI_NOT_FOUND
+		// 	return nil
+		// }
+		// var bb [8]byte
+		// Debug("Address is %#x", d.up)
+		// binary.LittleEndian.PutUint64(bb[:], uint64(d.up))
+		// if f.Args[2] != 0 {
+		// 	if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
+		// 		return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[2], err)
+		// 	}
+		// }
 		Debug("OpenProtocol: done")
 	case table.LocateProtocol:
 		// Status = gBS->LocateProtocol (GUID,NULL,(VOID **)&ptr);
@@ -266,4 +275,10 @@ func (r *Boot) Call(f *Fault) error {
 		f.Regs.Rax = uefi.EFI_UNSUPPORTED
 	}
 	return nil
+}
+
+// OpenProtocol implements service.OpenProtocol
+func (r *Boot) OpenProtocol(h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *dispatch, attr uintptr) error {
+	log.Panicf("here we are")
+	return fmt.Errorf("not yet")
 }

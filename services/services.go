@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"sync"
+
+	"github.com/linuxboot/fiano/pkg/guid"
 )
 
 const (
@@ -79,6 +81,7 @@ type Service interface {
 	Call(f *Fault) error
 	Base() ServBase
 	Ptr() ServPtr
+	OpenProtocol(h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *dispatch, attr uintptr) error
 }
 
 // serviceCreator returns a service. The parameter, u,

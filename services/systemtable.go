@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/linuxboot/fiano/pkg/guid"
 	"github.com/linuxboot/voodoo/table"
 )
 
@@ -78,4 +79,10 @@ func (r *SystemTable) Call(f *Fault) error {
 	Debug("SystemTable Call: %v(%#x), arg type %T, args %v", table.SystemTableNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
 	log.Panic("unsupported SystemTable Call")
 	return fmt.Errorf("SystemTable: No such offset %#x", op)
+}
+
+// OpenProtocol implements service.OpenProtocol
+func (s *SystemTable) OpenProtocol(h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *dispatch, attr uintptr) error {
+	log.Panicf("here we are")
+	return fmt.Errorf("not yet")
 }

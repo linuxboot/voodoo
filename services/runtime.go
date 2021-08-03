@@ -85,3 +85,9 @@ func (r *Runtime) Call(f *Fault) error {
 	}
 	return nil
 }
+
+// OpenProtocol implements service.OpenProtocol
+func (r *Runtime) OpenProtocol(h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *dispatch, attr uintptr) error {
+	log.Panicf("here we are")
+	return fmt.Errorf("not yet")
+}

@@ -2,8 +2,10 @@ package services
 
 import (
 	"encoding/binary"
+	"fmt"
 	"log"
 
+	"github.com/linuxboot/fiano/pkg/guid"
 	"github.com/linuxboot/voodoo/table"
 	"github.com/linuxboot/voodoo/uefi"
 )
@@ -54,4 +56,10 @@ func (t *Collate) Call(f *Fault) error {
 		f.Regs.Rax = uefi.EFI_UNSUPPORTED
 	}
 	return nil
+}
+
+// OpenProtocol implements service.OpenProtocol
+func (c *Collate) OpenProtocol(h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *dispatch, attr uintptr) error {
+	log.Panicf("here we are")
+	return fmt.Errorf("not yet")
 }

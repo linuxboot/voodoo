@@ -2,8 +2,10 @@ package services
 
 import (
 	"encoding/binary"
+	"fmt"
 	"log"
 
+	"github.com/linuxboot/fiano/pkg/guid"
 	"github.com/linuxboot/voodoo/table"
 	"github.com/linuxboot/voodoo/uefi"
 )
@@ -32,10 +34,10 @@ func NewLoadedImage(tab []byte, u ServPtr) (Service, error) {
 	// see 3.9 UEFI device paths
 	// we'll marshall later when we know what to do.
 	// anyway ...
-	// oh, and, good news, GNUEFI and the docs disagree on the 
+	// oh, and, good news, GNUEFI and the docs disagree on the
 	// end type. UEFI is hopeless.
 	fp := []byte{0x7f, // hardware
-		0xff, //the last one. 0xff in the docs. 
+		0xff, //the last one. 0xff in the docs.
 		2, 0, // LE length
 		0, 0, // dev, function.
 	}
@@ -103,4 +105,10 @@ func (l *LoadedImage) Call(f *Fault) error {
 		f.Regs.Rax = uefi.EFI_UNSUPPORTED
 	}
 	return nil
+}
+
+// OpenProtocol implements service.OpenProtocol
+func (l *LoadedImage) OpenProtocol(h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *dispatch, attr uintptr) error {
+	log.Panicf("here we are")
+	return fmt.Errorf("not yet")
 }
