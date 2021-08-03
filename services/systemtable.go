@@ -29,7 +29,7 @@ func init() {
 // to boot, runtime, and other core services.
 func NewSystemtable(tab []byte, u ServPtr) (Service, error) {
 	var st = &SystemTable{up: u, u: u.Base()}
-
+	Debug("NewSystemTable: %#x", u)
 	for _, t := range []struct {
 		n  string
 		st uint64

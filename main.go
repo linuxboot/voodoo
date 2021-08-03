@@ -111,7 +111,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	trace.Params(r, uintptr(services.ImageHandle), uintptr(st))
+	trace.Params(r, uintptr(services.ImageHandleBase), uintptr(st))
 	// bogus params to see if we can manages a segv
 	//r.Rcx = uint64(imageHandle)
 	//r.Rdx = uint64(systemTable)

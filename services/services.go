@@ -15,8 +15,8 @@ const (
 	// the last 16M
 	// Pointers for functions point to ImageHandle+4M.
 	// Placed there are functions that for now are poisoned with hlt.
-	ImageHandle = ServPtr(0xff000000)
-	servBaseFmt = "SB%#x"
+	ImageHandleBase = ServPtr(0xff000000)
+	servBaseFmt     = "SB%#x"
 )
 
 // Func is a function selector.
@@ -27,7 +27,7 @@ type ServPtr uint32
 
 var (
 	// memBase is the default allocation base for UEFI structs.
-	memBase = ImageHandle + allocAmt
+	memBase = ImageHandleBase + allocAmt
 	// AllocBase is the allocation base for DXE structs.
 	allocBase uint32
 	// resource allocation mutex.
@@ -36,11 +36,12 @@ var (
 	Debug = func(string, ...interface{}) {}
 )
 
-func bumpAllocate(amt uintptr) ServPtr {
+func bumpAllocate(amt uintptr, who string) ServPtr {
 	malloc.Lock()
 	defer malloc.Unlock()
 	m := memBase
 	memBase += ServPtr(amt)
+	Debug("bumpAllocate for %s: %#x@%#x", who, amt, m)
 	return m
 }
 
@@ -130,16 +131,16 @@ func RegisterGUIDCreator(n string, s serviceCreator) {
 // on both a service name and a guid. Why, I have no idea.
 func Base(tab []byte, n string) (ServPtr, error) {
 	s, ok := creators[n]
-	Debug("Base for %s: %v, %v", n, s, ok)
+	Debug("services.Base for %s: %v, %v", n, s, ok)
 	if !ok {
 		return 0, fmt.Errorf("Service %q does not exist", n)
 	}
 	if d, ok := dispatches[ServBase(n)]; ok {
 		log.Panicf(" %s is in use by %v", n, d)
 	}
-	base := bumpAllocate(uintptr(allocAmt))
+	base := bumpAllocate(uintptr(allocAmt), n)
 	b := base.Base()
-	Debug("Base: base is %#x %s", uint32(base), b)
+	Debug("services.Base: base for %v is %#x %s", n, uint32(base), b)
 	if d, ok := dispatches[b]; ok {
 		log.Panicf("Base %v for %s is in use by %v", b, n, d)
 	}
