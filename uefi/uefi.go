@@ -109,16 +109,17 @@ var (
 )
 
 // EFIError implements error
-type EFIError uintptr
+type EFIError struct {
+	Err error
+	Val uintptr
+}
 
 func (e EFIError) Error() string {
-	if 0 <= int(e) && int(e) < len(errors) {
-		s := errors[e]
-		if s != "" {
-			return s
-		}
+	s := strconv.Itoa(int(e.Val))
+	if 0 <= int(e.Val) && int(e.Val) < len(errors) {
+		s = errors[e.Val]
 	}
-	return "EFIERR " + strconv.Itoa(int(e))
+	return "EFIERR " + e.Err.Error() + s
 }
 
 func (e EFIError) Is(target error) bool {
@@ -137,5 +138,15 @@ func ReadVariable(n string, g guid.GUID) (*EFIVariable, error) {
 
 // EfiErrUint returns a uintptr for an EFI Error
 func EFIErr(e EFIError) uintptr {
-	return uintptr(1<<63) | uintptr(e)
+	return uintptr(1<<63) | uintptr(e.Val)
 }
+
+// oh, barf.
+const (
+	EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL  = 0x00000001
+	EFI_OPEN_PROTOCOL_GET_PROTOCOL        = 0x00000002
+	EFI_OPEN_PROTOCOL_TEST_PROTOCOL       = 0x00000004
+	EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER = 0x00000008
+	EFI_OPEN_PROTOCOL_BY_DRIVER           = 0x00000010
+	EFI_OPEN_PROTOCOL_EXCLUSIVE           = 0x00000020
+)
