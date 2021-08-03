@@ -218,19 +218,22 @@ func (r *Boot) Call(f *Fault) error {
 		}
 		Debug("OpenProtocol: GUID %s", g)
 		// these are allowed to be nil
-		h := dispatches[ServBase(f.Args[0])]
+		p := ServPtr(f.Args[0])
+		h := dispatches[p.Base()]
 		prot := dispatches[ServBase(g.String())]
 		ptr := f.Args[2]
-		ah := dispatches[ServBase(f.Args[3])]
-		ch := dispatches[ServBase(f.Args[4])]
+		p = ServPtr(f.Args[3])
+		ah := dispatches[p.Base()]
+		p = ServPtr(f.Args[4])
+		ch := dispatches[p.Base()]
 		attr := f.Args[5]
 		if err := r.OpenProtocol(h, prot, g, ptr, ah, ch, attr); err != nil {
+			Debug("it's back! ")
+			Debug("Returned %v", err)
 			return err
 		}
-		// Debug("Openrotocol: GUID %s %v ok? %v", g, d, ok)
-		// if !ok {
-		// 	f.Regs.Rax = uefi.EFI_NOT_FOUND
-		// 	return nil
+		 	f.Regs.Rax = uefi.EFI_NOT_FOUND
+		 	return nil
 		// }
 		// var bb [8]byte
 		// Debug("Address is %#x", d.up)
@@ -305,13 +308,11 @@ func (r *Boot) OpenProtocol(h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch 
 		return ret
 	}
 
+	Debug("on to the case")
 	switch attr {
-	case uefi.EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL:
-	case uefi.EFI_OPEN_PROTOCOL_GET_PROTOCOL:
-	case uefi.EFI_OPEN_PROTOCOL_TEST_PROTOCOL:
-	case uefi.EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER:
-		log.Panicf("case 1")
-		if ch == h {
+	case uefi.EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL, uefi.EFI_OPEN_PROTOCOL_GET_PROTOCOL, uefi.EFI_OPEN_PROTOCOL_TEST_PROTOCOL, uefi.EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER:
+		Debug("case 1 ...")
+		if ch == h || ch != nil || ah != nil{
 			return nil
 		}
 		// /* Check that the controller handle is valid */
@@ -321,8 +322,7 @@ func (r *Boot) OpenProtocol(h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch 
 		// if !efi_search_obj(agent_handle) {
 		// 	return ret
 		// }
-	case uefi.EFI_OPEN_PROTOCOL_BY_DRIVER:
-	case uefi.EFI_OPEN_PROTOCOL_BY_DRIVER | uefi.EFI_OPEN_PROTOCOL_EXCLUSIVE:
+	case uefi.EFI_OPEN_PROTOCOL_BY_DRIVER, uefi.EFI_OPEN_PROTOCOL_BY_DRIVER | uefi.EFI_OPEN_PROTOCOL_EXCLUSIVE:
 		log.Panicf("case 2")
 		/* Check that the controller handle is valid */
 		// if !efi_search_obj(controller_handle) {
@@ -332,13 +332,14 @@ func (r *Boot) OpenProtocol(h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch 
 		// 	return ret
 		// }
 	case uefi.EFI_OPEN_PROTOCOL_EXCLUSIVE:
-		log.Panicf("case 2")
+		log.Panicf("case 3")
 		/* Check that the agent handle is valid */
 		//if !efi_search_obj(agent_handle) {
 		//			return ret
 		//		}
 
 	default:
+		log.Panicf("case 4")
 		return ret
 	}
 
@@ -350,5 +351,6 @@ func (r *Boot) OpenProtocol(h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch 
 	// ret = efi_protocol_open(handler, protocol_interface, agent_handle,
 	// 	controller_handle, attributes)
 
+	Debug("Things went badly ... %v", ret)
 	return ret
 }

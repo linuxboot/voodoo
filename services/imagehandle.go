@@ -25,7 +25,7 @@ func init() {
 	b := base.Base()
 	i := &ImageHandle{up: base, u: b}
 	d := &dispatch{s: i, up: ServPtr(base)}
-	Debug("ImageHandleroot: Set up Dispatch for [%v,%v]: %s", b, "imagehandleroot", d)
+	log.Printf("ImageHandleroot: Set up Dispatch for [%v,%v]: %s", b, "imagehandleroot", d)
 	dispatches[b] = d
 	dispatches["imagehandleroot"] = d
 }

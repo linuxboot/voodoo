@@ -397,7 +397,7 @@ func (t *Tracee) WriteWord(address uintptr, word uint64) error {
 
 func (t *Tracee) Write(address uintptr, data []byte) error {
 	err := make(chan error, 1)
-	Debug("Write %#x %#x", address, data)
+	//Debug("Write %#x %#x", address, data)
 	if t.do(func() {
 		r := t.regions[0]
 		last := r.gpa + uint64(len(r.data))

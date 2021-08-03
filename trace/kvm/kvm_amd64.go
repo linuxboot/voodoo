@@ -902,7 +902,7 @@ func (t *Tracee) archInit() error {
 		}
 		copy(high64k[int(i*8)+0x1000:], []byte{0xe3, 0x0, 0, i * 0x40, 0, 0, 0, 0})
 	}
-	if true {
+	if false {
 		Debug("Page tables: %s", hex.Dump(high64k[:0x2000]))
 	}
 	if err := t.mem([]byte(high64k[:]), 0xffff0000); err != nil {
@@ -1100,7 +1100,7 @@ func (t *Tracee) readInfo() error {
 		}
 		n, _ := stype[x.Stype]
 		Debug("Shutdown: %s [%#x] flags %#x", n, x.Stype, x.Flags)
-		Debug("Shutdown: m[%#x] is %#x", x.Flags, t.tab[0x460000:0x460000+0x1000])
+		//Debug("Shutdown: m[%#x] is %#x", x.Flags, t.tab[0x460000:0x460000+0x1000])
 		sig.Addr = r.Rip
 	case ExitIntr:
 		r, s, err := t.getRegs()
