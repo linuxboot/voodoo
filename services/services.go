@@ -27,7 +27,7 @@ type ServPtr uint32
 
 var (
 	// memBase is the default allocation base for UEFI structs.
-	memBase = ImageHandleBase + allocAmt
+	memBase = ImageHandleBase
 	// AllocBase is the allocation base for DXE structs.
 	allocBase uint32
 	// resource allocation mutex.
@@ -82,7 +82,7 @@ type Service interface {
 	Call(f *Fault) error
 	Base() ServBase
 	Ptr() ServPtr
-	OpenProtocol(h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *dispatch, attr uintptr) error
+	OpenProtocol(f *Fault, h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *dispatch, attr uintptr) error
 }
 
 // serviceCreator returns a service. The parameter, u,

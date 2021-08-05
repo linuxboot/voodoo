@@ -227,13 +227,13 @@ func (r *Boot) Call(f *Fault) error {
 		p = ServPtr(f.Args[4])
 		ch := dispatches[p.Base()]
 		attr := f.Args[5]
-		if err := r.OpenProtocol(h, prot, g, ptr, ah, ch, attr); err != nil {
+		if err := r.OpenProtocol(f, h, prot, g, ptr, ah, ch, attr); err != nil {
 			Debug("it's back! ")
 			Debug("Returned %v", err)
 			return err
 		}
-		 	f.Regs.Rax = uefi.EFI_NOT_FOUND
-		 	return nil
+		f.Regs.Rax = uefi.EFI_NOT_FOUND
+		return nil
 		// }
 		// var bb [8]byte
 		// Debug("Address is %#x", d.up)
@@ -281,7 +281,7 @@ func (r *Boot) Call(f *Fault) error {
 }
 
 // OpenProtocol implements service.OpenProtocol
-func (r *Boot) OpenProtocol(h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *dispatch, attr uintptr) error {
+func (r *Boot) OpenProtocol(f *Fault, h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *dispatch, attr uintptr) error {
 	// This is a really poor design.
 	// But it's an Interface, so it has to be great, right?
 	// It's hard to image that, in 1999, when this was implemented, there were so many good
@@ -312,7 +312,16 @@ func (r *Boot) OpenProtocol(h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch 
 	switch attr {
 	case uefi.EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL, uefi.EFI_OPEN_PROTOCOL_GET_PROTOCOL, uefi.EFI_OPEN_PROTOCOL_TEST_PROTOCOL, uefi.EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER:
 		Debug("case 1 ...")
-		if ch == h || ch != nil || ah != nil{
+		if ch == h || ch != nil || ah != nil {
+			Debug("SAME!")
+			if ptr != 0 {
+				var bb [8]byte
+				Debug("Address is %#x", ptr)
+				binary.LittleEndian.PutUint64(bb[:], uint64(h.up) + 0x1000)
+				if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
+					return fmt.Errorf("Can't write %v to %#x: %v", h, ptr, err)
+				}
+			}
 			return nil
 		}
 		// /* Check that the controller handle is valid */

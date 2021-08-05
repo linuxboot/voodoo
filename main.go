@@ -106,12 +106,19 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// LoadedImage has to be the very first table.
+	li, err := services.Base(v.Tab(), "loadedimage")
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	st, err := services.Base(v.Tab(), "systemtable")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	trace.Params(r, uintptr(services.ImageHandleBase), uintptr(st))
+	Debug("params are %#08x %#08x", li, st)
+	trace.Params(r, uintptr(li), uintptr(st))
 	// bogus params to see if we can manages a segv
 	//r.Rcx = uint64(imageHandle)
 	//r.Rdx = uint64(systemTable)

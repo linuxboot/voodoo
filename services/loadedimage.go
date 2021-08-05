@@ -10,6 +10,8 @@ import (
 	"github.com/linuxboot/voodoo/uefi"
 )
 
+// This protocol should be loaded FIRST.
+// It should be at the base, currently 0xff000000
 const LoadedImageProtocol = "5B1B31A1-9562-11D2-8E3F-00A0C969723B"
 
 // LoadedImage implements Service
@@ -19,14 +21,15 @@ type LoadedImage struct {
 }
 
 func init() {
-	RegisterGUIDCreator(LoadedImageProtocol, NewLoadedImage)
+	// We will call this directly so that it is first.
+	//RegisterGUIDCreator(LoadedImageProtocol, NewLoadedImage)
+	RegisterCreator("loadedimage", NewLoadedImage)
 }
 
 // NewLoadedImage returns a LoadedImage Service
 func NewLoadedImage(tab []byte, u ServPtr) (Service, error) {
 	Debug("New LoadedImage ...")
 	base := int(u) & 0xffffff
-
 	// Idiot code usually can't handled a NULL pointer.
 	// Since we own this 64k region we can just point at the next page
 	// and call it a day.
@@ -34,7 +37,7 @@ func NewLoadedImage(tab []byte, u ServPtr) (Service, error) {
 	// see 3.9 UEFI device paths
 	// we'll marshall later when we know what to do.
 	// anyway ...
-	// oh, and, good news, GNUEFI and the docs disagree on the
+	// of *Fault, h, and, good news, GNUEFI and the docs disagree on the
 	// end type. UEFI is hopeless.
 	fp := []byte{0x7f, // hardware
 		0xff, //the last one. 0xff in the docs.
@@ -108,7 +111,7 @@ func (l *LoadedImage) Call(f *Fault) error {
 }
 
 // OpenProtocol implements service.OpenProtocol
-func (l *LoadedImage) OpenProtocol(h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *dispatch, attr uintptr) error {
+func (l *LoadedImage) OpenProtocol(f *Fault, h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *dispatch, attr uintptr) error {
 	log.Panicf("here we are")
 	return fmt.Errorf("not yet")
 }

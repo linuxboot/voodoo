@@ -18,9 +18,11 @@ type ImageHandle struct {
 
 var _ Service = &ImageHandle{}
 
+// this whole thing seems to have been a mistake.
 func init() {
 	// No need to register the creator; imagehandle is special
 	// and is created at build time.
+	return
 	base := ImageHandleBase
 	b := base.Base()
 	i := &ImageHandle{up: base, u: b}
@@ -47,7 +49,7 @@ func (r *ImageHandle) Call(f *Fault) error {
 }
 
 // OpenProtocol implements service.OpenProtocol
-func (s *ImageHandle) OpenProtocol(h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *dispatch, attr uintptr) error {
+func (s *ImageHandle) OpenProtocol(f *Fault, h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *dispatch, attr uintptr) error {
 	log.Panicf("here we are")
 	return fmt.Errorf("not yet")
 }
