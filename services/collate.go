@@ -35,6 +35,11 @@ func NewCollate(tab []byte, u ServPtr) (Service, error) {
 	return &Collate{u: u.Base(), up: u}, nil
 }
 
+// Aliases implements Aliases
+func (c *Collate) Aliases() []string {
+	return nil
+}
+
 // Base implements service.Base
 func (t *Collate) Base() ServBase {
 	return t.u

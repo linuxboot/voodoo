@@ -35,6 +35,11 @@ func NewRuntime(tab []byte, u ServPtr) (Service, error) {
 	return &Runtime{u: u.Base(), up: u}, nil
 }
 
+// Aliases implements Aliases
+func (r *Runtime) Aliases() []string {
+	return nil
+}
+
 // Base implements service.Base
 func (r *Runtime) Base() ServBase {
 	return r.u

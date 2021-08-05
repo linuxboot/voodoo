@@ -41,6 +41,11 @@ func NewTextMode(tab []byte, u ServPtr) (Service, error) {
 	return &TextMode{u: u.Base(), up: u}, nil
 }
 
+// Aliases implements Aliases
+func (t *TextMode) Aliases() []string {
+	return nil
+}
+
 // Base implements service.Base
 func (t *TextMode) Base() ServBase {
 	return t.u

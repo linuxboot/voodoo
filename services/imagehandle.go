@@ -32,6 +32,11 @@ func init() {
 	dispatches["imagehandleroot"] = d
 }
 
+// Aliases implements Aliases
+func (s *ImageHandle) Aliases() []string {
+	return nil
+}
+
 // Base implements service.Base
 func (s *ImageHandle) Base() ServBase {
 	return s.u

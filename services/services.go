@@ -83,6 +83,7 @@ type Service interface {
 	Base() ServBase
 	Ptr() ServPtr
 	OpenProtocol(f *Fault, h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *dispatch, attr uintptr) error
+	Aliases() []string
 }
 
 // serviceCreator returns a service. The parameter, u,
@@ -152,6 +153,9 @@ func Base(tab []byte, n string) (ServPtr, error) {
 	Debug("Set up Dispatch for [%v,%v]: %s", b, n, d)
 	dispatches[b] = d
 	dispatches[ServBase(n)] = d
+	for _, a := range srv.Aliases() {
+		dispatches[ServBase(a)] = d
+	}
 	return base, nil
 }
 

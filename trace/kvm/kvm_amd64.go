@@ -923,6 +923,7 @@ func (t *Tracee) archInit() error {
 		for i := 0; i < len(ffun); i += 8 {
 			// bogus pointer but the low 16 bits are hlt; retq
 			bogus := uint64(0x10000c3f4)
+			bogus = uint64(0xc3f4) | uint64(0xdeadbe<<36) | uint64(i<<16)
 			binary.LittleEndian.PutUint64(ffun[i:], bogus)
 		}
 	}
@@ -1085,7 +1086,7 @@ func (t *Tracee) readInfo() error {
 			log.Panicf("Read in run failed -- can't happen")
 		}
 		sig.Addr = x.Addr
-		Debug("ExitIO: %s", x.String())
+		log.Panicf("ExitIO: %s", x.String())
 	case ExitMmio:
 		var x xmmio
 		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {

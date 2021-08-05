@@ -20,6 +20,8 @@ type LoadedImage struct {
 	up ServPtr
 }
 
+var aliases = []string{LoadedImageProtocol}
+
 func init() {
 	// We will call this directly so that it is first.
 	//RegisterGUIDCreator(LoadedImageProtocol, NewLoadedImage)
@@ -73,6 +75,11 @@ func NewLoadedImage(tab []byte, u ServPtr) (Service, error) {
 
 	// Write NULLs at the
 	return &LoadedImage{u: u.Base(), up: u}, nil
+}
+
+// Aliases implements Aliases
+func (l *LoadedImage) Aliases() []string {
+	return aliases
 }
 
 // Base implements service.Base

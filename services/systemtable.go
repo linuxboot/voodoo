@@ -63,6 +63,11 @@ func NewSystemtable(tab []byte, u ServPtr) (Service, error) {
 	return st, nil
 }
 
+// Aliases implements Aliases
+func (s *SystemTable) Aliases() []string {
+	return nil
+}
+
 // Base implements service.Base
 func (s *SystemTable) Base() ServBase {
 	return s.u

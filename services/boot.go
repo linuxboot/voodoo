@@ -44,6 +44,10 @@ func (r *Boot) SetFun(t trace.Trace) error {
 	return nil
 }
 
+func (r *Boot) Aliases() []string {
+	return nil
+}
+
 // Base implements service.Base
 func (r *Boot) Base() ServBase {
 	return r.u
@@ -272,6 +276,11 @@ func (r *Boot) Call(f *Fault) error {
 		Debug("SetWatchdogTimer: %#x", f.Args)
 		// Just pretend it worked.
 		return nil
+	case table.CloseProtocol:
+		f.Args = trace.Args(f.Proc, f.Regs, 4)
+		Debug("CloseProtocol: %#x", f.Args)
+		// Just pretend it worked.
+		return nil
 
 	default:
 		log.Panic("unsupported boot service")
@@ -316,8 +325,9 @@ func (r *Boot) OpenProtocol(f *Fault, h, prot *dispatch, g guid.GUID, ptr uintpt
 			Debug("SAME!")
 			if ptr != 0 {
 				var bb [8]byte
-				Debug("Address is %#x", ptr)
-				binary.LittleEndian.PutUint64(bb[:], uint64(h.up) + 0x1000)
+				val := uint64(h.up)
+				Debug("Address is %#x write %#x", ptr, val)
+				binary.LittleEndian.PutUint64(bb[:], val)
 				if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
 					return fmt.Errorf("Can't write %v to %#x: %v", h, ptr, err)
 				}

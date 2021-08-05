@@ -68,6 +68,10 @@ func NewBlockIO(tab []byte, u ServPtr) (Service, error) {
 	return &BlockIO{u: u.Base(), up: u, media: ServPtr(media)}, nil
 }
 
+func (t *BlockIO) Aliases() []string {
+	return nil
+}
+
 // Base implements service.Base
 func (t *BlockIO) Base() ServBase {
 	return t.u

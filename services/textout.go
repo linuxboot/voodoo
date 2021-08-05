@@ -45,6 +45,11 @@ func NewTextOut(tab []byte, u ServPtr) (Service, error) {
 	return &TextOut{u: u.Base(), up: u, t: tm.Base(), tup: tm}, nil
 }
 
+// Aliases implements Aliases
+func (t *TextOut) Aliases() []string {
+	return nil
+}
+
 // Base implements service.Base
 func (t *TextOut) Base() ServBase {
 	return t.u

@@ -11,6 +11,8 @@ import (
 	"github.com/linuxboot/voodoo/uefi"
 )
 
+const ConsoleSupportTest_SimpleTextInputExProtocolTest = "DD9E7534-7762-4698-8C14-F58517A625AA"
+
 // TextIn implements Service
 type TextIn struct {
 	u  ServBase
@@ -18,6 +20,8 @@ type TextIn struct {
 }
 
 var _ Service = &TextIn{}
+
+var tiAliases = []string{ConsoleSupportTest_SimpleTextInputExProtocolTest}
 
 func init() {
 	RegisterCreator("textin", NewTextIn)
@@ -33,8 +37,12 @@ func NewTextIn(tab []byte, u ServPtr) (Service, error) {
 		Debug("Install %#x at off %#x", r, x)
 		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
 	}
-
 	return &TextIn{u: ServBase(u.String()), up: u}, nil
+}
+
+// Aliases implements Aliases
+func (t *TextIn) Aliases() []string {
+	return tiAliases
 }
 
 // Base implements service.Base
