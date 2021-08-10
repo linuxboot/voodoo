@@ -142,6 +142,8 @@ func EFIErr(e EFIError) uintptr {
 }
 
 // oh, barf.
+// Did someone just not get the memo about using more than a single bit and
+// in particular not using 1 to mean something. Guess so.
 const (
 	EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL  = 0x00000001
 	EFI_OPEN_PROTOCOL_GET_PROTOCOL        = 0x00000002
@@ -150,3 +152,19 @@ const (
 	EFI_OPEN_PROTOCOL_BY_DRIVER           = 0x00000010
 	EFI_OPEN_PROTOCOL_EXCLUSIVE           = 0x00000020
 )
+
+// from u-boot:
+// UEFI has a poor man's OO model where one "object" can be polymorphic and have
+// multiple different protocols (classes) attached to it.
+// The hits just keep coming.
+// But we have a secret weapon.
+// We are presenting the program with abstract devices, such as a ConIn or BlockIO.
+// The "polymorphism" is handled in the RunDXERun or in Linux. Given that, the mapping
+// of a handle to multiple protocols doesn't matter. Further, at ProtocolOpen time,
+// it will suffice to know the Protocol GUID, since the mapping of handle->Protocol GUID is 1:1:,
+// and BOTH the handle and GUID are presented each time.
+// SO:
+// Handles pointers will point to themselves, so deref is safe; the value can be ignored
+// since only the Protocol GUID matters, as this polymorphism nonsense can be handled
+// in other ways.
+// Having a real kernel, instead of UEFI runtime, has benefits.

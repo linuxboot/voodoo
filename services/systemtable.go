@@ -29,10 +29,22 @@ func init() {
 // to boot, runtime, and other core services.
 func NewSystemtable(tab []byte, u ServPtr) (Service, error) {
 	var st = &SystemTable{up: u, u: u.Base()}
+	x := index(u)
 	Debug("NewSystemTable: %#x", u)
+	// We need to install pointers into the system table.
+	// This loop installs, first, each service, via the Base function.
+	// Base allocates address space ranges, 64K-aligned and 64K-sized.
+	// The first 4k page is 64-bit words, and each word is one of two things:
+	// o "poison" value with low 2 bytes being a hlt;ret
+	//   This allows the VMM to handle services by managing VM halt exits
+	// o Pointer to a struct in memory
+	//   VMM does not handle MMIO exits. So these pointers must be valid.
+	// In some cases we need to add handles, as the UEFI forum missed lots
+	// of memos on how to do OS design and have this weird polymorphic
+	// handle thing.
 	for _, t := range []struct {
-		n  string
-		st uint64
+		n                 string
+		systemTableOffset uint64
 	}{
 		{"F42F7782-012E-4C12-9956-49F94304F721", table.ConOut},
 		{"textin", table.ConIn},
@@ -43,13 +55,15 @@ func NewSystemtable(tab []byte, u ServPtr) (Service, error) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		table.SystemTableNames[t.st].Val = uint64(r)
-		Debug("-----------> Install service %s ptr t.st %#x at %#x", t.n, t.st, uint32(r))
+		table.SystemTableNames[t.systemTableOffset].Val = uint64(r)
+		Debug("-----------> Install service %s ptr t.systemTableOffset %#x at %#x", t.n, t.systemTableOffset, uint32(r))
 		// r is the pointer. Set the pointer in the table.
 		// the pointer is ... well ...wtf. I don't know.
 		Debug("system table u is %#x", u)
-		Debug("Install %#x at off %#x", r, t.st+0x10000)
-		binary.LittleEndian.PutUint64(tab[t.st+0x10000:], uint64(r))
+		// Recall that systemTableOffset is the offset of this element
+		// of the struct.
+		Debug("Install %#x at off %#x", r, t.systemTableOffset+uint64(x))
+		binary.LittleEndian.PutUint64(tab[t.systemTableOffset+uint64(x):], uint64(r))
 	}
 
 	// Now set up all the GUIDServices
@@ -57,6 +71,16 @@ func NewSystemtable(tab []byte, u ServPtr) (Service, error) {
 		if _, err := Base(tab, t); err != nil {
 			log.Fatal(err)
 		}
+	}
+	// Just set the handles to whatever.
+	// Per the discussion in uefi/uefi.go,
+	// Handles just point to themselves, since
+	// we don't need the fake polymorphism
+	// nonsense.
+	for _, o := range []uint32{table.ConsoleInHandle, table.ConsoleOutHandle, table.StandardErrorHandle} {
+		// put an identity pointer.
+		// We just don't give a hoot about handles.
+		binary.LittleEndian.PutUint64(tab[o+x:], uint64(ptr(o+x)))
 	}
 
 	// Now try the one function we know about.
