@@ -302,8 +302,7 @@ func (r *Boot) OpenProtocol(f *Fault, h, prot *dispatch, g guid.GUID, ptr uintpt
 
 	if h == nil {
 		Debug("Error: handle is nil")
-		ret.Err = fmt.Errorf("handle is nil")
-		return ret
+		h = prot
 	}
 
 	if prot == nil {
@@ -316,7 +315,6 @@ func (r *Boot) OpenProtocol(f *Fault, h, prot *dispatch, g guid.GUID, ptr uintpt
 		ret.Err = fmt.Errorf("ptr == nil && attr != %#x, it is %#x", uefi.EFI_OPEN_PROTOCOL_TEST_PROTOCOL, attr)
 		return ret
 	}
-
 	Debug("on to the case")
 	switch attr {
 	case uefi.EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL, uefi.EFI_OPEN_PROTOCOL_GET_PROTOCOL, uefi.EFI_OPEN_PROTOCOL_TEST_PROTOCOL, uefi.EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER:
