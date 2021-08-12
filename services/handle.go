@@ -54,7 +54,7 @@ func newHD() hd {
 var hdb = map[hd]*Handle{}
 
 func newHandle() *Handle {
-	nh := &Handle{hd: newHD()}
+	nh := &Handle{hd: newHD(), protocols: make(map[string]*dispatch)}
 	hdb[nh.hd] = nh
 	return nh
 }

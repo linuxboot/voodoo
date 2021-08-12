@@ -216,20 +216,28 @@ func (r *Boot) Call(f *Fault) error {
 		//  );
 		f.Args = trace.Args(f.Proc, f.Regs, 6)
 		Debug("OpenProtocol: %#x", f.Args)
+		h, err := getHandle(hd(f.Args[0]))
+		if err != nil {
+			f.Regs.Rax = uefi.EFI_NOT_FOUND
+			return nil
+		}
 		var g guid.GUID
 		if err := f.Proc.Read(f.Args[1], g[:]); err != nil {
 			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
 		}
 		Debug("OpenProtocol: GUID %s", g)
-		// these are allowed to be nil
-		p := ServPtr(f.Args[0])
-		h := dispatches[p.Base()]
 		prot := dispatches[ServBase(g.String())]
 		ptr := f.Args[2]
-		p = ServPtr(f.Args[3])
-		ah := dispatches[p.Base()]
-		p = ServPtr(f.Args[4])
-		ch := dispatches[p.Base()]
+		ah, err := getHandle(hd(f.Args[3]))
+		if err != nil {
+			f.Regs.Rax = uefi.EFI_NOT_FOUND
+			return nil
+		}
+		ch, err := getHandle(hd(f.Args[3]))
+		if err != nil {
+			f.Regs.Rax = uefi.EFI_NOT_FOUND
+			return nil
+		}
 		attr := f.Args[5]
 		if err := r.OpenProtocol(f, h, prot, g, ptr, ah, ch, attr); err != nil {
 			Debug("it's back! ")
@@ -290,7 +298,7 @@ func (r *Boot) Call(f *Fault) error {
 }
 
 // OpenProtocol implements service.OpenProtocol
-func (r *Boot) OpenProtocol(f *Fault, h, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *dispatch, attr uintptr) error {
+func (r *Boot) OpenProtocol(f *Fault, h *Handle, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *Handle, attr uintptr) error {
 	// This is a really poor design.
 	// But it's an Interface, so it has to be great, right?
 	// It's hard to image that, in 1999, when this was implemented, there were so many good
@@ -301,8 +309,7 @@ func (r *Boot) OpenProtocol(f *Fault, h, prot *dispatch, g guid.GUID, ptr uintpt
 	// YES, the API really is one error for a lot of cases. The mind reels.
 
 	if h == nil {
-		Debug("Error: handle is nil")
-		h = prot
+		panic("Error: handle is nil")
 	}
 
 	if prot == nil {
@@ -320,10 +327,10 @@ func (r *Boot) OpenProtocol(f *Fault, h, prot *dispatch, g guid.GUID, ptr uintpt
 	case uefi.EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL, uefi.EFI_OPEN_PROTOCOL_GET_PROTOCOL, uefi.EFI_OPEN_PROTOCOL_TEST_PROTOCOL, uefi.EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER:
 		Debug("case 1 ...")
 		if ch == h || ch != nil || ah != nil {
-			Debug("SAME!")
+			panic("SAME!")
 			if ptr != 0 {
 				var bb [8]byte
-				val := uint64(h.up)
+				var val uint64 // val := 0 // uint64(h.d.up)
 				Debug("Address is %#x write %#x", ptr, val)
 				binary.LittleEndian.PutUint64(bb[:], val)
 				if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
