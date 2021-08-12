@@ -12,14 +12,14 @@ type SystemTable struct {
 	FirmwareVendor   uintptr
 	FirmwareRevision uint32
 
-	ConsoleInHandle uintptr
-	ConIn           uintptr
+	ConInHandle uintptr
+	ConIn       uintptr
 
-	ConsoleOutHandle uintptr
-	ConOut           uintptr
+	ConOutHandle uintptr
+	ConOut       uintptr
 
-	StandardErrorHandle uintptr
-	StdErr              uintptr
+	StdErrHandle uintptr
+	StdErr       uintptr
 
 	RuntimeServices uintptr
 	BootServices    uintptr
@@ -32,11 +32,11 @@ const (
 	Hdr                  = 0
 	FirmwareVendor       = 0x18
 	FirmwareRevision     = 0x20
-	ConsoleInHandle      = 0x28
+	ConInHandle          = 0x28
 	ConIn                = 0x30
-	ConsoleOutHandle     = 0x38
+	ConOutHandle         = 0x38
 	ConOut               = 0x40
-	StandardErrorHandle  = 0x48
+	StdErrHandle         = 0x48
 	StdErr               = 0x50
 	RuntimeServices      = 0x58
 	BootServices         = 0x60
@@ -59,11 +59,11 @@ var SystemTableNames = map[uint64]*val{
 	Hdr:                  &val{N: "Hdr"},
 	FirmwareVendor:       &val{N: "FirmwareVendor"},
 	FirmwareRevision:     &val{N: "FirmwareRevision"},
-	ConsoleInHandle:      &val{N: "ConsoleInHandle"},
+	ConInHandle:          &val{N: "ConInHandle"},
 	ConIn:                &val{N: "ConIn"},
-	ConsoleOutHandle:     &val{N: "ConsoleOutHandle"},
+	ConOutHandle:         &val{N: "ConOutHandle"},
 	ConOut:               &val{N: "ConOut"},
-	StandardErrorHandle:  &val{N: "StandardErrorHandle"},
+	StdErrHandle:         &val{N: "StdErrHandle"},
 	StdErr:               &val{N: "StdErr"},
 	RuntimeServices:      &val{N: "RuntimeServices"},
 	BootServices:         &val{N: "BootServices"},

@@ -47,8 +47,8 @@ func NewSystemtable(tab []byte, u ServPtr) (Service, error) {
 		n                 string
 		systemTableOffset uint64
 	}{
-		{uefi.ConOutGUID, table.ConOut},
-		{uefi.ConInGUID, table.ConIn},
+		{uefi.ConOutGUID.String(), table.ConOut},
+		{uefi.ConInGUID.String(), table.ConIn},
 		{"runtime", table.RuntimeServices},
 		{"boot", table.BootServices},
 	} {
@@ -73,16 +73,25 @@ func NewSystemtable(tab []byte, u ServPtr) (Service, error) {
 			log.Fatal(err)
 		}
 	}
-	// Just set the handles to whatever.
-	// Per the discussion in uefi/uefi.go,
-	// Handles just point to themselves, since
-	// we don't need the fake polymorphism
-	// nonsense.
-	for _, o := range []uint32{table.ConsoleInHandle, table.ConsoleOutHandle, table.StandardErrorHandle} {
-		// put an identity pointer.
-		// We just don't give a hoot about handles.
-		binary.LittleEndian.PutUint64(tab[o+x:], uint64(ptr(o+x)))
+
+	// TODO: do better.
+	h := newHandle()
+	if err := h.Put(uefi.ConInGUID); err != nil {
+		log.Fatal(err)
 	}
+	binary.LittleEndian.PutUint64(tab[table.ConInHandle+uint64(x):], uint64(h.hd))
+
+	h = newHandle()
+	if err := h.Put(uefi.ConOutGUID); err != nil {
+		log.Fatal(err)
+	}
+	binary.LittleEndian.PutUint64(tab[table.ConOutHandle+uint64(x):], uint64(h.hd))
+
+	h = newHandle()
+	if err := h.Put(uefi.ConOutGUID); err != nil {
+		log.Fatal(err)
+	}
+	binary.LittleEndian.PutUint64(tab[table.StdErrHandle+uint64(x):], uint64(h.hd))
 
 	// Now try the one function we know about.
 	return st, nil

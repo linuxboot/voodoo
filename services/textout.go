@@ -22,7 +22,7 @@ type TextOut struct {
 var _ Service = &TextOut{}
 
 func init() {
-	RegisterCreator(uefi.ConOutGUID, NewTextOut)
+	RegisterCreator(uefi.ConOutGUID.String(), NewTextOut)
 }
 
 // NewTextOut returns a TextOut Service

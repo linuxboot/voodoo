@@ -12,7 +12,13 @@ import (
 // Handles are opaque, from what I can tell, so we return them as addresses
 // that will cause ExitMmio. Services are referenced by GUID.
 
+// handle is a handle descriptor
+// It is returned from an open handle. It is an opaque value.
+type hd uint64
+
 type Handle struct {
+	// convenience: remember our name.
+	hd        hd
 	protocols map[string]*dispatch
 }
 
@@ -35,10 +41,6 @@ func (h *Handle) Put(g *guid.GUID) error {
 	return nil
 }
 
-// handle is a handle descriptor
-// It is returned from an open handle. It is an opaque value.
-type hd uint64
-
 var hdbase = 0x5eedface00000000
 
 // return a new hd. TODO: let programs tweak it or something?
@@ -51,11 +53,10 @@ func newHD() hd {
 // handle data base is such a bogus term I can't resist using it.
 var hdb = map[hd]*Handle{}
 
-func newHandle() (hd, *Handle) {
-	hd := newHD()
-	nh := &Handle{}
-	hdb[newHD()] = nh
-	return hd, nh
+func newHandle() *Handle {
+	nh := &Handle{hd: newHD()}
+	hdb[nh.hd] = nh
+	return nh
 }
 
 func getHandle(hd hd) (*Handle, error) {

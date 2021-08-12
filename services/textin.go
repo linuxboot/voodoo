@@ -24,7 +24,7 @@ var _ Service = &TextIn{}
 var tiAliases = []string{ConsoleSupportTest_SimpleTextInputExProtocolTest}
 
 func init() {
-	RegisterCreator(uefi.ConInGUID, NewTextIn)
+	RegisterCreator(uefi.ConInGUID.String(), NewTextIn)
 }
 
 // NewTextIn returns a TextIn Service
