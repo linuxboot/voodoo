@@ -1,0 +1,67 @@
+package services
+
+import (
+	"fmt"
+
+	"github.com/linuxboot/fiano/pkg/guid"
+)
+
+// I had hoped to avoid this handle mess, but it seems unavoidable.
+// Handles contain one or more Services.
+// There is a "Handle Data Base" (yea right) which contains all handles.
+// Handles are opaque, from what I can tell, so we return them as addresses
+// that will cause ExitMmio. Services are referenced by GUID.
+
+type Handle struct {
+	protocols map[string]*dispatch
+}
+
+// Get gets a dispatch given a GUID.
+func (h *Handle) Get(g *guid.GUID) (*dispatch, error) {
+	d, ok := h.protocols[g.String()]
+	if !ok {
+		return nil, fmt.Errorf("No protocol for %v", g)
+	}
+	return d, nil
+}
+
+// Put puts a service. From what we know, it's ok to replace one.
+func (h *Handle) Put(g *guid.GUID) error {
+	d, ok := dispatches[ServBase(g.String())]
+	if !ok {
+		return fmt.Errorf("No service for %v", g)
+	}
+	h.protocols[g.String()] = d
+	return nil
+}
+
+// handle is a handle descriptor
+// It is returned from an open handle. It is an opaque value.
+type hd uint64
+
+var hdbase = 0x5eedface00000000
+
+// return a new hd. TODO: let programs tweak it or something?
+func newHD() hd {
+	hdbase++
+	return hd(hdbase)
+}
+
+// hdb is the "Handle Data Base"
+// handle data base is such a bogus term I can't resist using it.
+var hdb = map[hd]*Handle{}
+
+func newHandle() (hd, *Handle) {
+	hd := newHD()
+	nh := &Handle{}
+	hdb[newHD()] = nh
+	return hd, nh
+}
+
+func getHandle(hd hd) (*Handle, error) {
+	h, ok := hdb[hd]
+	if !ok {
+		return nil, fmt.Errorf("No handle for %v", hd)
+	}
+	return h, nil
+}

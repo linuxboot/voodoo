@@ -7,6 +7,7 @@ import (
 
 	"github.com/linuxboot/fiano/pkg/guid"
 	"github.com/linuxboot/voodoo/table"
+	"github.com/linuxboot/voodoo/uefi"
 )
 
 var ()
@@ -46,8 +47,8 @@ func NewSystemtable(tab []byte, u ServPtr) (Service, error) {
 		n                 string
 		systemTableOffset uint64
 	}{
-		{"F42F7782-012E-4C12-9956-49F94304F721", table.ConOut},
-		{"textin", table.ConIn},
+		{uefi.ConOutGUID, table.ConOut},
+		{uefi.ConInGUID, table.ConIn},
 		{"runtime", table.RuntimeServices},
 		{"boot", table.BootServices},
 	} {
