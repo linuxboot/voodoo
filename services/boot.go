@@ -332,6 +332,7 @@ func (r *Boot) OpenProtocol(f *Fault, h, prot *dispatch, g guid.GUID, ptr uintpt
 			}
 			return nil
 		}
+		log.Panicf("case 3")
 		// /* Check that the controller handle is valid */
 		// if !efi_search_obj(controller_handle) {
 		// 	return ret
