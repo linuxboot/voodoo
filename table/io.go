@@ -14,16 +14,16 @@ const (
 )
 
 var SimpleTextOutServicesNames = map[uint64]*val{
-	STOutReset:             &val{N: "Reset"},
-	STOutOutputString:      &val{N: "OutputString"},
-	STOutTestString:        &val{N: "TestString"},
-	STOutQueryMode:         &val{N: "QueryMode"},
-	STOutSetMode:           &val{N: "SetMode"},
-	STOutSetAttribute:      &val{N: "SetAttribute"},
-	STOutClearScreen:       &val{N: "ClearScreen"},
-	STOutSetCursorPosition: &val{N: "SetCursorPosition"},
-	STOutEnableCursor:      &val{N: "EnableCursor"},
-	STOutMode:              &val{N: "Mode"},
+	STOutReset:             {N: "Reset"},
+	STOutOutputString:      {N: "OutputString"},
+	STOutTestString:        {N: "TestString"},
+	STOutQueryMode:         {N: "QueryMode"},
+	STOutSetMode:           {N: "SetMode"},
+	STOutSetAttribute:      {N: "SetAttribute"},
+	STOutClearScreen:       {N: "ClearScreen"},
+	STOutSetCursorPosition: {N: "SetCursorPosition"},
+	STOutEnableCursor:      {N: "EnableCursor"},
+	STOutMode:              {N: "Mode"},
 }
 
 const (
@@ -33,9 +33,9 @@ const (
 )
 
 var SimpleTextInServicesNames = map[uint64]*val{
-	STInReset:         &val{N: "Reset"},
-	STInReadKeyStroke: &val{N: "ReadKeyStroke"},
-	STInWaitForKey:    &val{N: "WaitForKey"},
+	STInReset:         {N: "Reset"},
+	STInReadKeyStroke: {N: "ReadKeyStroke"},
+	STInWaitForKey:    {N: "WaitForKey"},
 }
 
 const (
@@ -48,10 +48,10 @@ const (
 )
 
 var SimpleTextModeServicesNames = map[uint64]*val{
-	STModeMaxMode:       &val{N: "MaxMode"},
-	STModeMode:          &val{N: "Mode"},
-	STModeAttribute:     &val{N: "Attribute"},
-	STModeCursorColumn:  &val{N: "CursorColumn"},
-	STModeCursorRow:     &val{N: "CursorRow"},
-	STModeCursorVisible: &val{N: "CursorVisible"},
+	STModeMaxMode:       {N: "MaxMode"},
+	STModeMode:          {N: "Mode"},
+	STModeAttribute:     {N: "Attribute"},
+	STModeCursorColumn:  {N: "CursorColumn"},
+	STModeCursorRow:     {N: "CursorRow"},
+	STModeCursorVisible: {N: "CursorVisible"},
 }

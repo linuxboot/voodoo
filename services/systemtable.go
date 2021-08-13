@@ -10,8 +10,6 @@ import (
 	"github.com/linuxboot/voodoo/uefi"
 )
 
-var ()
-
 // Runtime implements Service
 type SystemTable struct {
 	u  ServBase

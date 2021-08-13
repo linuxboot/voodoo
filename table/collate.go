@@ -11,11 +11,11 @@ const (
 )
 
 var CollateServicesNames = map[uint64]*val{
-	CollStriColl:           &val{N: "StriColl"},
-	CollMetaiMatch:         &val{N: "MetaiMatch"},
-	CollStrLwr:             &val{N: "StrLwr"},
-	CollStrUpr:             &val{N: "StrUpr"},
-	CollFatToStr:           &val{N: "FatToStr"},
-	CollStrToFat:           &val{N: "StrToFat"},
-	CollSupportedLanguages: &val{N: "SupportedLanguages"},
+	CollStriColl:           {N: "StriColl"},
+	CollMetaiMatch:         {N: "MetaiMatch"},
+	CollStrLwr:             {N: "StrLwr"},
+	CollStrUpr:             {N: "StrUpr"},
+	CollFatToStr:           {N: "FatToStr"},
+	CollStrToFat:           {N: "StrToFat"},
+	CollSupportedLanguages: {N: "SupportedLanguages"},
 }

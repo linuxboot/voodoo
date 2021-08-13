@@ -133,23 +133,17 @@ func (r *Boot) Call(f *Fault) error {
 		}
 
 		Debug("BootServices Call LocateHandle(type %s, guid %s, searchkey %#x, numhandles %#x, EFIHANDLE %#x", table.SearchTypeNames[table.EFI_LOCATE_SEARCH_TYPE(f.Args[0])], g, f.Args[2], f.Args[3], f.Args[4])
-		d, ok := dispatches[ServBase(g.String())]
-		Debug("LocateHandle: GUID %s %v ok? %v", g, d, ok)
-		if !ok {
-			// If it's not there, we can just return with no error and no handles.
-			log.Printf("no base for %s", g)
-			f.Regs.Rax = uefi.EFI_NOT_FOUND
-			return nil
+		h := allHandlesByGUID(&g)
+		Debug("Writing %d handles %#x to %#x", len(h), h, f.Args[4])
+		var hb = &bytes.Buffer{}
+		binary.Write(hb, binary.LittleEndian, h)
+		if err := f.Proc.Write(f.Args[4], hb.Bytes()); err != nil {
+			return fmt.Errorf("Can't write %v to %#x: %v", h, f.Args[4], err)
 		}
-		Debug("Writing Service %v base %#x to %#x", d, uint64(d.up), f.Args[4])
-		var bb [8]byte
-		binary.LittleEndian.PutUint64(bb[:], uint64(d.up))
-		if err := f.Proc.Write(f.Args[4], bb[:]); err != nil {
-			return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[4], err)
-		}
-		binary.LittleEndian.PutUint64(bb[:], uint64(table.EfiHandleSize))
+		bb := make([]byte, 8)
+		binary.LittleEndian.PutUint64(bb[:], uint64(len(h)*table.EfiHandleSize))
 		if err := f.Proc.Write(f.Args[3], bb[:]); err != nil {
-			return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[3], err)
+			return fmt.Errorf("Can't write %v to %#x: %v", bb, f.Args[3], err)
 		}
 		Debug("BootServices Call LocateHandle: done")
 		return nil

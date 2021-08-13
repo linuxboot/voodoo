@@ -7,8 +7,6 @@ import (
 	"github.com/linuxboot/fiano/pkg/guid"
 )
 
-var ()
-
 // This is for the special ImageHandle at services.ImageHandle
 // ImageHandle implements Service
 type ImageHandle struct {

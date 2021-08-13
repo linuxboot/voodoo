@@ -31,13 +31,19 @@ func (h *Handle) Get(g *guid.GUID) (*dispatch, error) {
 	return d, nil
 }
 
-// Put puts a service. From what we know, it's ok to replace one.
+// Put puts a dispatch given a GUID. From what we know, it's ok to replace one.
 func (h *Handle) Put(g *guid.GUID) error {
 	d, ok := dispatches[ServBase(g.String())]
 	if !ok {
 		return fmt.Errorf("No service for %v", g)
 	}
 	h.protocols[g.String()] = d
+	return nil
+}
+
+// PutService puts a Service given given a GUID, Service, and base.
+func (h *Handle) PutService(g *guid.GUID, s Service, u ServPtr) error {
+	h.protocols[g.String()] = &dispatch{s: s, up: u}
 	return nil
 }
 
@@ -65,4 +71,14 @@ func getHandle(hd hd) (*Handle, error) {
 		return nil, fmt.Errorf("No handle for %v", hd)
 	}
 	return h, nil
+}
+
+func allHandlesByGUID(g *guid.GUID) []Handle {
+	var all []Handle
+	for _, h := range hdb {
+		if _, err := h.Get(g); err != nil {
+			all = append(all, *h)
+		}
+	}
+	return all
 }

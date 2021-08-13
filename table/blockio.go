@@ -24,10 +24,10 @@ type BlockIOMediaInfo struct {
 }
 
 var BlockIOServiceNames = map[uint64]*val{
-	BlockIORevision:    &val{N: "Revision"},
-	BlockIOMedia:       &val{N: "Media"},
-	BlockIOReset:       &val{N: "Reset"},
-	BlockIOReadBlocks:  &val{N: "ReadBlocks"},
-	BlockIOWriteBlocks: &val{N: "WriteBlocks"},
-	BlockIOFlushBlocks: &val{N: "FlushBlocks"},
+	BlockIORevision:    {N: "Revision"},
+	BlockIOMedia:       {N: "Media"},
+	BlockIOReset:       {N: "Reset"},
+	BlockIOReadBlocks:  {N: "ReadBlocks"},
+	BlockIOWriteBlocks: {N: "WriteBlocks"},
+	BlockIOFlushBlocks: {N: "FlushBlocks"},
 }
