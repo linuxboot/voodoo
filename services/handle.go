@@ -73,11 +73,11 @@ func getHandle(hd hd) (*Handle, error) {
 	return h, nil
 }
 
-func allHandlesByGUID(g *guid.GUID) []Handle {
-	var all []Handle
+func allHandlesByGUID(g *guid.GUID) []hd {
+	var all []hd
 	for _, h := range hdb {
 		if _, err := h.Get(g); err != nil {
-			all = append(all, *h)
+			all = append(all, h.hd)
 		}
 	}
 	return all
