@@ -200,6 +200,8 @@ func main() {
 
 			step("returned from halt, set regs, move along")
 
+		case ev.Trapno == kvm.ExitIo:
+			checkConsole(insn, r, g)
 		default:
 			log.Printf("Trapno: got %#x", ev.Trapno)
 			if ev.Trapno == kvm.ExitShutdown {

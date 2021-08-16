@@ -36,3 +36,16 @@ func halt(p trace.Trace, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.
 	defer Debug("===========} done HALT @ %#x, rip was %#x, advance to %#x", addr, pc, r.Rip)
 	return nil
 }
+
+func checkConsole(i *x86asm.Inst, r *syscall.PtraceRegs, asm string) {
+	if asm != "out %al,(%dx)" {
+		return
+	}
+	c := uint8(r.Rax)
+	if *debug {
+		Debug("CONSOUT: %c", c)
+	} else {
+		fmt.Printf("%c", c)
+	}
+
+}

@@ -1016,6 +1016,46 @@ func (x *xmmio) String() string {
 	return fmt.Sprintf("Addr %#x Len %#x Write %#x", x.Addr, x.Len, x.Write)
 }
 
+const (
+	xioIn  = 0
+	xioOut = 1
+)
+
+type xio struct {
+	Dir   uint8
+	Size  uint8
+	Port  uint16
+	Count uint32
+	Off   uint64
+}
+
+func (x *xio) String() string {
+	var op string
+	var size string
+	switch x.Dir {
+	case xioIn:
+		op = "in"
+	case xioOut:
+		op = "out"
+	default:
+		op = "IOWTF"
+	}
+	switch x.Size {
+	case 1:
+		size = "b"
+	case 2:
+		size = "w"
+	case 4:
+		size = "l"
+	case 8:
+		size = "q"
+	default:
+		size = "sizebad"
+	}
+
+	return fmt.Sprintf("[%#x]%s%s %#04x", x.Off, op, size, x.Port)
+}
+
 type shutdown struct {
 	Stype uint32
 	Flags uint64
@@ -1081,19 +1121,19 @@ func (t *Tracee) readInfo() error {
 		sig.Addr = r.Rip
 		Debug("ExitHalt: %#x", r.Rip)
 	case ExitIo:
-		var x xmmio
+		var x xio
 		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {
 			log.Panicf("Read in run failed -- can't happen")
 		}
-		sig.Addr = x.Addr
-		log.Panicf("ExitIO: %s", x.String())
+		sig.Addr = uint64(x.Port)
+		Debug("ExitIO: Addr '%#x' %s", sig.Addr, x.String())
 	case ExitMmio:
 		var x xmmio
 		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {
 			log.Panicf("Read in run failed -- can't happen")
 		}
 		sig.Addr = x.Addr
-		log.Panicf("ExitMMiO: %s", x.String())
+		log.Panicf("ExitMMiO: Addr '%#x' %s", sig.Addr, x.String())
 	case ExitShutdown:
 		var x shutdown
 		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {
