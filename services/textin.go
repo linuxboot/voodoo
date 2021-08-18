@@ -80,7 +80,7 @@ func (t *TextIn) Call(f *Fault) error {
 }
 
 // OpenProtocol implements service.OpenProtocol
-func (t *TextIn) OpenProtocol(f *Fault, h *Handle, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *Handle, attr uintptr) error {
+func (t *TextIn) OpenProtocol(f *Fault, h *Handle, g guid.GUID, ptr uintptr, ah, ch *Handle, attr uintptr) (*dispatch, error) {
 	log.Panicf("here we are")
-	return fmt.Errorf("not yet")
+	return nil, fmt.Errorf("not yet")
 }

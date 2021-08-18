@@ -64,7 +64,7 @@ func (t *Collate) Call(f *Fault) error {
 }
 
 // OpenProtocol implements service.OpenProtocol
-func (c *Collate) OpenProtocol(f *Fault, h *Handle, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *Handle, attr uintptr) error {
+func (c *Collate) OpenProtocol(f *Fault, h *Handle, g guid.GUID, ptr uintptr, ah, ch *Handle, attr uintptr) (*dispatch, error) {
 	log.Panicf("here we are")
-	return fmt.Errorf("not yet")
+	return nil, fmt.Errorf("not yet")
 }

@@ -82,7 +82,7 @@ type Service interface {
 	Call(f *Fault) error
 	Base() ServBase
 	Ptr() ServPtr
-	OpenProtocol(f *Fault, h *Handle, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *Handle, attr uintptr) error
+	OpenProtocol(f *Fault, h *Handle, g guid.GUID, ptr uintptr, ah, ch *Handle, attr uintptr) (*dispatch, error)
 	Aliases() []string
 }
 

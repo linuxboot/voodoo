@@ -212,6 +212,7 @@ func (r *Boot) Call(f *Fault) error {
 		Debug("OpenProtocol: %#x", f.Args)
 		h, err := getHandle(hd(f.Args[0]))
 		if err != nil {
+			Debug("OpenProtocol: No Handle for %#x", f.Args[0])
 			f.Regs.Rax = uefi.EFI_NOT_FOUND
 			return nil
 		}
@@ -219,25 +220,27 @@ func (r *Boot) Call(f *Fault) error {
 		if err := f.Proc.Read(f.Args[1], g[:]); err != nil {
 			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
 		}
-		Debug("OpenProtocol: GUID %s", g)
-		prot := dispatches[ServBase(g.String())]
 		ptr := f.Args[2]
 		ah, err := getHandle(hd(f.Args[3]))
 		if err != nil {
+			Debug("OpenProtocol: No Handle for %#x", f.Args[3])
 			f.Regs.Rax = uefi.EFI_NOT_FOUND
 			return nil
 		}
-		ch, err := getHandle(hd(f.Args[3]))
+		ch, err := getHandle(hd(f.Args[4]))
 		if err != nil {
+			Debug("OpenProtocol: No Handle for %#x", f.Args[4])
 			f.Regs.Rax = uefi.EFI_NOT_FOUND
 			return nil
 		}
 		attr := f.Args[5]
-		if err := r.OpenProtocol(f, h, prot, g, ptr, ah, ch, attr); err != nil {
+		e, err := r.OpenProtocol(f, h, g, ptr, ah, ch, attr)
+		if err != nil {
 			Debug("it's back! ")
 			Debug("Returned %v", err)
 			return err
 		}
+		Debug("Gets dispatch %v", e)
 		f.Regs.Rax = uefi.EFI_NOT_FOUND
 		return nil
 		// }
@@ -292,13 +295,13 @@ func (r *Boot) Call(f *Fault) error {
 }
 
 // OpenProtocol implements service.OpenProtocol
-func (r *Boot) OpenProtocol(f *Fault, h *Handle, prot *dispatch, g guid.GUID, ptr uintptr, ah, ch *Handle, attr uintptr) error {
+func (r *Boot) OpenProtocol(f *Fault, h *Handle, g guid.GUID, ptr uintptr, ah, ch *Handle, attr uintptr) (*dispatch, error) {
 	// This is a really poor design.
 	// But it's an Interface, so it has to be great, right?
 	// It's hard to image that, in 1999, when this was implemented, there were so many good
 	// examples out there and we ended up with this.
 	ret := &uefi.EFIError{Val: uefi.EFI_INVALID_PARAMETER}
-	Debug("Boot OpenProtocol: handle %v, protocol handle %v, protocol GUID%v, ptr %#x, agent handle %v, controller handle %v, attr %#x", h, prot, g, ptr, ah, ch, attr)
+	Debug("Boot OpenProtocol: handle %v, protocol GUID%v, ptr %#x, agent handle %v, controller handle %v, attr %#x", h, g, ptr, ah, ch, attr)
 
 	// YES, the API really is one error for a lot of cases. The mind reels.
 
@@ -306,15 +309,17 @@ func (r *Boot) OpenProtocol(f *Fault, h *Handle, prot *dispatch, g guid.GUID, pt
 		panic("Error: handle is nil")
 	}
 
-	if prot == nil {
-		Debug("Error: protocol is nil")
-		ret.Err = fmt.Errorf("protocol is nil")
-		return ret
-	}
 	if ptr == 0 && attr != uefi.EFI_OPEN_PROTOCOL_TEST_PROTOCOL {
 		Debug("ptr == nil && attr != %#x, it is %#x", uefi.EFI_OPEN_PROTOCOL_TEST_PROTOCOL, attr)
 		ret.Err = fmt.Errorf("ptr == nil && attr != %#x, it is %#x", uefi.EFI_OPEN_PROTOCOL_TEST_PROTOCOL, attr)
-		return ret
+		return nil, ret
+	}
+	// oh FFS, let's fix up the whole *guid.GUID thing eh?
+	prot, err := h.Get(&g)
+	if err != nil {
+		ret.Err = fmt.Errorf("Error: No protocol for handle %v, protocol %v", h, g)
+		Debug("%v", ret.Err)
+		return nil, ret
 	}
 	Debug("on to the case")
 	switch attr {
@@ -328,10 +333,10 @@ func (r *Boot) OpenProtocol(f *Fault, h *Handle, prot *dispatch, g guid.GUID, pt
 				Debug("Address is %#x write %#x", ptr, val)
 				binary.LittleEndian.PutUint64(bb[:], val)
 				if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
-					return fmt.Errorf("Can't write %v to %#x: %v", h, ptr, err)
+					return nil, fmt.Errorf("Can't write %v to %#x: %v", h, ptr, err)
 				}
 			}
-			return nil
+			return prot, nil
 		}
 		log.Panicf("case 3")
 		// /* Check that the controller handle is valid */
@@ -359,7 +364,7 @@ func (r *Boot) OpenProtocol(f *Fault, h *Handle, prot *dispatch, g guid.GUID, pt
 
 	default:
 		log.Panicf("case 4")
-		return ret
+		return nil, ret
 	}
 
 	// ret = efi_search_protocol(handle, protocol, &handler)
@@ -371,5 +376,5 @@ func (r *Boot) OpenProtocol(f *Fault, h *Handle, prot *dispatch, g guid.GUID, pt
 	// 	controller_handle, attributes)
 
 	Debug("Things went badly ... %v", ret)
-	return ret
+	return nil, ret
 }
