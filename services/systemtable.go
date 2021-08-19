@@ -16,18 +16,22 @@ type SystemTable struct {
 	up ServPtr
 }
 
-var _ Service = &SystemTable{}
+var (
+	st         = &SystemTable{}
+	_  Service = &SystemTable{}
+)
 
 func init() {
-	RegisterCreator("systemtable", NewSystemtable)
 }
 
-// NewSystemtable returns a Systemtable Service
+// NewSystemtable returns a Systemtable Service, as well as the
+// Image Handle.
 // This must be the FIRST New called for a service.
 // The system table is a kind of "root" of UEFI services, with pointers
 // to boot, runtime, and other core services.
-func NewSystemtable(tab []byte, u ServPtr) (Service, error) {
-	var st = &SystemTable{up: u, u: u.Base()}
+func NewSystemtable(tab []byte) (uint64, uint64, error) {
+	u := protocolBase
+	st.up, st.u = u, u.Base()
 	x := index(u)
 	Debug("NewSystemTable: %#x", u)
 	// We need to install pointers into the system table.
@@ -41,6 +45,13 @@ func NewSystemtable(tab []byte, u ServPtr) (Service, error) {
 	// In some cases we need to add handles, as the UEFI forum missed lots
 	// of memos on how to do OS design and have this weird polymorphic
 	// handle thing.
+
+	// LoadedImage has to be the very first table.
+	li, err := Base(tab, uefi.LoadedImageProtocol)
+	if err != nil {
+		log.Panicf("LoadedImageProtocol service: %v", err)
+	}
+	Debug("Set up LoadedImageService %v at %#08x", uefi.LoadedImageProtocol, li)
 	for _, t := range []struct {
 		n                 string
 		systemTableOffset uint64
@@ -72,7 +83,12 @@ func NewSystemtable(tab []byte, u ServPtr) (Service, error) {
 		}
 	}
 
-	// TODO: do better.
+	// Now set up handles that must always be there.
+	ih := newHandle()
+	if err := ih.Put(uefi.LoadedImageGUID); err != nil {
+		log.Fatal(err)
+	}
+
 	h := newHandle()
 	if err := h.Put(uefi.ConInGUID); err != nil {
 		log.Fatal(err)
@@ -92,7 +108,7 @@ func NewSystemtable(tab []byte, u ServPtr) (Service, error) {
 	binary.LittleEndian.PutUint64(tab[table.StdErrHandle+uint64(x):], uint64(h.hd))
 
 	// Now try the one function we know about.
-	return st, nil
+	return uint64(u), uint64(ih.hd), nil
 }
 
 // Aliases implements Aliases

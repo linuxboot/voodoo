@@ -223,15 +223,15 @@ func (r *Boot) Call(f *Fault) error {
 		ptr := f.Args[2]
 		ah, err := getHandle(hd(f.Args[3]))
 		if err != nil {
-			Debug("OpenProtocol: No Handle for %#x", f.Args[3])
+			Debug("OpenProtocol: No Agent Handle for %#x", f.Args[3])
 			f.Regs.Rax = uefi.EFI_NOT_FOUND
 			return nil
 		}
 		ch, err := getHandle(hd(f.Args[4]))
 		if err != nil {
-			Debug("OpenProtocol: No Handle for %#x", f.Args[4])
-			f.Regs.Rax = uefi.EFI_NOT_FOUND
-			return nil
+			Debug("OpenProtocol: No Controller Handle for %#x", f.Args[4])
+			//f.Regs.Rax = uefi.EFI_NOT_FOUND
+			//return nil
 		}
 		attr := f.Args[5]
 		e, err := r.OpenProtocol(f, h, g, ptr, ah, ch, attr)
@@ -326,7 +326,6 @@ func (r *Boot) OpenProtocol(f *Fault, h *Handle, g guid.GUID, ptr uintptr, ah, c
 	case uefi.EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL, uefi.EFI_OPEN_PROTOCOL_GET_PROTOCOL, uefi.EFI_OPEN_PROTOCOL_TEST_PROTOCOL, uefi.EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER:
 		Debug("case 1 ...")
 		if ch == h || ch != nil || ah != nil {
-			panic("SAME!")
 			if ptr != 0 {
 				var bb [8]byte
 				var val uint64 // val := 0 // uint64(h.d.up)

@@ -9,14 +9,9 @@ import (
 )
 
 const (
-	allocAmt = ServPtr(1 << 16)
-	// ImageHandle is the ServBase of the UEFI Image Handle
-	// We place it at the start of Classic BIOS memory, i.e.
-	// the last 16M
-	// Pointers for functions point to ImageHandle+4M.
-	// Placed there are functions that for now are poisoned with hlt.
-	ImageHandleBase = ServPtr(0xff000000)
-	servBaseFmt     = "SB%#x"
+	allocAmt     = ServPtr(1 << 16)
+	protocolBase = ServPtr(0xff000000)
+	servBaseFmt  = "SB%#x"
 )
 
 // Func is a function selector.
@@ -27,7 +22,7 @@ type ServPtr uint32
 
 var (
 	// memBase is the default allocation base for UEFI structs.
-	memBase = ImageHandleBase
+	memBase = protocolBase
 	// AllocBase is the allocation base for DXE structs.
 	allocBase uint32
 	// resource allocation mutex.

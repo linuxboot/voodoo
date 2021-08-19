@@ -14,20 +14,11 @@ type ImageHandle struct {
 	up ServPtr
 }
 
-var _ Service = &ImageHandle{}
+var (
+	_ Service = &ImageHandle{}
+)
 
-// this whole thing seems to have been a mistake.
 func init() {
-	// No need to register the creator; imagehandle is special
-	// and is created at build time.
-	return
-	base := ImageHandleBase
-	b := base.Base()
-	i := &ImageHandle{up: base, u: b}
-	d := &dispatch{s: i, up: ServPtr(base)}
-	log.Printf("ImageHandleroot: Set up Dispatch for [%v,%v]: %s", b, "imagehandleroot", d)
-	dispatches[b] = d
-	dispatches["imagehandleroot"] = d
 }
 
 // Aliases implements Aliases

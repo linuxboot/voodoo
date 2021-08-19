@@ -47,7 +47,9 @@ func (h *Handle) PutService(g *guid.GUID, s Service, u ServPtr) error {
 	return nil
 }
 
-var hdbase = 0x5eedface00000000
+var (
+	hdbase = 0x5eedface00000000
+)
 
 // return a new hd. TODO: let programs tweak it or something?
 func newHD() hd {

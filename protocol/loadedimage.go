@@ -86,8 +86,6 @@ type LoadedImage struct {
 	Unload uintptr
 }
 
-const LoadedImageProtocol = "5B1B31A1-9562-11D2-8E3F-00A0C969723B"
-
 var _ TableMarshaler = LoadedImage{}
 
 func init() {
