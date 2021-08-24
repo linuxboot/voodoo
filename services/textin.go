@@ -11,8 +11,6 @@ import (
 	"github.com/linuxboot/voodoo/uefi"
 )
 
-const ConsoleSupportTest_SimpleTextInputExProtocolTest = "DD9E7534-7762-4698-8C14-F58517A625AA"
-
 // TextIn implements Service
 type TextIn struct {
 	u  ServBase
@@ -21,7 +19,8 @@ type TextIn struct {
 
 var _ Service = &TextIn{}
 
-var tiAliases = []string{ConsoleSupportTest_SimpleTextInputExProtocolTest}
+// TODO: probably get rid of these aliases?
+var tiAliases = []string{uefi.ConsoleSupportTest_SimpleTextInputExProtocolTest}
 
 func init() {
 	RegisterCreator(uefi.ConInGUID.String(), NewTextIn)

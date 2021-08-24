@@ -44,7 +44,7 @@ func checkConsole(i *x86asm.Inst, r *syscall.PtraceRegs, asm string) {
 	c := uint8(r.Rax)
 	if *debug {
 		Debug("CONSOUT: %c", c)
-	} else {
+	} else if *handleConsoleIO {
 		fmt.Printf("%c", c)
 	}
 

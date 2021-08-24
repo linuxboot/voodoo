@@ -32,6 +32,7 @@ var (
 	debug      = flag.Bool("debug", false, "Enable debug prints")
 	dryrun     = flag.Bool("dryrun", false, "set up but don't run")
 	regpath    = flag.String("registerfile", "", "file to log registers to, in .csv format")
+	handleConsoleIO = flag.Bool("doIO", false, "break glass -- enable this to check IO exits for console")
 	regfile    *os.File
 	Debug      = func(string, ...interface{}) {}
 	step       = func(...string) {}

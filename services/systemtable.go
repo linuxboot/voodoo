@@ -90,7 +90,9 @@ func NewSystemtable(tab []byte) (uint64, uint64, error) {
 	}
 
 	h := newHandle()
-	if err := h.Put(uefi.ConInGUID); err != nil {
+	// ConsoleSupportTest_SimpleTextInputExProtocolTestGUID ... wtf
+	// who designs this stuff.
+	if err := h.Put(uefi.ConInGUID, uefi.ConsoleSupportTest_SimpleTextInputExProtocolTestGUID); err != nil {
 		log.Fatal(err)
 	}
 	binary.LittleEndian.PutUint64(tab[table.ConInHandle+uint64(x):], uint64(h.hd))

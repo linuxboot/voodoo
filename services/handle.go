@@ -32,12 +32,16 @@ func (h *Handle) Get(g *guid.GUID) (*dispatch, error) {
 }
 
 // Put puts a dispatch given a GUID. From what we know, it's ok to replace one.
-func (h *Handle) Put(g *guid.GUID) error {
+func (h *Handle) Put(g *guid.GUID, aliases ...*guid.GUID) error {
 	d, ok := dispatches[ServBase(g.String())]
 	if !ok {
 		return fmt.Errorf("No service for %v", g)
 	}
 	h.protocols[g.String()] = d
+
+	for _, g := range aliases {
+		h.protocols[g.String()] = d
+	}
 	return nil
 }
 
