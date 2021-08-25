@@ -362,7 +362,7 @@ func (r *Boot) OpenProtocol(f *Fault, h *Handle, g guid.GUID, ptr uintptr, ah, c
 		//		}
 
 	default:
-		log.Panicf("case 4")
+		log.Panicf("case 4: attr is %#x", attr)
 		return nil, ret
 	}
 
