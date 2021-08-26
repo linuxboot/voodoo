@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/bobuhiro11/gokvm/machine"
 	"golang.org/x/sys/unix"
 )
 
@@ -180,6 +181,12 @@ func startvm(f *os.File) (uintptr, error) {
 // All the work done here is complex, but it all has to work or ... no kvm.
 // But as soon as possible we shift to using the goroutine. FWIW.
 func New() (*Tracee, error) {
+	m, err := machine.New()
+	if err != nil {
+		return nil, err
+	}
+
+	log.Panicf("m is %v", m)
 	k, err := os.OpenFile(*deviceName, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err
