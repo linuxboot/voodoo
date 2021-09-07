@@ -1107,15 +1107,24 @@ func (t *Tracee) readInfo() error {
 		sig.Addr = uint64(x.Port)
 		Debug("ExitIO: Addr '%#x' %s", sig.Addr, x.String())
 	case ExitMmio:
+		// This is a bit sad but what can you do. Fix me later.
+		var b = &bytes.Buffer{}
+		if err := binary.Write(b, binary.LittleEndian, t.m.RunData().Data); err != nil {
+			log.Panicf("Writine rundata to buffer: %v", err)
+		}
 		var x xmmio
-		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {
+		if err := binary.Read(b, binary.LittleEndian, &x); err != nil {
 			log.Panicf("Read in run failed -- can't happen")
 		}
 		sig.Addr = x.Addr
 		log.Panicf("ExitMMiO: Addr '%#x' %s", sig.Addr, x.String())
 	case ExitShutdown:
+		var b = &bytes.Buffer{}
+		if err := binary.Write(b, binary.LittleEndian, t.m.RunData().Data); err != nil {
+			log.Panicf("Writine rundata to buffer: %v", err)
+		}
 		var x shutdown
-		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {
+		if err := binary.Read(b, binary.LittleEndian, &x); err != nil {
 			log.Panicf("Read in run failed -- can't happen")
 		}
 		n, _ := stype[x.Stype]

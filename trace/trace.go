@@ -11,7 +11,6 @@ import (
 // Trace is the interface to a traced process
 type Trace interface {
 	// Exec starts a process in a trace
-	NewProc(id int) error
 	Exec(name string, args ...string) error
 	ReadWord(address uintptr) (uint64, error)
 	Read(address uintptr, data []byte) error
