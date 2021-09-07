@@ -57,7 +57,7 @@ type Machine struct {
 	ioportHandlers      [0x10000][2]func(m *Machine, port uint64, bytes []byte) error
 }
 
-func New() (*Machine, error) {
+func NewMachine() (*Machine, error) {
 	m := &Machine{}
 
 	devKVM, err := os.OpenFile("/dev/kvm", os.O_RDWR, 0o644)
@@ -263,7 +263,7 @@ func (m *Machine) initRegs() error {
 	return nil
 }
 
-func (m *Machine) GetRegs() (*kvm.Regs, error) {
+func (m *Machine) GetRegs() (kvm.Regs, error) {
 	return kvm.GetRegs(m.vcpuFd)
 }
 

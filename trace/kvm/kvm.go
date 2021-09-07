@@ -2,18 +2,14 @@
 package kvm
 
 import (
-	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"syscall"
-	"unsafe"
 
-	"github.com/bobuhiro11/gokvm/machine"
 	"golang.org/x/sys/unix"
 )
 
@@ -50,7 +46,7 @@ type Region struct {
 
 // A Tracee is a process that is being traced.
 type Tracee struct {
-	m       *machine.Machine
+	m       *Machine
 	events  chan unix.SignalfdSiginfo
 	err     chan error
 	cmds    chan func()
@@ -125,7 +121,7 @@ func startvm(f *os.File) (uintptr, error) {
 // All the work done here is complex, but it all has to work or ... no kvm.
 // But as soon as possible we shift to using the goroutine. FWIW.
 func New() (*Tracee, error) {
-	m, err := machine.New()
+	m, err := NewMachine()
 	if err != nil {
 		return nil, err
 	}
@@ -137,79 +133,13 @@ func New() (*Tracee, error) {
 		err:    make(chan error, 1),
 		cmds:   make(chan func()),
 	}
-	errs := make(chan error)
-	go func() {
-		// mmap and go don't really get along, so we'll not bother
-		// with the mmap'ed bits for now.
-		// if (kvm__check_extensions(kvm)) {
-		// 	pr_err("A required KVM extension is not supported by OS");
-		// 	ret = -ENOSYS;
-		// 	goto err_vm_fd;
-		// }
-
-		// kvm__arch_init(kvm, kvm->cfg.hugetlbfs_path, kvm->cfg.ram_size);
-
-		// kvm__init_ram(kvm);
-		err := t.archInit()
-		errs <- err
-		if err != nil {
-			return
-		}
-		t.trace()
-	}()
-	return t, <-errs
-}
-
-// This allows setting up mem for a guest.
-// This is not exposed because it's not supported by ptrace(2)
-// and the trace model is the common subset of ptrace and kvm.
-func (t *Tracee) mem(b []byte, base uint64) error {
-	p := &bytes.Buffer{}
-	u := &UserRegion{slot: t.slot, flags: 0, gpa: base, size: uint64(len(b)), useraddr: uint64(uintptr(unsafe.Pointer(&b[0])))}
-	binary.Write(p, binary.LittleEndian, u)
-	if false {
-		log.Printf("ioctl %s", hex.Dump(p.Bytes()))
-	}
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), uintptr(setMem), uintptr(unsafe.Pointer(&p.Bytes()[0])))
-	if errno == 0 {
-		t.regions = append(t.regions, &Region{slot: t.slot, gpa: base, data: b})
-		t.slot++
-		return nil
-	}
-	return errno
+	return t, nil
 }
 
 // Exec executes a process with tracing enabled, returning the Tracee
 // or an error if an error occurs while executing the process.
 func (t *Tracee) Exec(name string, argv ...string) error {
-	errs := make(chan error)
-
-	go func() {
-		// kvm->vm_fd = ioctl(kvm->sys_fd, KVM_CREATE_VM, KVM_VM_TYPE);
-		// if (kvm->vm_fd < 0) {
-		// 	pr_err("KVM_CREATE_VM ioctl");
-		// 	ret = kvm->vm_fd;
-		// 	goto err_sys_fd;
-		// }
-
-		// if (kvm__check_extensions(kvm)) {
-		// 	pr_err("A required KVM extension is not supported by OS");
-		// 	ret = -ENOSYS;
-		// 	goto err_vm_fd;
-		// }
-
-		// kvm__arch_init(kvm, kvm->cfg.hugetlbfs_path, kvm->cfg.ram_size);
-
-		// INIT_LIST_HEAD(&kvm->mem_banks);
-		// kvm__init_ram(kvm);
-		var e error
-		errs <- e
-		if e != nil {
-			return
-		}
-		t.trace()
-	}()
-	return <-errs
+	panic("Exec")
 }
 
 // Attach attaches to the given process.
@@ -219,44 +149,7 @@ func Attach(pid int) (*Tracee, error) {
 
 // Detach detaches the tracee, destroying it in the process.
 func (t *Tracee) Detach() error {
-	if err := t.dev.Close(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Continue makes the tracee execute unmanaged by the tracer.  Most commands are not
-// possible in this state, with the notable exception of sending a
-// syscall.SIGSTOP signal.
-func (t *Tracee) Continue() error {
-	err := make(chan error, 1)
-	sig := 0
-	if t.do(func() { err <- syscall.PtraceCont(int(t.dev.Fd()), sig) }) {
-		return <-err
-	}
-	return ErrTraceeExited
-}
-
-// Syscall runs the inferior until it hits, or returns from, a system call.
-func (t *Tracee) Syscall() error {
-	if t.cmds == nil {
-		return ErrTraceeExited
-	}
-	errchan := make(chan error, 1)
-	t.cmds <- func() {
-		err := syscall.PtraceSyscall(int(t.dev.Fd()), 0)
-		errchan <- err
-	}
-	return <-errchan
-}
-
-// SendSignal sends the given signal to the tracee.
-func (t *Tracee) SendSignal(sig syscall.Signal) error {
-	err := make(chan error, 1)
-	if t.do(func() { err <- syscall.Kill(int(t.dev.Fd()), sig) }) {
-		return <-err
-	}
-	return ErrTraceeExited
+	panic("Detach")
 }
 
 // ReadWord reads the given word from the inferior's address space.
@@ -335,30 +228,12 @@ func (t *Tracee) ReArm() error {
 // Sends the command to the tracer go routine.	Returns whether the command
 // was sent or not. The command may not have been sent if the tracee exited.
 func (t *Tracee) do(f func()) bool {
-	if t.cmds != nil {
-		t.cmds <- f
-		return true
-	}
+	panic("do")
 	return false
 }
 
 // Close closes a Tracee.
 func (t *Tracee) Close() error {
-	var err error
-	select {
-	case err = <-t.err:
-	default:
-		err = nil
-	}
-	close(t.cmds)
-	t.cmds = nil
-
-	syscall.Kill(int(t.dev.Fd()), syscall.SIGKILL)
-	return err
-}
-
-func (t *Tracee) trace() {
-	for cmd := range t.cmds {
-		cmd()
-	}
+	panic("close")
+	return nil
 }

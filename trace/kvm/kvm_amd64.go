@@ -3,7 +3,6 @@ package kvm
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"reflect"
@@ -811,17 +810,7 @@ func (t *Tracee) GetRegs() (*syscall.PtraceRegs, error) {
 
 // GetIPtr reads the instruction pointer from the inferior and returns it.
 func (t *Tracee) GetIPtr() (uintptr, error) {
-	errchan := make(chan error, 1)
-	value := make(chan uintptr, 1)
-	if t.do(func() {
-		var regs syscall.PtraceRegs
-		regs.Rip = 0
-		err := syscall.PtraceGetRegs(int(t.dev.Fd()), &regs)
-		value <- uintptr(regs.Rip)
-		errchan <- err
-	}) {
-		return <-value, <-errchan
-	}
+	panic("getIPtr")
 	return 0, ErrTraceeExited
 }
 
@@ -860,98 +849,84 @@ func (t *Tracee) SetRegs(pr *syscall.PtraceRegs) error {
 // We are going for broke here, setting up a 64-bit machine.
 // We also set up the BIOS areas, at 0xe0000 and 0xff000000.
 func (t *Tracee) archInit() error {
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), setTSSAddr, 0xfffbd000)
-	if errno != 0 {
-		return errno
-	}
 	// slot 0 is low memory, to 2g for now.
-	type lowbios [2048 * 1048576]byte
-	low := &lowbios{}
-	blow := []byte(low[:])
-	// poison it with hlt.
-	if true {
-		for i := range blow {
-			blow[i] = 0xf4
-		}
-	}
-	if err := t.mem(blow, 0x0); err != nil {
-		return fmt.Errorf("creating %d byte region: got %v, want nil", len(blow), err)
-	}
-	// slot 1 is high bios, 64k at top of 4g.
-	type page [64 * 1024]byte
-	b := &page{}
-	high64k := []byte(b[:])
-	if true {
-		for i := range high64k {
-			high64k[i] = 0xf4
-		}
-	}
-	// Set up page tables for long mode.
-	// take the first two pages of an area it should not touch -- PageTableBase
-	// present, read/write, page table at 0x3000
-	// ptes[0] = PageTableBase + 0x1000 | 0x3
-	// Gbyte-aligned page address in top 2 bits
-	// 3 in lowest 2 bits means present and read/write
-	// 0x60 means accessed/dirty
-	// 0x80 means the page size bit -- 0x80 | 0x60 = 0xe0
-	copy(high64k[:], []byte{0x03, 0x10 | uint8((PageTableBase>>8)&0xff), uint8((PageTableBase >> 16) & 0xff), uint8((PageTableBase >> 24) & 0xff), 0, 0, 0, 0})
-	for i := byte(0); i < 4; i++ {
-		if i == 2 {
-			copy(high64k[int(i*8)+0x1000:], []byte{0xe3, 0x0, 0, i * 0x40, 0, 0, 0, 0})
-			continue
-		}
-		copy(high64k[int(i*8)+0x1000:], []byte{0xe3, 0x0, 0, i * 0x40, 0, 0, 0, 0})
-	}
-	if false {
-		Debug("Page tables: %s", hex.Dump(high64k[:0x2000]))
-	}
-	if err := t.mem([]byte(high64k[:]), 0xffff0000); err != nil {
-		return fmt.Errorf("creating %d byte region: got %v, want nil", len(b), err)
-	}
+	// type lowbios [2048 * 1048576]byte
+	// low := &lowbios{}
+	// blow := []byte(low[:])
+	// // poison it with hlt.
+	// if true {
+	// 	for i := range blow {
+	// 		blow[i] = 0xf4
+	// 	}
+	// }
+	// if err := t.mem(blow, 0x0); err != nil {
+	// 	return fmt.Errorf("creating %d byte region: got %v, want nil", len(blow), err)
+	// }
+	// // slot 1 is high bios, 64k at top of 4g.
+	// type page [64 * 1024]byte
+	// b := &page{}
+	// high64k := []byte(b[:])
+	// if true {
+	// 	for i := range high64k {
+	// 		high64k[i] = 0xf4
+	// 	}
+	// }
+	// // Set up page tables for long mode.
+	// // take the first two pages of an area it should not touch -- PageTableBase
+	// // present, read/write, page table at 0x3000
+	// // ptes[0] = PageTableBase + 0x1000 | 0x3
+	// // Gbyte-aligned page address in top 2 bits
+	// // 3 in lowest 2 bits means present and read/write
+	// // 0x60 means accessed/dirty
+	// // 0x80 means the page size bit -- 0x80 | 0x60 = 0xe0
+	// copy(high64k[:], []byte{0x03, 0x10 | uint8((PageTableBase>>8)&0xff), uint8((PageTableBase >> 16) & 0xff), uint8((PageTableBase >> 24) & 0xff), 0, 0, 0, 0})
+	// for i := byte(0); i < 4; i++ {
+	// 	if i == 2 {
+	// 		copy(high64k[int(i*8)+0x1000:], []byte{0xe3, 0x0, 0, i * 0x40, 0, 0, 0, 0})
+	// 		continue
+	// 	}
+	// 	copy(high64k[int(i*8)+0x1000:], []byte{0xe3, 0x0, 0, i * 0x40, 0, 0, 0, 0})
+	// }
+	// if false {
+	// 	Debug("Page tables: %s", hex.Dump(high64k[:0x2000]))
+	// }
+	// if err := t.mem([]byte(high64k[:]), 0xffff0000); err != nil {
+	// 	return fmt.Errorf("creating %d byte region: got %v, want nil", len(b), err)
+	// }
 
-	// Set up 8M of image table data at 0xff000000
-	// UEFI mixes function pointers and data in the protocol structs.
-	// yegads it's so bad.
-	//
-	// The pattern needs to work if there is a deref via load/store
-	// or via call.
-	type functions [8 * 1048576]byte
-	fun := &functions{}
-	ffun := []byte(fun[:])
-	// poison it with hlt.
-	if true {
-		for i := 0; i < len(ffun); i += 8 {
-			// bogus pointer but the low 16 bits are hlt; retq
-			bogus := uint64(0x10000c3f4)
-			bogus = uint64(0xc3f4) | uint64(0xdeadbe<<36) | uint64(i<<16)
-			binary.LittleEndian.PutUint64(ffun[i:], bogus)
-		}
-	}
-	if err := t.mem(ffun, 0xff000000); err != nil {
-		return fmt.Errorf("creating %d byte region: got %v, want nil", len(ffun), err)
-	}
-	t.tab = ffun
-	// Now for CPUID. What a pain.
-	var i = &CPUIDInfo{
-		nent: uint32(len(CPUIDInfo{}.ents)),
-	}
-	Debug("Check CPUID entries")
-	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.dev.Fd()), getCPUID, uintptr(unsafe.Pointer(i))); errno != 0 {
-		Debug("Check CPUID entries err %v", errno)
-		return fmt.Errorf("Getting CPUID entries: %v", errno)
-	}
-	Debug("%v", i)
-	t.cpu.idInfo = i
-
-	return nil
-}
-
-func (t *Tracee) archNewProc() error {
-	Debug("Set CPUID entries in %v", t)
-	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setCPUID, uintptr(unsafe.Pointer(t.cpu.idInfo))); errno != 0 {
-		Debug("Set  CPUID entries err %v", errno)
-		return fmt.Errorf("Setting CPUID entries: %v", errno)
-	}
+	// // Set up 8M of image table data at 0xff000000
+	// // UEFI mixes function pointers and data in the protocol structs.
+	// // yegads it's so bad.
+	// //
+	// // The pattern needs to work if there is a deref via load/store
+	// // or via call.
+	// type functions [8 * 1048576]byte
+	// fun := &functions{}
+	// ffun := []byte(fun[:])
+	// // poison it with hlt.
+	// if true {
+	// 	for i := 0; i < len(ffun); i += 8 {
+	// 		// bogus pointer but the low 16 bits are hlt; retq
+	// 		bogus := uint64(0x10000c3f4)
+	// 		bogus = uint64(0xc3f4) | uint64(0xdeadbe<<36) | uint64(i<<16)
+	// 		binary.LittleEndian.PutUint64(ffun[i:], bogus)
+	// 	}
+	// }
+	// if err := t.mem(ffun, 0xff000000); err != nil {
+	// 	return fmt.Errorf("creating %d byte region: got %v, want nil", len(ffun), err)
+	// }
+	// t.tab = ffun
+	// // Now for CPUID. What a pain.
+	// var i = &CPUIDInfo{
+	// 	nent: uint32(len(CPUIDInfo{}.ents)),
+	// }
+	// Debug("Check CPUID entries")
+	// if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.dev.Fd()), getCPUID, uintptr(unsafe.Pointer(i))); errno != 0 {
+	// 	Debug("Check CPUID entries err %v", errno)
+	// 	return fmt.Errorf("Getting CPUID entries: %v", errno)
+	// }
+	// Debug("%v", i)
+	// t.cpu.idInfo = i
 
 	return nil
 }
