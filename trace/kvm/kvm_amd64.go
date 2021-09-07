@@ -1050,6 +1050,17 @@ var stype = map[uint32]string{
 	3: "crash",
 }
 
+func getxio(t *Tracee) *xio {
+	d, s, p, c, o := t.m.run.IO()
+	return &xio{
+		Dir:   uint8(d),
+		Size:  uint8(s),
+		Port:  uint16(p),
+		Count: uint32(c),
+		Off:   o,
+	}
+}
+
 func (t *Tracee) readInfo() error {
 	r, err := t.m.GetRegs()
 	if err != nil {
@@ -1074,7 +1085,7 @@ func (t *Tracee) readInfo() error {
 		Addr:      0,
 		Addr_lsb:  0,
 		Syscall:   0,
-		Call_addr: r.Rip,
+		Call_addr: r.RIP,
 		Arch:      0, // no idea
 		Signo:     0,
 	}
@@ -1084,16 +1095,15 @@ func (t *Tracee) readInfo() error {
 	// figure out how to do the handler.
 	switch e {
 	case ExitDebug:
-		sig.Addr = r.Rip
-		Debug("ExitDebug: %#x", r.Rip)
+		sig.Addr = r.RIP
+		Debug("ExitDebug: %#x", r.RIP)
 	case ExitHlt:
-		sig.Addr = r.Rip
-		Debug("ExitHalt: %#x", r.Rip)
+		sig.Addr = r.RIP
+		Debug("ExitHalt: %#x", r.RIP)
 	case ExitIo:
-		var x xio
-		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {
-			log.Panicf("Read in run failed -- can't happen")
-		}
+		// the kvm package should return a struct, but we'll work on that
+		// later if it's every got more contributor-friendliness.
+		x := getxio(t)
 		sig.Addr = uint64(x.Port)
 		Debug("ExitIO: Addr '%#x' %s", sig.Addr, x.String())
 	case ExitMmio:
@@ -1111,7 +1121,7 @@ func (t *Tracee) readInfo() error {
 		n, _ := stype[x.Stype]
 		Debug("Shutdown: %s [%#x] flags %#x", n, x.Stype, x.Flags)
 		//Debug("Shutdown: m[%#x] is %#x", x.Flags, t.tab[0x460000:0x460000+0x1000])
-		sig.Addr = r.Rip
+		sig.Addr = r.RIP
 	case ExitIntr:
 		r, s, err := t.getRegs()
 		if err != nil {
