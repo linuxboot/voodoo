@@ -10,6 +10,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/bobuhiro11/gokvm/kvm"
 	"golang.org/x/sys/unix"
 )
 
@@ -154,27 +155,27 @@ type sregs struct {
 	InterruptBitmap         [(256 + 63) / 64]uint64
 }
 
-func kvmRegstoPtraceRegs(pr *syscall.PtraceRegs, r *regs, s *sregs) {
+func kvmRegstoPtraceRegs(pr *syscall.PtraceRegs, r *kvm.Regs, s *kvm.Sregs) {
 	pr.R15 = r.R15
 	pr.R14 = r.R14
 	pr.R13 = r.R13
 	pr.R12 = r.R12
-	pr.Rbp = r.Rbp
-	pr.Rbx = r.Rbx
+	pr.Rbp = r.RBP
+	pr.Rbx = r.RBX
 	pr.R11 = r.R11
 	pr.R10 = r.R10
 	pr.R9 = r.R9
 	pr.R8 = r.R8
-	pr.Rax = r.Rax
-	pr.Rcx = r.Rcx
-	pr.Rdx = r.Rdx
-	pr.Rsi = r.Rsi
-	pr.Rdi = r.Rdi
-	pr.Orig_rax = r.Rax /// hmmm ....
-	pr.Rip = r.Rip
+	pr.Rax = r.RAX
+	pr.Rcx = r.RCX
+	pr.Rdx = r.RDX
+	pr.Rsi = r.RSI
+	pr.Rdi = r.RDI
+	pr.Orig_rax = r.RAX /// hmmm ....
+	pr.Rip = r.RIP
 	pr.Cs = uint64(s.CS.Selector)
-	pr.Eflags = r.Rflags
-	pr.Rsp = r.Rsp
+	pr.Eflags = r.RFLAGS
+	pr.Rsp = r.RSP
 	pr.Ss = uint64(s.SS.Selector)
 	//pr.Fs_base = uint64(s.fs_base.Selector)
 	//pr.Gs_base = uint64(s.gs_base.Selector)
@@ -764,37 +765,18 @@ func (e Exit) String() string {
 // cr4 = sregs.cr4; cr8 = sregs.cr8;
 
 // getRegs reads all the regs; it is useful for the few cases that need more information.
-func (t Tracee) getRegs() (*regs, *sregs, error) {
+func (t Tracee) getRegs() (*kvm.Regs, *kvm.Sregs, error) {
 	// This model can get kludgy.
-	type all struct {
-		err error
-		s   *sregs
-		r   *regs
+	r, err := t.m.GetRegs()
+	if err != nil {
+		return nil, nil, err
 	}
-	v := make(chan all, 1)
-	if t.do(func() {
-		var rdata [unsafe.Sizeof(regs{})]byte
-		var sdata [unsafe.Sizeof(sregs{})]byte
-		r := &regs{}
-		s := &sregs{}
 
-		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getRegs, uintptr(unsafe.Pointer(&rdata[0]))); errno != 0 {
-			v <- all{err: errno}
-			return
-		}
-		binary.Read(bytes.NewReader(rdata[:]), binary.LittleEndian, r)
-
-		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getSregs, uintptr(unsafe.Pointer(&sdata[0]))); errno != 0 {
-			v <- all{err: errno}
-		}
-		binary.Read(bytes.NewReader(sdata[:]), binary.LittleEndian, s)
-		v <- all{r: r, s: s}
-
-	}) {
-		ret := <-v
-		return ret.r, ret.s, ret.err
+	s, err := t.m.GetSregs()
+	if err != nil {
+		return nil, nil, err
 	}
-	return nil, nil, fmt.Errorf("getRegs: t.do failed")
+	return &r, &s, nil
 }
 
 // GetRegs reads the registers from the inferior.
@@ -817,33 +799,13 @@ func (t *Tracee) GetIPtr() (uintptr, error) {
 // SetRegs sets regs for a Tracee.
 // The ability to set sregs is limited by what can be set in ptraceregs.
 func (t *Tracee) SetRegs(pr *syscall.PtraceRegs) error {
-	errchan := make(chan error, 1)
-	if t.do(func() {
-		rdata, sdata := &bytes.Buffer{}, &bytes.Buffer{}
-		r := &regs{}
-		s := &sregs{}
-		ptraceRegsToKVMRegs(pr, r, s)
-		binary.Write(rdata, binary.LittleEndian, r)
-		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setRegs, uintptr(unsafe.Pointer(&rdata.Bytes()[0]))); errno != 0 {
-			errchan <- errno
-		}
+	var (
+		r = &kvm.Regs{}
+		s = kvm.SRegs{}
+	)
+	ptraceRegsToKVMRegs(pr, r, s)
 
-		// We will not allow setting Sregs. It's too dangerous.
-		// ptraceregs don't have enough useful bits.
-		// At some point we might filter the settings and allow
-		// *some* to be set but that's for later.
-		if false {
-			binary.Write(sdata, binary.LittleEndian, s)
-			if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setSregs, uintptr(unsafe.Pointer(&sdata.Bytes()[0]))); errno != 0 {
-				errchan <- errno
-			}
-		}
-
-		errchan <- nil
-	}) {
-		return <-errchan
-	}
-	return ErrTraceeExited
+	return nil
 }
 
 // We are going for broke here, setting up a 64-bit machine.

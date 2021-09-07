@@ -2,11 +2,11 @@
 package kvm
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"syscall"
 
@@ -72,7 +72,7 @@ func (t *Tracee) String() string {
 }
 
 func (t *Tracee) Tab() []byte {
-	return t.tab
+	return t.m.mem[0xff000000:]
 }
 
 // EnableSingleStep enables single stepping the guest
@@ -126,7 +126,6 @@ func New() (*Tracee, error) {
 		return nil, err
 	}
 
-	log.Panicf("m is %v", m)
 	t := &Tracee{
 		m:      m,
 		events: make(chan unix.SignalfdSiginfo, 1),
@@ -165,20 +164,9 @@ func (t *Tracee) ReadWord(address uintptr) (uint64, error) {
 
 // Read grabs memory starting at the given address, for len(data) bytes.
 func (t *Tracee) Read(address uintptr, data []byte) error {
-	err := make(chan error, 1)
-	if t.do(func() {
-		r := t.regions[0]
-		last := r.gpa + uint64(len(r.data))
-		if address > uintptr(last) {
-			err <- fmt.Errorf("Address %#x is out of range", address)
-			return
-		}
-		copy(data, r.data[address:])
-		err <- nil
-	}) {
-		return <-err
-	}
-	return ErrTraceeExited
+	var b = bytes.NewReader(t.m.mem)
+	_, err := b.ReadAt(data, int64(address))
+	return err
 }
 
 // WriteWord writes the given word into the inferior's address space.
@@ -189,21 +177,12 @@ func (t *Tracee) WriteWord(address uintptr, word uint64) error {
 }
 
 func (t *Tracee) Write(address uintptr, data []byte) error {
-	err := make(chan error, 1)
-	//Debug("Write %#x %#x", address, data)
-	if t.do(func() {
-		r := t.regions[0]
-		last := r.gpa + uint64(len(r.data))
-		if address+uintptr(len(data)) > uintptr(last) {
-			err <- fmt.Errorf("Address %#x is out of range", address)
-			return
-		}
-		copy(r.data[address:], data)
-		err <- nil
-	}) {
-		return <-err
+	// sure wish we had bytes.WriterAt but oh well
+	if address > uintptr(len(t.m.mem)) {
+		return os.ErrInvalid
 	}
-	return ErrTraceeExited
+	copy(t.m.mem[address:], data)
+	return nil
 }
 
 // GetSiginfo reads the signal information for the signal that stopped the inferior.  Only

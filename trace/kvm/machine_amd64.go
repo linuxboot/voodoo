@@ -2,12 +2,11 @@ package kvm
 
 import (
 	"fmt"
-	"io/ioutil"
+	"log"
 	"os"
 	"syscall"
 	"unsafe"
 
-	"github.com/bobuhiro11/gokvm/bootparam"
 	"github.com/bobuhiro11/gokvm/kvm"
 	"github.com/bobuhiro11/gokvm/serial"
 )
@@ -42,11 +41,7 @@ import (
 //                               |                  |
 //                 0x40000000    +------------------+
 const (
-	memSize       = 1 << 30
-	bootParamAddr = 0x10000
-	cmdlineAddr   = 0x20000
-	kernelAddr    = 0x100000
-	initrdAddr    = 0xf000000
+	memSize = 4 << 30
 )
 
 type Machine struct {
@@ -132,110 +127,112 @@ func (m *Machine) RunData() *kvm.RunData {
 
 }
 func (m *Machine) LoadLinux(bzImagePath, initPath, params string) error {
-	// Load initrd
-	initrd, err := ioutil.ReadFile(initPath)
-	if err != nil {
-		return err
-	}
-
-	for i := 0; i < len(initrd); i++ {
-		m.mem[initrdAddr+i] = initrd[i]
-	}
-
-	// Load kernel command-line parameters
-	for i, b := range []byte(params) {
-		m.mem[cmdlineAddr+i] = b
-	}
-
-	m.mem[cmdlineAddr+len(params)] = 0 // for null terminated string
-
-	// Load Boot Param
-	bootParam, err := bootparam.New(bzImagePath)
-	if err != nil {
-		return err
-	}
-
-	// refs https://github.com/kvmtool/kvmtool/blob/0e1882a49f81cb15d328ef83a78849c0ea26eecc/x86/bios.c#L66-L86
-	bootParam.AddE820Entry(
-		bootparam.RealModeIvtBegin,
-		bootparam.EBDAStart-bootparam.RealModeIvtBegin,
-		bootparam.E820Ram,
-	)
-	bootParam.AddE820Entry(
-		bootparam.EBDAStart,
-		bootparam.VGARAMBegin-bootparam.EBDAStart,
-		bootparam.E820Reserved,
-	)
-	bootParam.AddE820Entry(
-		bootparam.MBBIOSBegin,
-		bootparam.MBBIOSEnd-bootparam.MBBIOSBegin,
-		bootparam.E820Reserved,
-	)
-	bootParam.AddE820Entry(
-		kernelAddr,
-		memSize-kernelAddr,
-		bootparam.E820Ram,
-	)
-
-	bootParam.Hdr.VidMode = 0xFFFF                                                                  // Proto ALL
-	bootParam.Hdr.TypeOfLoader = 0xFF                                                               // Proto 2.00+
-	bootParam.Hdr.RamdiskImage = initrdAddr                                                         // Proto 2.00+
-	bootParam.Hdr.RamdiskSize = uint32(len(initrd))                                                 // Proto 2.00+
-	bootParam.Hdr.LoadFlags |= bootparam.CanUseHeap | bootparam.LoadedHigh | bootparam.KeepSegments // Proto 2.00+
-	bootParam.Hdr.HeapEndPtr = 0xFE00                                                               // Proco 2.01+
-	bootParam.Hdr.ExtLoaderVer = 0                                                                  // Proco 2.02+
-	bootParam.Hdr.CmdlinePtr = cmdlineAddr                                                          // Proco 2.06+
-	bootParam.Hdr.CmdlineSize = uint32(len(params) + 1)                                             // Proco 2.06+
-
-	bytes, err := bootParam.Bytes()
-	if err != nil {
-		return err
-	}
-
-	for i, b := range bytes {
-		m.mem[bootParamAddr+i] = b
-	}
-
-	// Load kernel
-	bzImage, err := ioutil.ReadFile(bzImagePath)
-	if err != nil {
-		return err
-	}
-
-	// copy to g.mem with offest setupsz
-	//
-	// The 32-bit (non-real-mode) kernel starts at offset (setup_sects+1)*512 in
-	// the kernel file (again, if setup_sects == 0 the real value is 4.) It should
-	// be loaded at address 0x10000 for Image/zImage kernels and 0x100000 for bzImage kernels.
-	//
-	// refs: https://www.kernel.org/doc/html/latest/x86/boot.html#loading-the-rest-of-the-kernel
-	offset := int(bootParam.Hdr.SetupSects+1) * 512
-
-	for i := 0; i < len(bzImage)-offset; i++ {
-		m.mem[kernelAddr+i] = bzImage[offset+i]
-	}
-
-	if err = m.initRegs(); err != nil {
-		return err
-	}
-
-	if err = m.initSregs(); err != nil {
-		return err
-	}
-
-	m.initIOPortHandlers()
-
-	serialIRQCallback := func(irq, level uint32) {
-		if err := kvm.IRQLine(m.vmFd, irq, level); err != nil {
-			panic(err)
-		}
-	}
-
-	if m.serial, err = serial.New(serialIRQCallback); err != nil {
-		return err
-	}
-
+	log.Panicf("%s %s %s: no", bzImagePath, initPath, params)
 	return nil
+	// // Load initrd
+	// initrd, err := ioutil.ReadFile(initPath)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// for i := 0; i < len(initrd); i++ {
+	// 	m.mem[initrdAddr+i] = initrd[i]
+	// }
+
+	// // Load kernel command-line parameters
+	// for i, b := range []byte(params) {
+	// 	m.mem[cmdlineAddr+i] = b
+	// }
+
+	// m.mem[cmdlineAddr+len(params)] = 0 // for null terminated string
+
+	// // Load Boot Param
+	// bootParam, err := bootparam.New(bzImagePath)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// // refs https://github.com/kvmtool/kvmtool/blob/0e1882a49f81cb15d328ef83a78849c0ea26eecc/x86/bios.c#L66-L86
+	// bootParam.AddE820Entry(
+	// 	bootparam.RealModeIvtBegin,
+	// 	bootparam.EBDAStart-bootparam.RealModeIvtBegin,
+	// 	bootparam.E820Ram,
+	// )
+	// bootParam.AddE820Entry(
+	// 	bootparam.EBDAStart,
+	// 	bootparam.VGARAMBegin-bootparam.EBDAStart,
+	// 	bootparam.E820Reserved,
+	// )
+	// bootParam.AddE820Entry(
+	// 	bootparam.MBBIOSBegin,
+	// 	bootparam.MBBIOSEnd-bootparam.MBBIOSBegin,
+	// 	bootparam.E820Reserved,
+	// )
+	// bootParam.AddE820Entry(
+	// 	kernelAddr,
+	// 	memSize-kernelAddr,
+	// 	bootparam.E820Ram,
+	// )
+
+	// bootParam.Hdr.VidMode = 0xFFFF                                                                  // Proto ALL
+	// bootParam.Hdr.TypeOfLoader = 0xFF                                                               // Proto 2.00+
+	// bootParam.Hdr.RamdiskImage = initrdAddr                                                         // Proto 2.00+
+	// bootParam.Hdr.RamdiskSize = uint32(len(initrd))                                                 // Proto 2.00+
+	// bootParam.Hdr.LoadFlags |= bootparam.CanUseHeap | bootparam.LoadedHigh | bootparam.KeepSegments // Proto 2.00+
+	// bootParam.Hdr.HeapEndPtr = 0xFE00                                                               // Proco 2.01+
+	// bootParam.Hdr.ExtLoaderVer = 0                                                                  // Proco 2.02+
+	// bootParam.Hdr.CmdlinePtr = cmdlineAddr                                                          // Proco 2.06+
+	// bootParam.Hdr.CmdlineSize = uint32(len(params) + 1)                                             // Proco 2.06+
+
+	// bytes, err := bootParam.Bytes()
+	// if err != nil {
+	// 	return err
+	// }
+
+	// for i, b := range bytes {
+	// 	m.mem[bootParamAddr+i] = b
+	// }
+
+	// // Load kernel
+	// bzImage, err := ioutil.ReadFile(bzImagePath)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// // copy to g.mem with offest setupsz
+	// //
+	// // The 32-bit (non-real-mode) kernel starts at offset (setup_sects+1)*512 in
+	// // the kernel file (again, if setup_sects == 0 the real value is 4.) It should
+	// // be loaded at address 0x10000 for Image/zImage kernels and 0x100000 for bzImage kernels.
+	// //
+	// // refs: https://www.kernel.org/doc/html/latest/x86/boot.html#loading-the-rest-of-the-kernel
+	// offset := int(bootParam.Hdr.SetupSects+1) * 512
+
+	// for i := 0; i < len(bzImage)-offset; i++ {
+	// 	m.mem[kernelAddr+i] = bzImage[offset+i]
+	// }
+
+	// if err = m.initRegs(); err != nil {
+	// 	return err
+	// }
+
+	// if err = m.initSregs(); err != nil {
+	// 	return err
+	// }
+
+	// m.initIOPortHandlers()
+
+	// serialIRQCallback := func(irq, level uint32) {
+	// 	if err := kvm.IRQLine(m.vmFd, irq, level); err != nil {
+	// 		panic(err)
+	// 	}
+	// }
+
+	// if m.serial, err = serial.New(serialIRQCallback); err != nil {
+	// 	return err
+	// }
+
+	// return nil
 }
 
 func (m *Machine) GetInputChan() chan<- byte {
@@ -246,15 +243,15 @@ func (m *Machine) InjectSerialIRQ() {
 	m.serial.InjectIRQ()
 }
 
-func (m *Machine) initRegs() error {
+func (m *Machine) initRegs(rip, arg0 uint64) error {
 	regs, err := kvm.GetRegs(m.vcpuFd)
 	if err != nil {
 		return err
 	}
 
 	regs.RFLAGS = 2
-	regs.RIP = kernelAddr
-	regs.RSI = bootParamAddr
+	regs.RIP = rip
+	regs.RSI = arg0
 
 	if err := kvm.SetRegs(m.vcpuFd, regs); err != nil {
 		return err
@@ -265,6 +262,10 @@ func (m *Machine) initRegs() error {
 
 func (m *Machine) GetRegs() (kvm.Regs, error) {
 	return kvm.GetRegs(m.vcpuFd)
+}
+
+func (m *Machine) SetRegs(*kvm.Regs) error {
+	return kvm.SetRegs(m.vcpuFd, regs)
 }
 
 func (m *Machine) initSregs() error {
@@ -289,6 +290,14 @@ func (m *Machine) initSregs() error {
 	}
 
 	return nil
+}
+
+func (m *Machine) GetSregs() (kvm.Sregs, error) {
+	return kvm.GetSregs(m.vcpuFd)
+}
+
+func (m *Machine) SetSregs(*kvm.Sregs) error {
+	return kvm.SetSregs(m.vcpuFd, regs)
 }
 
 func (m *Machine) initCPUID() error {
