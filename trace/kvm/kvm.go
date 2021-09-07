@@ -50,14 +50,14 @@ type Region struct {
 
 // A Tracee is a process that is being traced.
 type Tracee struct {
-	dev     *os.File
-	vm      uintptr
+	m       *machine.Machine
 	events  chan unix.SignalfdSiginfo
 	err     chan error
 	cmds    chan func()
 	slot    uint32
 	regions []*Region
 	cpu     cpu
+	step    bool
 	// This may seem a poor match but it makes
 	// the program itself easier as ptrace and kvm
 	// return common faultinfo, and other packages
@@ -72,85 +72,29 @@ type Tracee struct {
 }
 
 func (t *Tracee) String() string {
-	return fmt.Sprintf("%s(kvmfd %d, vmfd %d, vcpufd %d)", t.dev.Name(), t.dev.Fd(), t.vm, t.cpu.fd)
+	return fmt.Sprintf("machine %v)", t.m)
 }
 
 func (t *Tracee) Tab() []byte {
 	return t.tab
 }
 
-func (t *Tracee) vmioctl(option uintptr, data interface{}) (r1, r2 uintptr, err error) {
-	var errno syscall.Errno
-	switch option {
-	default:
-		r1, r2, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), uintptr(option), uintptr(unsafe.Pointer(&data)))
-	}
-	if errno != 0 {
-		err = errno
-	}
-	return
-}
-
-func (t *Tracee) cpuioctl(option uintptr, data interface{}) (r1, r2 uintptr, err error) {
-	var errno syscall.Errno
-	switch option {
-	default:
-		r1, r2, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), uintptr(option), uintptr(unsafe.Pointer(&data)))
-	}
-	if errno != 0 {
-		err = errno
-	}
-	return
-}
-
-func ioctl(fd uintptr, op uintptr, arg uintptr) (err error) {
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, fd, op, arg)
-	if errno != 0 {
-		err = errno
-	}
-	return
-}
-
 // EnableSingleStep enables single stepping the guest
 func (t *Tracee) SingleStep(onoff bool) error {
-	err := make(chan error, 1)
-	if t.do(func() {
-		var debug [unsafe.Sizeof(DebugControl{})]byte
-		if onoff {
-			debug[0] = Enable | SingleStep
-			debug[2] = 0x0002 // 0000
-			//for i := range debug {
-			//debug[i] = 0xff
-			//}
-		}
-		// this is not very nice, but it is easy.
-		// And TBH, the tricks the Linux kernel people
-		// play are a lot nastier.
-		err <- ioctl(t.cpu.fd, setGuestDebug, uintptr(unsafe.Pointer(&debug[0])))
-	}) {
-		return <-err
-	}
-	return ErrTraceeExited
+	t.step = onoff
+	return nil
 }
 
 // SingleStep continues the tracee for one instruction.
 // Todo: see if we are in single step mode, if not, set, etc.
 func (t *Tracee) Run() error {
-	errc := make(chan error, 1)
-	if t.do(func() {
-		e := ioctl(uintptr(t.cpu.fd), run, 0)
-		errc <- e
-	}) {
-		err := <-errc
-		Debug("kvm.Run: run returns with %v", err)
-		if err := t.readInfo(); err != nil {
-			log.Panicf("run: info %v", err)
-		}
-		// Now yank out the exit info.
-		//t.events <- t.info
+	if t.step {
+		// not sure what to do with the bool yet.
+		_, err := t.m.RunOnce()
 		return err
 	}
-	return ErrTraceeExited
+
+	return t.m.RunInfiniteLoop()
 }
 
 // PID returns the PID for a Tracee.
@@ -187,22 +131,8 @@ func New() (*Tracee, error) {
 	}
 
 	log.Panicf("m is %v", m)
-	k, err := os.OpenFile(*deviceName, os.O_RDWR, 0)
-	if err != nil {
-		return nil, err
-	}
-	if v := version(k); v != APIVersion {
-		return nil, fmt.Errorf("Version: got %d, must be %d", v, APIVersion)
-	}
-
-	vm, err := startvm(k)
-	if err != nil {
-		return nil, fmt.Errorf("startvm: failed (%d, %v)", vm, err)
-	}
-
 	t := &Tracee{
-		dev:    k,
-		vm:     vm,
+		m:      m,
 		events: make(chan unix.SignalfdSiginfo, 1),
 		err:    make(chan error, 1),
 		cmds:   make(chan func()),
@@ -228,43 +158,6 @@ func New() (*Tracee, error) {
 		t.trace()
 	}()
 	return t, <-errs
-}
-
-// NewProc creates a CPU, given an id.
-// TODO :we're getting sloppy about the t.do stuff, fix.
-func (t *Tracee) NewProc(id int) error {
-	r1, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), uintptr(createCPU), 0)
-	if errno != 0 {
-		return errno
-	}
-	fd := r1
-	r1, _, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.dev.Fd()), vcpuMmapSize, 0)
-	if errno != 0 {
-		return errno
-	}
-	if r1 <= 0 {
-		return fmt.Errorf("mmap size is <= 0")
-	}
-	msize := uint64(r1)
-	b, err := unix.Mmap(int(fd), 0, int(msize), unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED)
-	if err != nil {
-		return fmt.Errorf("cpu shared mmap(%#x, %#x, %#x, %#x, %#x): %v", fd, 0, msize, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED, err)
-	}
-	t.cpu.id = id
-	t.cpu.fd = fd
-	t.cpu.m = b
-	if err := t.archNewProc(); err != nil {
-		return err
-	}
-	// Now for the real fun. Long mode.
-	sdata := &bytes.Buffer{}
-	binary.Write(sdata, binary.LittleEndian, bit64)
-	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setSregs, uintptr(unsafe.Pointer(&sdata.Bytes()[0]))); errno != 0 {
-		return fmt.Errorf("can not set sregs: %v", errno)
-	}
-
-	return nil
-
 }
 
 // This allows setting up mem for a guest.

@@ -18,10 +18,10 @@ import (
 type Exit uint32
 
 type cpu struct {
-	id    int
-	fd    uintptr
-	m     []byte
-	VMRun VMRun
+	id      int
+	fd      uintptr
+	m       []byte
+	Machine Machine
 	// We have to read the CPUIDs from the vmfd,
 	// and then set them into the vcpu
 	idInfo *CPUIDInfo
@@ -1076,17 +1076,11 @@ var stype = map[uint32]string{
 }
 
 func (t *Tracee) readInfo() error {
-	vmr := bytes.NewBuffer(t.cpu.m)
-	//Debug("vmr len %d", vmr.Len())
-	if err := binary.Read(vmr, binary.LittleEndian, &t.cpu.VMRun); err != nil {
-		log.Panicf("Read in run failed -- can't happen")
-	}
-	//Debug("vmr len %d", vmr.Len())
-	r, _, err := t.getRegs()
+	r, err := t.m.GetRegs()
 	if err != nil {
 		return fmt.Errorf("readInfo: %v", err)
 	}
-	e := t.cpu.VMRun.ExitReason
+	e := t.m.run.ExitReason
 	sig := unix.SignalfdSiginfo{
 		Errno:     0,
 		Code:      int32(e),
