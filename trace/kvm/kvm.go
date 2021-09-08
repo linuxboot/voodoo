@@ -44,12 +44,9 @@ type Region struct {
 	data []byte
 }
 
-// A Tracee is a process that is being traced.
+// A Tracee is a DXE that is being traced.
 type Tracee struct {
 	m       *Machine
-	events  chan unix.SignalfdSiginfo
-	err     chan error
-	cmds    chan func()
 	slot    uint32
 	regions []*Region
 	cpu     cpu
@@ -97,11 +94,6 @@ func (t *Tracee) Run() error {
 // we'll return the cpuid for now.
 func (t *Tracee) PID() int { return int(t.cpu.id) }
 
-// Events returns the events channel for the tracee.
-func (t *Tracee) Events() <-chan unix.SignalfdSiginfo {
-	return t.events
-}
-
 func version(f *os.File) int {
 	r1, _, _ := syscall.Syscall(syscall.SYS_IOCTL, uintptr(f.Fd()), kvmversion, 0)
 	// syscall returns a non-nil error, always, even for 0.
@@ -127,18 +119,9 @@ func New() (*Tracee, error) {
 	}
 
 	t := &Tracee{
-		m:      m,
-		events: make(chan unix.SignalfdSiginfo, 1),
-		err:    make(chan error, 1),
-		cmds:   make(chan func()),
+		m: m,
 	}
 	return t, nil
-}
-
-// Exec executes a process with tracing enabled, returning the Tracee
-// or an error if an error occurs while executing the process.
-func (t *Tracee) Exec(name string, argv ...string) error {
-	panic("Exec")
 }
 
 // Attach attaches to the given process.
@@ -148,7 +131,8 @@ func Attach(pid int) (*Tracee, error) {
 
 // Detach detaches the tracee, destroying it in the process.
 func (t *Tracee) Detach() error {
-	panic("Detach")
+	Debug("Detach")
+	return nil
 }
 
 // ReadWord reads the given word from the inferior's address space.

@@ -61,62 +61,70 @@ func NewMachine() (*Machine, error) {
 	}
 
 	m.kvmFd = devKVM.Fd()
+	Debug("devKVM %v fd %d", devKVM, m.kvmFd)
 	m.vmFd, err = kvm.CreateVM(m.kvmFd)
 
 	if err != nil {
 		return m, err
 	}
-
+	Debug("vmfd %d", m.vmFd)
 	if err := kvm.SetTSSAddr(m.vmFd); err != nil {
 		return m, err
 	}
-
+	Debug("Done settssaddr")
 	if err := kvm.SetIdentityMapAddr(m.vmFd); err != nil {
 		return m, err
 	}
-
+	Debug("Done set idmapaddr")
 	if err := kvm.CreateIRQChip(m.vmFd); err != nil {
 		return m, err
 	}
-
+	Debug("Done createirqchip")
 	if err := kvm.CreatePIT2(m.vmFd); err != nil {
 		return m, err
 	}
-
+	Debug("Done createpit2")
 	m.vcpuFd, err = kvm.CreateVCPU(m.vmFd)
 	if err != nil {
 		return m, err
 	}
-
+	Debug("Done create vcpu")
 	if err := m.initCPUID(); err != nil {
 		return m, err
 	}
-
-	m.mem, err = syscall.Mmap(-1, 0, memSize,
-		syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED|syscall.MAP_ANONYMOUS)
+	Debug("Done initCPUID")
+	m.mem, err = syscall.Mmap(-1, 0, memSize, syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED|syscall.MAP_ANONYMOUS)
 	if err != nil {
 		return m, err
 	}
+	Debug("done m.mem")
+	// fill with hlt
+	for i := range m.mem {
+		m.mem[i] = 0xf4
+	}
+	Debug("Filled it with HLT")
 
 	mmapSize, err := kvm.GetVCPUMMmapSize(m.kvmFd)
 	if err != nil {
 		return m, err
 	}
-
+	Debug("mmapSize %d", mmapSize)
 	r, err := syscall.Mmap(int(m.vcpuFd), 0, int(mmapSize), syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
 	if err != nil {
 		return m, err
 	}
 
 	m.run = (*kvm.RunData)(unsafe.Pointer(&r[0]))
-
+	Debug("Got m.run")
 	err = kvm.SetUserMemoryRegion(m.vmFd, &kvm.UserspaceMemoryRegion{
-		Slot: 0, Flags: 0, GuestPhysAddr: 0, MemorySize: 1 << 30,
+		Slot: 0, Flags: 0, GuestPhysAddr: 0, MemorySize: memSize,
 		UserspaceAddr: uint64(uintptr(unsafe.Pointer(&m.mem[0]))),
 	})
+	Debug("Done setusermemoryregion for %#x", memSize)
 	if err != nil {
 		return m, err
 	}
+	Debug("Return from New Machine")
 
 	return m, nil
 }

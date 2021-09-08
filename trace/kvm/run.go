@@ -1,7 +1,11 @@
 // Package kvm provides an interface to the kvm system call.
 package kvm
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/bobuhiro11/gokvm/kvm"
+)
 
 // const (
 // 	ExitUnknown       = 0
@@ -52,23 +56,7 @@ const (
 	ExitIoapicEOI   = 26
 )
 
-/* for KVM_RUN, returned by mmap(vcpu_fd, offset=0) */
-type VMRun struct {
-	/* in */
-	RequestInterruptWindow uint8
-	ImmediateExit          uint8
-	_                      [6]uint8
-
-	/* out */
-	ExitReason                 uint32
-	ReadyForInterruptInjection uint8
-	IFFlag                     uint8
-	Flags                      uint16
-	CR8                        uint64
-	APICBase                   uint64
-}
-
-func (r *VMRun) String() string {
+func RunString(r *kvm.RunData) string {
 	return fmt.Sprintf("%s", Exit(r.ExitReason))
 }
 

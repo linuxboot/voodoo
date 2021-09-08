@@ -32,11 +32,12 @@ func (t *Tracee) Inst() (*x86asm.Inst, *syscall.PtraceRegs, string, error) {
 }
 
 func TestNew(t *testing.T) {
-	v, err := New()
+	Debug = t.Logf
+	_, err := New()
 	if err != nil {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
-	t.Logf("%v", v)
+	t.Logf("Done!")
 }
 
 func TestOpenDetach(t *testing.T) {
@@ -44,23 +45,9 @@ func TestOpenDetach(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
-	t.Logf("%v", v)
-	err = v.Exec("", []string{""}...)
+
 	if err := v.Detach(); err != nil {
 		t.Fatalf("Detach: Got %v, want nil", err)
-	}
-}
-
-func TestCreateRegion(t *testing.T) {
-	v, err := New()
-	if err != nil {
-		t.Fatalf("Open: got %v, want nil", err)
-	}
-	defer v.Detach()
-	type page [2 * 1048576]byte
-	b := &page{}
-	if err := v.mem([]byte(b[:]), 0); err == nil {
-		t.Fatalf("creating %d byte region: got nil, want 'file exists'", len(b))
 	}
 }
 
@@ -103,9 +90,6 @@ func TestCreateCpu(t *testing.T) {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
 	defer v.Detach()
-	if err := v.NewProc(0); err != nil {
-		t.Fatalf("NewProc: got %v, want nil", err)
-	}
 }
 
 func TestGetRegs(t *testing.T) {
@@ -114,10 +98,7 @@ func TestGetRegs(t *testing.T) {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
 	defer v.Detach()
-	t.Logf("%v", v)
-	if err := v.NewProc(0); err != nil {
-		t.Fatalf("NewProc: got %v, want nil", err)
-	}
+
 	r, err := v.GetRegs()
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
@@ -149,15 +130,13 @@ func TestGetRegs(t *testing.T) {
 }
 
 func TestSetRegs(t *testing.T) {
+	t.Skip()
 	v, err := New()
 	if err != nil {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
 	defer v.Detach()
-	t.Logf("%v", v)
-	if err := v.NewProc(0); err != nil {
-		t.Fatalf("NewProc: got %v, want nil", err)
-	}
+
 	r, err := v.GetRegs()
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
@@ -191,7 +170,6 @@ func TestSetRegs(t *testing.T) {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
 	t.Logf("%s", show("After:\t", r))
-	// Don't check 15-8 for now
 
 	diff(t.Errorf, pr.R15, r.R15, "R15")
 	diff(t.Errorf, pr.R14, r.R14, "R14")
@@ -222,31 +200,21 @@ func diff(f func(string, ...interface{}), a, b uint64, n string) bool {
 	return false
 }
 
-func testRunUD2(t *testing.T) {
+func TestRunUD2(t *testing.T) {
 	v, err := New()
 	if err != nil {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
 	defer v.Detach()
-	t.Logf("%v", v)
-	if err := v.NewProc(0); err != nil {
-		t.Fatalf("NewProc: got %v, want nil", err)
-	}
+
 	r, err := v.GetRegs()
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
-	type page [2 * 1048576]byte
-	b := &page{}
-	if err := v.mem([]byte(b[:]), 0); err != nil {
-		t.Fatalf("creating %d byte region: got %v, want nil", len(b), err)
-	}
 	t.Logf("IP is %#x", r.Rip)
-	go func() {
-		for range v.Events() {
-		}
-		t.Logf("No more events")
-	}()
+	if err := v.SingleStep(true); err != nil {
+		t.Fatalf("SingleStep: got %v, want nil", err)
+	}
 	if err := v.Run(); err != nil {
 		t.Fatalf("SingleStep: got %v, want nil", err)
 	}
@@ -264,9 +232,6 @@ func TestHalt(t *testing.T) {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
 	defer v.Detach()
-	if err := v.NewProc(0); err != nil {
-		t.Fatalf("NewProc: got %v, want nil", err)
-	}
 	if err := v.SingleStep(false); err != nil {
 		t.Fatalf("Run: got %v, want nil", err)
 	}
@@ -289,11 +254,6 @@ func TestHalt(t *testing.T) {
 		}
 		t.Logf("IP is %#x", r.Rip)
 	}
-	go func() {
-		for range v.Events() {
-		}
-		t.Logf("No more events")
-	}()
 	for i := 0; i < 16; i++ {
 		Debug = t.Logf
 		if err := v.Run(); err != nil {
@@ -303,7 +263,7 @@ func TestHalt(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GetRegs: got %v, want nil", err)
 		}
-		e := v.cpu.VMRun.String()
+		e := RunString(v.m.RunData())
 		t.Logf("IP is %#x, exit %s", r.Rip, e)
 		if e != "ExitHalt" {
 			t.Errorf("VM exit: got %v, want 'ExitHalt'", e)
@@ -318,9 +278,6 @@ func TestDecode(t *testing.T) {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
 	defer v.Detach()
-	if err := v.NewProc(0); err != nil {
-		t.Fatalf("NewProc: got %v, want nil", err)
-	}
 	if err := v.SingleStep(false); err != nil {
 		t.Fatalf("Run: got %v, want nil", err)
 	}
@@ -328,21 +285,20 @@ func TestDecode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
-	go func() {
-		for range v.Events() {
-		}
-		t.Logf("No more events")
-	}()
-
 	Debug = t.Logf
 	if err := v.Run(); err != nil {
 		t.Errorf("Run: got %v, want nil", err)
 	}
+	ev, err := v.ReadInfo()
+	if err != nil {
+		t.Fatalf("ReadInfo: %v", err)
+	}
+	t.Logf("Event %v", ev)
 	r, err = v.GetRegs()
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
-	e := v.cpu.VMRun.String()
+	e := RunString(v.m.RunData())
 	t.Logf("IP is %#x, exit %s", r.Rip, e)
 	if e != "ExitHalt" {
 		t.Errorf("VM exit: got %v, want 'ExitHalt'", e)
@@ -369,9 +325,6 @@ func TestSegv(t *testing.T) {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
 	defer v.Detach()
-	if err := v.NewProc(0); err != nil {
-		t.Fatalf("NewProc: got %v, want nil", err)
-	}
 	if err := v.SingleStep(false); err != nil {
 		t.Fatalf("Run: got %v, want nil", err)
 	}
@@ -385,11 +338,6 @@ func TestSegv(t *testing.T) {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
 	Debug = t.Logf
-	go func() {
-		for range v.Events() {
-		}
-		t.Logf("No more events")
-	}()
 	if err := v.Run(); err != nil {
 		t.Errorf("Run: got %v, want nil", err)
 	}
@@ -397,7 +345,7 @@ func TestSegv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
-	e := v.cpu.VMRun.String()
+	e := RunString(v.m.RunData())
 	t.Logf("IP is %#x, exit %s", r.Rip, e)
 	if e != "ExitMmio" {
 		t.Errorf("VM exit: got %v, want 'ExitMmio'", e)
@@ -424,9 +372,6 @@ func TestCall(t *testing.T) {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
 	defer v.Detach()
-	if err := v.NewProc(0); err != nil {
-		t.Fatalf("NewProc: got %v, want nil", err)
-	}
 	if err := v.SingleStep(false); err != nil {
 		t.Fatalf("Run: got %v, want nil", err)
 	}
@@ -449,12 +394,13 @@ func TestCall(t *testing.T) {
 	}
 	Debug = t.Logf
 
-	go func() {
-		if err := v.Run(); err != nil {
-			t.Errorf("Run: got %v, want nil", err)
-		}
-	}()
-	ev := <-v.Events()
+	if err := v.Run(); err != nil {
+		t.Errorf("Run: got %v, want nil", err)
+	}
+	ev, err := v.ReadInfo()
+	if err != nil {
+		t.Fatalf("ReadInfo: %v", err)
+	}
 	t.Logf("Event %#x", ev)
 	if ev.Trapno != ExitHlt {
 		t.Errorf("Trapno: got %#x, want %#x", ev.Trapno, ExitHlt)
@@ -467,7 +413,7 @@ func TestCall(t *testing.T) {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
 	t.Logf("Rsp is %#x, regs %s", r.Rsp, show("After Call: ", r))
-	e := v.cpu.VMRun.String()
+	e := RunString(v.m.RunData())
 	t.Logf("IP is %#x, exit %s", r.Rip, e)
 	if e != "ExitHalt" {
 		t.Errorf("VM exit: got %v, want 'ExitHalt'", e)
@@ -483,37 +429,37 @@ func TestCall(t *testing.T) {
 	}
 	t.Logf("Rip stopped at %#x, %#x", r.Rip, v.regions[0].data[r.Rip-1:r.Rip-1+8])
 	t.Logf("Rsp is %#x, regs %s", r.Rsp, show("After Call: ", r))
-	// Now for the fun. Try to resume it.
-	// We should, then, see an ExitHlt
-	// This actually doesn't work yet -- don't know how to make
-	// it NOT take a reset
-	if false {
-		r.Rip += 6
-		if err := v.SetRegs(r); err != nil {
-			t.Fatalf("GetRegs: got %v, want nil", err)
-		}
-		rr, s, err := v.getRegs()
-		if err != nil {
-			t.Fatalf("GetRegs: got %v, want nil", err)
-		}
-		t.Logf("Try to resume the vm at %#x, regs now %s", r.Rip, show("resume: ", rr, s))
-		go func() {
-			if err := v.Run(); err != nil {
-				t.Errorf("Run: got %v, want nil", err)
-			}
-		}()
-		ev = <-v.Events()
-		e = v.cpu.VMRun.String()
-		t.Logf("Event %#x, %s", ev, e)
-		if ev.Trapno != ExitHlt {
-			t.Errorf("Trapno: got %#x, want %#x", ev.Trapno, ExitMmio)
-		}
-		rr, s, err = v.getRegs()
-		if err != nil {
-			t.Fatalf("GetRegs: got %v, want nil", err)
-		}
-		t.Logf(show("AFTER resume: ", rr, s))
-	}
+	// // Now for the fun. Try to resume it.
+	// // We should, then, see an ExitHlt
+	// // This actually doesn't work yet -- don't know how to make
+	// // it NOT take a reset
+	// if false {
+	// 	r.Rip += 6
+	// 	if err := v.SetRegs(r); err != nil {
+	// 		t.Fatalf("GetRegs: got %v, want nil", err)
+	// 	}
+	// 	rr, s, err := v.getRegs()
+	// 	if err != nil {
+	// 		t.Fatalf("GetRegs: got %v, want nil", err)
+	// 	}
+	// 	t.Logf("Try to resume the vm at %#x, regs now %s", r.Rip, show("resume: ", rr, s))
+	// 	go func() {
+	// 		if err := v.Run(); err != nil {
+	// 			t.Errorf("Run: got %v, want nil", err)
+	// 		}
+	// 	}()
+	// 	ev = <-v.Events()
+	// 	e = v.cpu.VMRun.String()
+	// 	t.Logf("Event %#x, %s", ev, e)
+	// 	if ev.Trapno != ExitHlt {
+	// 		t.Errorf("Trapno: got %#x, want %#x", ev.Trapno, ExitMmio)
+	// 	}
+	// 	rr, s, err = v.getRegs()
+	// 	if err != nil {
+	// 		t.Fatalf("GetRegs: got %v, want nil", err)
+	// 	}
+	// 	t.Logf(show("AFTER resume: ", rr, s))
+	// }
 }
 
 func TestPush(t *testing.T) {
@@ -528,9 +474,6 @@ func TestPush(t *testing.T) {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
 	defer v.Detach()
-	if err := v.NewProc(0); err != nil {
-		t.Fatalf("NewProc: got %v, want nil", err)
-	}
 	if err := v.SingleStep(false); err != nil {
 		t.Fatalf("Run: got %v, want nil", err)
 	}
@@ -553,12 +496,13 @@ func TestPush(t *testing.T) {
 	}
 	Debug = t.Logf
 
-	go func() {
-		if err := v.Run(); err != nil {
-			t.Errorf("Run: got %v, want nil", err)
-		}
-	}()
-	ev := <-v.Events()
+	if err := v.Run(); err != nil {
+		t.Errorf("Run: got %v, want nil", err)
+	}
+	ev, err := v.ReadInfo()
+	if err != nil {
+		t.Fatalf("ReadInfo: %v", err)
+	}
 	t.Logf("Event %#x", ev)
 	if ev.Trapno != ExitHlt {
 		t.Errorf("Trapno: got %#x, want %v", ev.Trapno, ExitHlt)
@@ -570,7 +514,7 @@ func TestPush(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
-	e := v.cpu.VMRun.String()
+	e := RunString(v.m.RunData())
 	t.Logf("IP is %#x, exit %s", r.Rip, e)
 	if e != "ExitHalt" {
 		t.Errorf("VM exit: got %v, want 'ExitMHalt'", e)
@@ -610,9 +554,6 @@ func TestCallEFI(t *testing.T) {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
 	defer v.Detach()
-	if err := v.NewProc(0); err != nil {
-		t.Fatalf("NewProc: got %v, want nil", err)
-	}
 	if err := v.SingleStep(false); err != nil {
 		t.Fatalf("Run: got %v, want nil", err)
 	}
@@ -636,19 +577,20 @@ func TestCallEFI(t *testing.T) {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
 
-	go func() {
-		if err := v.Run(); err != nil {
-			t.Errorf("Run: got %v, want nil", err)
-		}
-	}()
-	ev := <-v.Events()
+	if err := v.Run(); err != nil {
+		t.Errorf("Run: got %v, want nil", err)
+	}
+	ev, err := v.ReadInfo()
+	if err != nil {
+		t.Fatalf("ReadInfo: %v", err)
+	}
 	if ev.Trapno != ExitMmio {
 		t.Errorf("Trapno: got %#x, want %v", ev.Trapno, ExitHlt)
 	}
 	if ev.Call_addr != pc {
 		t.Errorf("Addr: got %#x, want %#x", ev.Call_addr, pc)
 	}
-	e := v.cpu.VMRun.String()
+	e := RunString(v.m.RunData())
 	if e != "ExitMmio" {
 		t.Errorf("VM exit: got %v, want 'ExitMmio'", e)
 	}
@@ -668,9 +610,6 @@ func TestWriteWord(t *testing.T) {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
 	defer v.Detach()
-	if err := v.NewProc(0); err != nil {
-		t.Fatalf("NewProc: got %v, want nil", err)
-	}
 	if err := v.SingleStep(false); err != nil {
 		t.Fatalf("Run: got %v, want nil", err)
 	}
@@ -698,9 +637,6 @@ func TestTSC(t *testing.T) {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
 	defer v.Detach()
-	if err := v.NewProc(0); err != nil {
-		t.Fatalf("NewProc: got %v, want nil", err)
-	}
 	if err := v.SingleStep(false); err != nil {
 		t.Fatalf("Run: got %v, want nil", err)
 	}
@@ -721,19 +657,20 @@ func TestTSC(t *testing.T) {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
 
-	go func() {
-		if err := v.Run(); err != nil {
-			t.Errorf("Run: got %v, want nil", err)
-		}
-	}()
-	ev := <-v.Events()
+	if err := v.Run(); err != nil {
+		t.Errorf("Run: got %v, want nil", err)
+	}
+	ev, err := v.ReadInfo()
+	if err != nil {
+		t.Fatalf("ReadInfo: %v", err)
+	}
 	if ev.Trapno != ExitHlt {
 		t.Errorf("Trapno: got %#x, want %v", ev.Trapno, ExitHlt)
 	}
 	if ev.Call_addr != pc {
 		t.Errorf("Addr: got %#x, want %#x", ev.Call_addr, pc)
 	}
-	e := v.cpu.VMRun.String()
+	e := RunString(v.m.RunData())
 	if e != "ExitHalt" {
 		t.Errorf("VM exit: got %v, want 'ExitHalt'", e)
 	}

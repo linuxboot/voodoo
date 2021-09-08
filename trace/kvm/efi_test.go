@@ -24,10 +24,6 @@ func TestEFI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: got %v, want nil", err)
 	}
-	defer v.Detach()
-	if err := v.NewProc(0); err != nil {
-		t.Fatalf("NewProc: got %v, want nil", err)
-	}
 	if err := v.SingleStep(true); err != nil {
 		t.Fatalf("Run: got %v, want nil", err)
 	}
@@ -148,12 +144,13 @@ func TestEFI(t *testing.T) {
 	Debug = t.Logf
 
 	for {
-		go func() {
-			if err := v.Run(); err != nil {
-				t.Errorf("Run: got %v, want nil", err)
-			}
-		}()
-		ev := <-v.Events()
+		if err := v.Run(); err != nil {
+			t.Fatalf("Run: got %v, want nil", err)
+		}
+		ev, err := v.ReadInfo()
+		if err != nil {
+			t.Fatalf("ReadInfo: %v", err)
+		}
 		t.Logf("Event %#x", ev)
 		if ev.Trapno != ExitDebug {
 			t.Logf("Trapno: got %#x", ev.Trapno)
@@ -164,8 +161,8 @@ func TestEFI(t *testing.T) {
 			t.Fatalf("GetRegs: got %v, want nil", err)
 		}
 		t.Logf("REGS: %s", show("", r))
-		e := v.cpu.VMRun.String()
-		t.Logf("IP is %#x, exit %s", r.Rip, e)
+		// e := v.cpu.VMRun.String()
+		// t.Logf("IP is %#x, exit %s", r.Rip, e)
 		if r.Rip < uint64(base) {
 			break
 		}

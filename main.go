@@ -99,8 +99,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("GetRegs: got %v, want nil", err)
 	}
-	if err := loadPE(v, a, r, Debug); err != nil {
-		log.Fatal(err)
+
+	if false {
+		if err := loadPE(v, a, r, Debug); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	st, h, err := services.NewSystemtable(v.Tab())
@@ -110,9 +113,6 @@ func main() {
 
 	Debug("params are %#08x %#08x", h, st)
 	trace.Params(r, uintptr(h), uintptr(st))
-	// bogus params to see if we can manages a segv
-	//r.Rcx = uint64(imageHandle)
-	//r.Rdx = uint64(systemTable)
 	r.Eflags |= 0x100
 
 	if err := v.SetRegs(r); err != nil {

@@ -1000,13 +1000,13 @@ func getxio(t *Tracee) *xio {
 	}
 }
 
-func (t *Tracee) readInfo() error {
+func (t *Tracee) ReadInfo() (*unix.SignalfdSiginfo, error) {
 	r, err := t.m.GetRegs()
 	if err != nil {
-		return fmt.Errorf("readInfo: %v", err)
+		return nil, fmt.Errorf("readInfo: %v", err)
 	}
 	e := t.m.run.ExitReason
-	sig := unix.SignalfdSiginfo{
+	sig := &unix.SignalfdSiginfo{
 		Errno:     0,
 		Code:      int32(e),
 		Pid:       0,
@@ -1073,17 +1073,15 @@ func (t *Tracee) readInfo() error {
 	case ExitIntr:
 		r, s, err := t.getRegs()
 		if err != nil {
-			return fmt.Errorf("readInfo: %v", err)
+			return nil, fmt.Errorf("readInfo: %v", err)
 		}
 		Debug("Intr: regs %#x sregs %#x", s, r)
 	default:
 		r, s, err := t.getRegs()
 		if err != nil {
-			return fmt.Errorf("readInfo: %v", err)
+			return nil, fmt.Errorf("readInfo: %v", err)
 		}
 		log.Panicf("readInfo: unhandled exit %s, regs %#x sregs %#x", Exit(e), r, s)
 	}
-	t.info = sig
-	t.events <- sig
-	return nil
+	return sig, nil
 }
