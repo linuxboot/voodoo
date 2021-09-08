@@ -1133,7 +1133,7 @@ func (t *Tracee) readInfo() error {
 			log.Panicf("Read in run failed -- can't happen")
 		}
 		sig.Addr = x.Addr
-		log.Panicf("ExitMMiO: Addr '%#x' %s", sig.Addr, x.String())
+		Debug("ExitMMiO: Addr '%#x' %s", sig.Addr, x.String())
 	case ExitShutdown:
 		var x shutdown
 		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {

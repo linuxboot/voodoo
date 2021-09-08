@@ -358,7 +358,8 @@ func TestDecode(t *testing.T) {
 	}
 }
 
-func TestSegv(t *testing.T) {
+// This test no longer makes sense. It did for ptrace.
+func testSegv(t *testing.T) {
 	//1 0000 48A10000 	mov 0xff000000, %rax
 	//1      00FF0000
 	//1      0000
