@@ -191,26 +191,6 @@ func (t *Tracee) GetSiginfo() (*unix.SignalfdSiginfo, error) {
 	return &t.info, nil
 }
 
-// ReArm does whatever might need to be done to resume.
-// This could allow the inferior
-// to continue after a segfault, for example.
-func (t *Tracee) ReArm() error {
-	errchan := make(chan error, 1)
-	if t.do(func() {
-		errchan <- nil
-	}) {
-		return <-errchan
-	}
-	return ErrTraceeExited
-}
-
-// Sends the command to the tracer go routine.	Returns whether the command
-// was sent or not. The command may not have been sent if the tracee exited.
-func (t *Tracee) do(f func()) bool {
-	panic("do")
-	return false
-}
-
 // Close closes a Tracee.
 func (t *Tracee) Close() error {
 	panic("close")

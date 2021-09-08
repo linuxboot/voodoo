@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"syscall"
 	"time"
-	"unsafe"
 
 	"github.com/bobuhiro11/gokvm/kvm"
 	"golang.org/x/sys/unix"
@@ -42,15 +41,6 @@ const APIVersion = 12
 // For now, it is the start of BIOS in low 1M.
 // EFI apps should not go near this.
 const PageTableBase = 0xffff0000
-
-//  {rax=0, rbx=0, rcx=0, rdx=0, rsi=0, rdi=0, rsp=0, rbp=0, r8=0, r9=0, r10=0, r11=0, r12=0, r13=0, r14=0, r15=0, rip=0xfff0, rflags=0x2}
-type regs struct {
-	Rax, Rbx, Rcx, Rdx uint64
-	Rsi, Rdi, Rsp, Rbp uint64
-	R8, R9, R10, R11   uint64
-	R12, R13, R14, R15 uint64
-	Rip, Rflags        uint64
-}
 
 type segment struct {
 	Base                           uint64
@@ -143,18 +133,6 @@ type dtable struct {
 	_     [3]uint16
 }
 
-/* for KVM_GET_SREGS and KVM_SET_SREGS */
-type sregs struct {
-	/* out (KVM_GET_SREGS) / in (KVM_SET_SREGS) */
-	CS, DS, ES, FS, GS, SS  segment
-	TR, LDT                 segment
-	GDT, IDT                dtable
-	CR0, CR2, CR3, CR4, CR8 uint64
-	EFER                    uint64
-	APIC                    uint64
-	InterruptBitmap         [(256 + 63) / 64]uint64
-}
-
 func kvmRegstoPtraceRegs(pr *syscall.PtraceRegs, r *kvm.Regs, s *kvm.Sregs) {
 	pr.R15 = r.R15
 	pr.R14 = r.R14
@@ -185,26 +163,26 @@ func kvmRegstoPtraceRegs(pr *syscall.PtraceRegs, r *kvm.Regs, s *kvm.Sregs) {
 	pr.Gs = uint64(s.GS.Selector)
 }
 
-func ptraceRegsToKVMRegs(pr *syscall.PtraceRegs, r *regs, s *sregs) {
+func ptraceRegsToKVMRegs(pr *syscall.PtraceRegs, r *kvm.Regs, s *kvm.Sregs) {
 	r.R15 = pr.R15
 	r.R14 = pr.R14
 	r.R13 = pr.R13
 	r.R12 = pr.R12
-	r.Rbp = pr.Rbp
-	r.Rbx = pr.Rbx
+	r.RBP = pr.Rbp
+	r.RBX = pr.Rbx
 	r.R11 = pr.R11
 	r.R10 = pr.R10
 	r.R9 = pr.R9
 	r.R8 = pr.R8
-	r.Rax = pr.Rax
-	r.Rcx = pr.Rcx
-	r.Rdx = pr.Rdx
-	r.Rsi = pr.Rsi
-	r.Rdi = pr.Rdi
-	r.Rip = pr.Rip
+	r.RAX = pr.Rax
+	r.RCX = pr.Rcx
+	r.RDX = pr.Rdx
+	r.RSI = pr.Rsi
+	r.RDI = pr.Rdi
+	r.RIP = pr.Rip
 	s.CS.Selector = uint16(pr.Cs)
-	r.Rflags = pr.Eflags
-	r.Rsp = pr.Rsp
+	r.RFLAGS = pr.Eflags
+	r.RSP = pr.Rsp
 	s.SS.Selector = uint16(pr.Ss)
 	//s.fs_base = pr.Fs_base
 	//s.gs_base = pr.Gs_base
@@ -797,11 +775,10 @@ func (t *Tracee) GetIPtr() (uintptr, error) {
 }
 
 // SetRegs sets regs for a Tracee.
-// The ability to set sregs is limited by what can be set in ptraceregs.
 func (t *Tracee) SetRegs(pr *syscall.PtraceRegs) error {
 	var (
 		r = &kvm.Regs{}
-		s = kvm.SRegs{}
+		s = &kvm.Sregs{}
 	)
 	ptraceRegsToKVMRegs(pr, r, s)
 
@@ -893,26 +870,26 @@ func (t *Tracee) archInit() error {
 	return nil
 }
 
-var bit64 = &sregs{
-	CS:   segment{Base: 0, Limit: 4294967295, Selector: 8, Stype: 11, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
-	DS:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
-	ES:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
-	FS:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
-	GS:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
-	SS:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
-	TR:   segment{Base: 0, Limit: 65535, Selector: 0, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 0, L: 0, G: 0, AVL: 0},
-	LDT:  segment{Base: 0, Limit: 65535, Selector: 0, Stype: 2, Present: 1, DPL: 0, DB: 0, S: 0, L: 0, G: 0, AVL: 0},
-	GDT:  dtable{Base: 0, Limit: 65535},
-	IDT:  dtable{Base: 0, Limit: 65535},
-	CR0:  0x80050033,
-	CR2:  0,
-	CR3:  PageTableBase,
-	CR4:  0x20,
-	CR8:  0,
-	EFER: 0x500,
-	APIC: 0xfee00900,
-	/*interrupt_bitmap:[0, 0, 0, 0]*/
-}
+// var bit64 = &kvm.Sregs{
+// 	CS:   segment{Base: 0, Limit: 4294967295, Selector: 8, Stype: 11, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+// 	DS:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+// 	ES:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+// 	FS:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+// 	GS:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+// 	SS:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+// 	TR:   segment{Base: 0, Limit: 65535, Selector: 0, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 0, L: 0, G: 0, AVL: 0},
+// 	LDT:  segment{Base: 0, Limit: 65535, Selector: 0, Stype: 2, Present: 1, DPL: 0, DB: 0, S: 0, L: 0, G: 0, AVL: 0},
+// 	GDT:  dtable{Base: 0, Limit: 65535},
+// 	IDT:  dtable{Base: 0, Limit: 65535},
+// 	CR0:  0x80050033,
+// 	CR2:  0,
+// 	CR3:  PageTableBase,
+// 	CR4:  0x20,
+// 	CR8:  0,
+// 	EFER: 0x500,
+// 	APIC: 0xfee00900,
+// 	/*interrupt_bitmap:[0, 0, 0, 0]*/
+// }
 
 // reference ...
 type signalfdSiginfo struct {

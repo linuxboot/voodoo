@@ -18,7 +18,6 @@ type Trace interface {
 	GetRegs() (*syscall.PtraceRegs, error)
 	SetRegs(pr *syscall.PtraceRegs) error
 	SingleStep(onoff bool) error
-	ReArm() error
 	Run() error
 	Events() <-chan unix.SignalfdSiginfo
 	Tab() []byte

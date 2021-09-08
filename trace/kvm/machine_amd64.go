@@ -264,8 +264,8 @@ func (m *Machine) GetRegs() (kvm.Regs, error) {
 	return kvm.GetRegs(m.vcpuFd)
 }
 
-func (m *Machine) SetRegs(*kvm.Regs) error {
-	return kvm.SetRegs(m.vcpuFd, regs)
+func (m *Machine) SetRegs(regs *kvm.Regs) error {
+	return kvm.SetRegs(m.vcpuFd, *regs)
 }
 
 func (m *Machine) initSregs() error {
@@ -296,8 +296,8 @@ func (m *Machine) GetSregs() (kvm.Sregs, error) {
 	return kvm.GetSregs(m.vcpuFd)
 }
 
-func (m *Machine) SetSregs(*kvm.Sregs) error {
-	return kvm.SetSregs(m.vcpuFd, regs)
+func (m *Machine) SetSregs(sregs *kvm.Sregs) error {
+	return kvm.SetSregs(m.vcpuFd, *sregs)
 }
 
 func (m *Machine) initCPUID() error {
