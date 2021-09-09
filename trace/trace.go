@@ -37,6 +37,8 @@ func New(n string) (Trace, error) {
 	switch n {
 	case "kvm":
 		return kvm.New()
+	case "simplekvm":
+		return kvm.SimpleNew()
 	default:
 		return nil, fmt.Errorf("no such tracer as %s", n)
 	}
