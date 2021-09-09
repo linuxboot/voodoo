@@ -39,7 +39,6 @@ func (c *cpu) String() string {
 const APIVersion = 12
 
 // PageTableBase is where our initial page tables go.
-// For now, it is the start of BIOS in low 1M.
 // EFI apps should not go near this.
 const PageTableBase = 0xffff0000
 
@@ -887,23 +886,28 @@ func (t *Tracee) archInit() error {
 		}
 	}
 	// Set up page tables for long mode.
-	// take the first two pages of an area it should not touch -- PageTableBase
-	// present, read/write, page table at 0x3000
+	// take the first six pages of an area it should not touch -- PageTableBase
+	// present, read/write, page table at 0xffff0000
 	// ptes[0] = PageTableBase + 0x1000 | 0x3
-	// Gbyte-aligned page address in top 2 bits
 	// 3 in lowest 2 bits means present and read/write
 	// 0x60 means accessed/dirty
 	// 0x80 means the page size bit -- 0x80 | 0x60 = 0xe0
+	// 0x10 here is making it point at the next page.
 	copy(high64k[:], []byte{0x03, 0x10 | uint8((PageTableBase>>8)&0xff), uint8((PageTableBase >> 16) & 0xff), uint8((PageTableBase >> 24) & 0xff), 0, 0, 0, 0})
-	for i := byte(0); i < 4; i++ {
-		if i == 2 {
-			copy(high64k[int(i*8)+0x1000:], []byte{0xe3, 0x0, 0, i * 0x40, 0, 0, 0, 0})
-			continue
-		}
-		copy(high64k[int(i*8)+0x1000:], []byte{0xe3, 0x0, 0, i * 0x40, 0, 0, 0, 0})
+	// need four pointers to 2M page tables -- PHYSICAL addresses:
+	// 0x2000, 0x3000, 0x4000, 0x5000
+	for i := uint64(0); i < 4; i++ {
+		ptb := PageTableBase + (i+2)*0x1000
+		copy(high64k[int(i*8)+0x1000:], []byte{0x63, uint8((ptb >> 8) & 0xff), uint8((ptb >> 16) & 0xff), uint8((ptb >> 24) & 0xff), 0, 0, 0, 0})
 	}
-	if false {
-		Debug("Page tables: %s", hex.Dump(high64k[:0x2000]))
+	// Now the 2M pages.
+	for i := uint64(0); i < 0x1_0000_0000; i += 0x2_00_000 {
+		ptb := i | 0xe3
+		ix := int((i/0x2_00_000)*8 + 0x2000)
+		copy(high64k[ix:], []byte{uint8(ptb), uint8((ptb >> 8) & 0xff), uint8((ptb >> 16) & 0xff), uint8((ptb >> 24) & 0xff), 0, 0, 0, 0})
+	}
+	if true {
+		Debug("Page tables: %s", hex.Dump(high64k[:0x6000]))
 	}
 	if err := t.mem([]byte(high64k[:]), 0xffff0000); err != nil {
 		return fmt.Errorf("creating %d byte region: got %v, want nil", len(b), err)
@@ -1154,7 +1158,7 @@ func (t *Tracee) readInfo() error {
 		if err != nil {
 			return fmt.Errorf("readInfo: %v", err)
 		}
-		log.Panicf("readInfo: unhandled exit %s, regs %#x sregs %#x", Exit(e), r, s)
+		return fmt.Errorf("readInfo: unhandled exit %s, regs %#x sregs %#x", Exit(e), r, s)
 	}
 	t.info = sig
 	t.events <- sig

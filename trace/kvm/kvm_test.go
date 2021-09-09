@@ -274,7 +274,7 @@ func TestHalt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
-	t.Logf("IP is %#x", r.Rip)
+	t.Logf("regs %s", showone("\t", r))
 	if false {
 		//r.Rip = 0
 		//		r.Cs = 0
@@ -304,9 +304,9 @@ func TestHalt(t *testing.T) {
 			t.Fatalf("GetRegs: got %v, want nil", err)
 		}
 		e := v.cpu.VMRun.String()
-		t.Logf("IP is %#x, exit %s", r.Rip, e)
+		t.Logf("regs %s, exit %s", showone("\t", r), e)
 		if e != "ExitHalt" {
-			t.Errorf("VM exit: got %v, want 'ExitHalt'", e)
+			t.Errorf("VM exit: got %v, want 'ExitHalt', regs %s", e, showone("\t", r))
 		}
 	}
 }
