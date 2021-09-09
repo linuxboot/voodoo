@@ -803,6 +803,9 @@ func TestSimple(t *testing.T) {
 	}
 
 	//	madvise(mem, mem_size, MADV_MERGEABLE)
+	for i := range mem {
+		mem[i] = 0xf4
+	}
 
 	p := &bytes.Buffer{}
 	u := &UserRegion{Slot: 0, Flags: 0, GPA: 0, Size: uint64(mem_size), UserAddr: uint64(uintptr(unsafe.Pointer(&mem[0])))}
@@ -892,10 +895,11 @@ func TestSimple(t *testing.T) {
 	seg.Selector = 2 << 3
 	s.DS, s.ES, s.FS, s.GS, s.SS = seg, seg, seg, seg, seg
 
-	if err := binary.Write(bytes.NewBuffer(sdata[:]), binary.LittleEndian, s); err != nil {
+	var sw = &bytes.Buffer{}
+	if err := binary.Write(sw, binary.LittleEndian, s); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(vcpufd), setSregs, uintptr(unsafe.Pointer(&sdata[0]))); errno != 0 {
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(vcpufd), setSregs, uintptr(unsafe.Pointer(&sw.Bytes()[0]))); errno != 0 {
 		t.Fatal(errno)
 	}
 
@@ -915,25 +919,24 @@ func TestSimple(t *testing.T) {
 	//copy(mem[:], guest64[:])
 	//return run_vm(vm, vcpu, 8)
 
-	for {
-		var vmrun VMRun
-		if _, err := tioctl(vcpufd, run, 0); err != nil {
+	var vmrun VMRun
+	if _, err := tioctl(vcpufd, run, 0); err != nil {
 
-			t.Fatalf("run: %v", err)
-		}
-		vmr := bytes.NewBuffer(kvm_run)
-		//Debug("vmr len %d", vmr.Len())
-		if err := binary.Read(vmr, binary.LittleEndian, &vmrun); err != nil {
-			t.Fatal(err)
-		}
+		t.Fatalf("run: %v", err)
+	}
+	vmr := bytes.NewBuffer(kvm_run)
+	//Debug("vmr len %d", vmr.Len())
+	if err := binary.Read(vmr, binary.LittleEndian, &vmrun); err != nil {
+		t.Fatal(err)
+	}
 
-		switch vmrun.ExitReason {
-		case ExitHlt:
-			t.Fatal("EXITHLT!\n")
-		default:
-			t.Fatalf("Got exit_reason %d,expected KVM_EXIT_HLT (%d)\n", vmrun.ExitReason, ExitHlt)
+	switch vmrun.ExitReason {
+	case ExitHlt:
+		t.Logf("EXITHLT!\n")
+		break
+	default:
+		t.Fatalf("Got exit_reason %d,expected KVM_EXIT_HLT (%d)\n", vmrun.ExitReason, ExitHlt)
 
-		}
 	}
 
 }
