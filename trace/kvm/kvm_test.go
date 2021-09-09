@@ -771,6 +771,9 @@ func mmap(_ uintptr, length uintptr, prot int, flags int, fd int, offset uintptr
 	return unix.Mmap(fd, int64(offset), int(length), prot, flags)
 }
 
+// these are REALLY unpacked.
+// intel vmx and amd svm are crazily similar and different, and I've learned the hard way, just keep things unpacked and it's
+// easier to find out what's gone wrong ...
 func TestSimple(t *testing.T) {
 	mem_size := uintptr(0x200000)
 
@@ -819,6 +822,188 @@ func TestSimple(t *testing.T) {
 		t.Fatal(errno)
 	}
 
+	vcpufd, err := tioctl(fd, createCPU, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	vcpu_mmap_size, err := tioctl(sys_fd, vcpuMmapSize, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	kvm_run, err := mmap(0, uintptr(vcpu_mmap_size), unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED, vcpufd, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("Testing 64-bit mode\n")
+	var rdata [unsafe.Sizeof(regs{})]byte
+	var sdata [unsafe.Sizeof(sregs{})]byte
+	r := &regs{}
+	s := &sregs{}
+
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(vcpufd), getRegs, uintptr(unsafe.Pointer(&rdata[0]))); errno != 0 {
+		t.Fatal(errno)
+	}
+	if err := binary.Read(bytes.NewReader(rdata[:]), binary.LittleEndian, r); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(vcpufd), getSregs, uintptr(unsafe.Pointer(&sdata[0]))); errno != 0 {
+		t.Fatal(errno)
+	}
+	if err := binary.Read(bytes.NewReader(sdata[:]), binary.LittleEndian, s); err != nil {
+		t.Fatal(err)
+	}
+
+	//setup_long_mode(vm, &sregs, sabotage == 1)
+	pml4 := 0x2000
+
+	pdpt := 0x3000
+	pd := 0x4000
+
+	binary.LittleEndian.PutUint64(mem[pml4:], uint64(PDE64_PRESENT|PDE64_RW|PDE64_USER|pdpt))
+	binary.LittleEndian.PutUint64(mem[pdpt:], uint64(PDE64_PRESENT|PDE64_RW|PDE64_USER|pd))
+	binary.LittleEndian.PutUint64(mem[pd:], uint64(PDE64_PRESENT|PDE64_RW|PDE64_USER|PDE64_PS))
+	//	if sabotage == 1 {
+	//		fprintf(stderr, "SABOTAGING 2M PAGES FOR GIG PAGES\n")
+	//		mem[pdpt0] = PDE64_PRESENT | PDE64_RW | PDE64_USER | PDE64_PS
+	//	}
+
+	s.CR3 = uint64(pml4)
+	s.CR4 = CR4_PAE
+	s.CR0 = CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_WP | CR0_AM | CR0_PG
+	s.EFER = EFER_LME | EFER_LMA
+
+	//setup_64bit_code_segment(sregs)
+
+	seg := segment{
+		Base:     0,
+		Limit:    0xffffffff,
+		Selector: 1 << 3,
+		Present:  1,
+		Stype:    11, /* Code: execute, read, accessed */
+		DPL:      0,
+		DB:       0,
+		S:        1, /* Code/data */
+		L:        1,
+		G:        1, /* 4KB granularity */
+		AVL:      0,
+	}
+
+	s.CS = seg
+
+	seg.Stype = 3 /* Data: read/write, accessed */
+	seg.Selector = 2 << 3
+	s.DS, s.ES, s.FS, s.GS, s.SS = seg, seg, seg, seg, seg
+
+	var sw = &bytes.Buffer{}
+	if err := binary.Write(sw, binary.LittleEndian, s); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(vcpufd), setSregs, uintptr(unsafe.Pointer(&sw.Bytes()[0]))); errno != 0 {
+		t.Fatal(errno)
+	}
+
+	/* Clear all FLAGS bits, except bit 1 which is always set. */
+	r.Rflags = 2
+	r.Rip = 0
+	/* Create stack at top of 2 MB page and grow down. */
+	r.Rsp = 2 << 20
+
+	if err := binary.Write(bytes.NewBuffer(rdata[:]), binary.LittleEndian, r); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(vcpufd), setRegs, uintptr(unsafe.Pointer(&rdata[0]))); errno != 0 {
+		t.Fatal(errno)
+	}
+
+	//copy(mem[:], guest64[:])
+	//return run_vm(vm, vcpu, 8)
+
+	var vmrun VMRun
+	if _, err := tioctl(vcpufd, run, 0); err != nil {
+
+		t.Fatalf("run: %v", err)
+	}
+	vmr := bytes.NewBuffer(kvm_run)
+	//Debug("vmr len %d", vmr.Len())
+	if err := binary.Read(vmr, binary.LittleEndian, &vmrun); err != nil {
+		t.Fatal(err)
+	}
+
+	switch vmrun.ExitReason {
+	case ExitHlt:
+		t.Logf("EXITHLT!\n")
+		break
+	default:
+		t.Fatalf("Got exit_reason %d,expected KVM_EXIT_HLT (%d)\n", vmrun.ExitReason, ExitHlt)
+
+	}
+
+}
+
+func TestSimple3Regions(t *testing.T) {
+	mem_size := uintptr(0x2000_0000)
+
+	sys_fd, err := syscall.Open("/dev/kvm", os.O_RDWR, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	api_ver, err := tioctl(sys_fd, kvmversion, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if api_ver != 12 {
+		t.Fatalf("Got KVM api version %d, expected %d\n", api_ver, 12)
+	}
+
+	fd, err := tioctl(sys_fd, vmcreate, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := tioctl(fd, setTSSAddr, 0xfffbd000); err != nil {
+		t.Fatal(err)
+	}
+
+	var regions = []struct {
+		base uintptr
+		size uintptr
+		dat  []byte
+	}{
+		{base: 0, size: mem_size},
+		{base: 0xff000000, size: 0x800000},
+		{base: 0xffff0000, size: 0x10000},
+	}
+	for i, s := range regions {
+		mem, err := mmap(s.base, s.size, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_PRIVATE|unix.MAP_ANONYMOUS|unix.MAP_NORESERVE, -1, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for i := range mem {
+			mem[i] = 0xf4
+		}
+
+		p := &bytes.Buffer{}
+		u := &UserRegion{Slot: uint32(i), Flags: 0, GPA: uint64(s.base), Size: uint64(s.size), UserAddr: uint64(uintptr(unsafe.Pointer(&mem[0])))}
+		if err := binary.Write(p, binary.LittleEndian, u); err != nil {
+			t.Fatal(err)
+		}
+		if false {
+			log.Printf("ioctl %s", hex.Dump(p.Bytes()))
+		}
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(setMem), uintptr(unsafe.Pointer(&p.Bytes()[0]))); errno != 0 {
+			t.Fatal(errno)
+		}
+		regions[i].dat = mem
+	}
+
+	mem := regions[0].dat
 	vcpufd, err := tioctl(fd, createCPU, 0)
 	if err != nil {
 		t.Fatal(err)
