@@ -1003,7 +1003,7 @@ func TestSimple3Regions(t *testing.T) {
 		regions[i].dat = mem
 	}
 
-	mem := regions[0].dat
+	//	mem := regions[0].dat
 	vcpufd, err := tioctl(fd, createCPU, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -1040,20 +1040,22 @@ func TestSimple3Regions(t *testing.T) {
 	}
 
 	//setup_long_mode(vm, &sregs, sabotage == 1)
-	pml4 := 0x2000
+	// page tables start at 0xffff0000
+	// Just address the first 2m.
+	pt := regions[2].dat
+	pml4 := 0
+	pdpt := 0x1000
+	pd := 0x2000
 
-	pdpt := 0x3000
-	pd := 0x4000
-
-	binary.LittleEndian.PutUint64(mem[pml4:], uint64(PDE64_PRESENT|PDE64_RW|PDE64_USER|pdpt))
-	binary.LittleEndian.PutUint64(mem[pdpt:], uint64(PDE64_PRESENT|PDE64_RW|PDE64_USER|pd))
-	binary.LittleEndian.PutUint64(mem[pd:], uint64(PDE64_PRESENT|PDE64_RW|PDE64_USER|PDE64_PS))
+	binary.LittleEndian.PutUint64(pt[pml4:], uint64(PDE64_PRESENT|PDE64_RW|PDE64_USER|pdpt|0xffff0000))
+	binary.LittleEndian.PutUint64(pt[pdpt:], uint64(PDE64_PRESENT|PDE64_RW|PDE64_USER|pd|0xffff0000))
+	binary.LittleEndian.PutUint64(pt[pd:], uint64(PDE64_PRESENT|PDE64_RW|PDE64_USER|PDE64_PS))
 	//	if sabotage == 1 {
 	//		fprintf(stderr, "SABOTAGING 2M PAGES FOR GIG PAGES\n")
 	//		mem[pdpt0] = PDE64_PRESENT | PDE64_RW | PDE64_USER | PDE64_PS
 	//	}
 
-	s.CR3 = uint64(pml4)
+	s.CR3 = uint64(pml4 | 0xffff0000)
 	s.CR4 = CR4_PAE
 	s.CR0 = CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_WP | CR0_AM | CR0_PG
 	s.EFER = EFER_LME | EFER_LMA
