@@ -105,6 +105,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("GetRegs: got %v, want nil", err)
 	}
+	Debug("loadPE %v", a)
 	if err := loadPE(v, a, r, Debug); err != nil {
 		log.Fatal(err)
 	}

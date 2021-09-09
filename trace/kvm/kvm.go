@@ -379,7 +379,7 @@ func (t *Tracee) Read(address uintptr, data []byte) error {
 		r := t.regions[0]
 		last := r.gpa + uint64(len(r.data))
 		if address > uintptr(last) {
-			err <- fmt.Errorf("Address %#x is out of range", address)
+			err <- fmt.Errorf("Address %#x is out of range: gpa is %#x, len is %#x", address, r.gpa, len(r.data))
 			return
 		}
 		copy(data, r.data[address:])
@@ -404,7 +404,7 @@ func (t *Tracee) Write(address uintptr, data []byte) error {
 		r := t.regions[0]
 		last := r.gpa + uint64(len(r.data))
 		if address+uintptr(len(data)) > uintptr(last) {
-			err <- fmt.Errorf("Address %#x is out of range", address)
+			err <- fmt.Errorf("Address %#x is out of range: gpa is %#x, len is %#x", address, r.gpa, len(r.data))
 			return
 		}
 		copy(r.data[address:], data)
