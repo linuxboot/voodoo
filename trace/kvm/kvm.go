@@ -265,8 +265,10 @@ func (t *Tracee) NewProc(id int) error {
 // and the trace model is the common subset of ptrace and kvm.
 func (t *Tracee) mem(b []byte, base uint64) error {
 	p := &bytes.Buffer{}
-	u := &UserRegion{slot: t.slot, flags: 0, gpa: base, size: uint64(len(b)), useraddr: uint64(uintptr(unsafe.Pointer(&b[0])))}
-	binary.Write(p, binary.LittleEndian, u)
+	u := &UserRegion{Slot: t.slot, Flags: 0, GPA: base, Size: uint64(len(b)), UserAddr: uint64(uintptr(unsafe.Pointer(&b[0])))}
+	if err := binary.Write(p, binary.LittleEndian, u); err != nil {
+		return err
+	}
 	if false {
 		log.Printf("ioctl %s", hex.Dump(p.Bytes()))
 	}

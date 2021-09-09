@@ -1,12 +1,19 @@
 package kvm
 
 import (
+	"bytes"
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
+	"log"
+	"os"
 	"strings"
 	"syscall"
 	"testing"
+	"unsafe"
 
 	"golang.org/x/arch/x86/x86asm"
+	"golang.org/x/sys/unix"
 )
 
 // this is a simple decoder to get around a circular dependency.
@@ -275,7 +282,9 @@ func TestHalt(t *testing.T) {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
 	t.Logf("regs %s", showone("\t", r))
-	if false {
+	r.Rip = 0x100000
+	r.Rsp = 0x200000
+	if true {
 		//r.Rip = 0
 		//		r.Cs = 0
 		if err := v.SetRegs(r); err != nil {
@@ -744,6 +753,187 @@ func TestTSC(t *testing.T) {
 	}
 	if !strings.Contains(g, "hlt") {
 		t.Errorf("Inst: got %s, want call", g)
+	}
+
+}
+
+func tioctl(fd int, op uintptr, arg uintptr) (int, error) {
+	r1, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), op, arg)
+	if errno != 0 {
+		return int(r1), errno
+	}
+	return int(r1), nil
+}
+
+//func Mmap(fd int, offset int64, length int, prot int, flags int) (data []byte, err error)
+//        void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
+func mmap(_ uintptr, length uintptr, prot int, flags int, fd int, offset uintptr) ([]byte, error) {
+	return unix.Mmap(fd, int64(offset), int(length), prot, flags)
+}
+
+func TestSimple(t *testing.T) {
+	mem_size := uintptr(0x200000)
+
+	sys_fd, err := syscall.Open("/dev/kvm", os.O_RDWR, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	api_ver, err := tioctl(sys_fd, kvmversion, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if api_ver != 12 {
+		t.Fatalf("Got KVM api version %d, expected %d\n", api_ver, 12)
+	}
+
+	fd, err := tioctl(sys_fd, vmcreate, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := tioctl(fd, setTSSAddr, 0xfffbd000); err != nil {
+		t.Fatal(err)
+	}
+
+	mem, err := mmap(0, mem_size, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_PRIVATE|unix.MAP_ANONYMOUS|unix.MAP_NORESERVE, -1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//	madvise(mem, mem_size, MADV_MERGEABLE)
+
+	p := &bytes.Buffer{}
+	u := &UserRegion{Slot: 0, Flags: 0, GPA: 0, Size: uint64(mem_size), UserAddr: uint64(uintptr(unsafe.Pointer(&mem[0])))}
+	if err := binary.Write(p, binary.LittleEndian, u); err != nil {
+		t.Fatal(err)
+	}
+	if false {
+		log.Printf("ioctl %s", hex.Dump(p.Bytes()))
+	}
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(setMem), uintptr(unsafe.Pointer(&p.Bytes()[0]))); errno != 0 {
+		t.Fatal(errno)
+	}
+
+	vcpufd, err := tioctl(fd, createCPU, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	vcpu_mmap_size, err := tioctl(sys_fd, vcpuMmapSize, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	kvm_run, err := mmap(0, uintptr(vcpu_mmap_size), unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED, vcpufd, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("Testing 64-bit mode\n")
+	var rdata [unsafe.Sizeof(regs{})]byte
+	var sdata [unsafe.Sizeof(sregs{})]byte
+	r := &regs{}
+	s := &sregs{}
+
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(vcpufd), getRegs, uintptr(unsafe.Pointer(&rdata[0]))); errno != 0 {
+		t.Fatal(errno)
+	}
+	if err := binary.Read(bytes.NewReader(rdata[:]), binary.LittleEndian, r); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(vcpufd), getSregs, uintptr(unsafe.Pointer(&sdata[0]))); errno != 0 {
+		t.Fatal(errno)
+	}
+	if err := binary.Read(bytes.NewReader(sdata[:]), binary.LittleEndian, s); err != nil {
+		t.Fatal(err)
+	}
+
+	//setup_long_mode(vm, &sregs, sabotage == 1)
+	pml4 := 0x2000
+
+	pdpt := 0x3000
+	pd := 0x4000
+
+	binary.LittleEndian.PutUint64(mem[pml4:], uint64(PDE64_PRESENT|PDE64_RW|PDE64_USER|pdpt))
+	binary.LittleEndian.PutUint64(mem[pdpt:], uint64(PDE64_PRESENT|PDE64_RW|PDE64_USER|pd))
+	binary.LittleEndian.PutUint64(mem[pd:], uint64(PDE64_PRESENT|PDE64_RW|PDE64_USER|PDE64_PS))
+	//	if sabotage == 1 {
+	//		fprintf(stderr, "SABOTAGING 2M PAGES FOR GIG PAGES\n")
+	//		mem[pdpt0] = PDE64_PRESENT | PDE64_RW | PDE64_USER | PDE64_PS
+	//	}
+
+	s.CR3 = uint64(pml4)
+	s.CR4 = CR4_PAE
+	s.CR0 = CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_WP | CR0_AM | CR0_PG
+	s.EFER = EFER_LME | EFER_LMA
+
+	//setup_64bit_code_segment(sregs)
+
+	seg := segment{
+		Base:     0,
+		Limit:    0xffffffff,
+		Selector: 1 << 3,
+		Present:  1,
+		Stype:    11, /* Code: execute, read, accessed */
+		DPL:      0,
+		DB:       0,
+		S:        1, /* Code/data */
+		L:        1,
+		G:        1, /* 4KB granularity */
+		AVL:      0,
+	}
+
+	s.CS = seg
+
+	seg.Stype = 3 /* Data: read/write, accessed */
+	seg.Selector = 2 << 3
+	s.DS, s.ES, s.FS, s.GS, s.SS = seg, seg, seg, seg, seg
+
+	if err := binary.Write(bytes.NewBuffer(sdata[:]), binary.LittleEndian, s); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(vcpufd), setSregs, uintptr(unsafe.Pointer(&sdata[0]))); errno != 0 {
+		t.Fatal(errno)
+	}
+
+	/* Clear all FLAGS bits, except bit 1 which is always set. */
+	r.Rflags = 2
+	r.Rip = 0
+	/* Create stack at top of 2 MB page and grow down. */
+	r.Rsp = 2 << 20
+
+	if err := binary.Write(bytes.NewBuffer(rdata[:]), binary.LittleEndian, r); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(vcpufd), setRegs, uintptr(unsafe.Pointer(&rdata[0]))); errno != 0 {
+		t.Fatal(errno)
+	}
+
+	//copy(mem[:], guest64[:])
+	//return run_vm(vm, vcpu, 8)
+
+	for {
+		var vmrun VMRun
+		if _, err := tioctl(vcpufd, run, 0); err != nil {
+
+			t.Fatalf("run: %v", err)
+		}
+		vmr := bytes.NewBuffer(kvm_run)
+		//Debug("vmr len %d", vmr.Len())
+		if err := binary.Read(vmr, binary.LittleEndian, &vmrun); err != nil {
+			t.Fatal(err)
+		}
+
+		switch vmrun.ExitReason {
+		case ExitHlt:
+			t.Fatal("EXITHLT!\n")
+		default:
+			t.Fatalf("Got exit_reason %d,expected KVM_EXIT_HLT (%d)\n", vmrun.ExitReason, ExitHlt)
+
+		}
 	}
 
 }

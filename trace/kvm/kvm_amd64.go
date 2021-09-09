@@ -14,7 +14,57 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// Exit is the VM exit value returned by KVM.
+const (
+	/* CR0 bits */
+	CR0_PE = 1
+	CR0_MP = (1 << 1)
+	CR0_EM = (1 << 2)
+	CR0_TS = (1 << 3)
+	CR0_ET = (1 << 4)
+	CR0_NE = (1 << 5)
+	CR0_WP = (1 << 16)
+	CR0_AM = (1 << 18)
+	CR0_NW = (1 << 29)
+	CR0_CD = (1 << 30)
+	CR0_PG = (1 << 31)
+
+	/* CR4= bits */
+	CR4_VME        = 1
+	CR4_PVI        = (1 << 1)
+	CR4_TSD        = (1 << 2)
+	CR4_DE         = (1 << 3)
+	CR4_PSE        = (1 << 4)
+	CR4_PAE        = (1 << 5)
+	CR4_MCE        = (1 << 6)
+	CR4_PGE        = (1 << 7)
+	CR4_PCE        = (1 << 8)
+	CR4_OSFXSR     = (1 << 8)
+	CR4_OSXMMEXCPT = (1 << 10)
+	CR4_UMIP       = (1 << 11)
+	CR4_VMXE       = (1 << 13)
+	CR4_SMXE       = (1 << 14)
+	CR4_FSGSBASE   = (1 << 16)
+	CR4_PCIDE      = (1 << 17)
+	CR4_OSXSAVE    = (1 << 18)
+	CR4_SMEP       = (1 << 20)
+	CR4_SMAP       = (1 << 21)
+
+	EFER_SCE = 1
+	EFER_LME = (1 << 8)
+	EFER_LMA = (1 << 10)
+	EFER_NXE = (1 << 11)
+
+	/* 64-bit page * entry bits */
+	PDE64_PRESENT  = 1
+	PDE64_RW       = (1 << 1)
+	PDE64_USER     = (1 << 2)
+	PDE64_ACCESSED = (1 << 5)
+	PDE64_DIRTY    = (1 << 6)
+	PDE64_PS       = (1 << 7)
+	PDE64_G        = (1 << 8)
+)
+
+// Exit= is the VM exit value returned by KVM.
 type Exit uint32
 
 type cpu struct {
@@ -215,27 +265,27 @@ func ptraceRegsToKVMRegs(pr *syscall.PtraceRegs, r *regs, s *sregs) {
 
 // MemoryRegion is used for CREATE_MEMORY_REGION
 type MemoryRegion struct {
-	slot  uint32
-	flags uint32
-	gpa   uint64
-	size  uint64 /* bytes */
+	Slot  uint32
+	Flags uint32
+	GPA   uint64
+	Size  uint64 /* bytes */
 }
 
 // CreateRegion is used for KVM_CREATE_MEMORY_REGION
 type CreateRegion struct {
-	slot  uint32
-	flags uint32
-	gpa   uint64
-	size  uint64
+	Slot  uint32
+	Flags uint32
+	GPA   uint64
+	Size  uint64
 }
 
 // UserRegion is used for  SET_USER_MEMORY_REGION
 type UserRegion struct {
-	slot     uint32
-	flags    uint32
-	gpa      uint64
-	size     uint64
-	useraddr uint64
+	Slot     uint32
+	Flags    uint32
+	GPA      uint64
+	Size     uint64
+	UserAddr uint64
 }
 
 /*
@@ -961,22 +1011,22 @@ func (t *Tracee) archNewProc() error {
 }
 
 var bit64 = &sregs{
-	CS:   segment{Base: 0, Limit: 4294967295, Selector: 8, Stype: 11, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
-	DS:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
-	ES:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
-	FS:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
-	GS:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
-	SS:   segment{Base: 0, Limit: 4294967295, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
-	TR:   segment{Base: 0, Limit: 65535, Selector: 0, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 0, L: 0, G: 0, AVL: 0},
-	LDT:  segment{Base: 0, Limit: 65535, Selector: 0, Stype: 2, Present: 1, DPL: 0, DB: 0, S: 0, L: 0, G: 0, AVL: 0},
-	GDT:  dtable{Base: 0, Limit: 65535},
-	IDT:  dtable{Base: 0, Limit: 65535},
-	CR0:  0x80050033,
+	CS:   segment{Base: 0, Limit: 0xffffffff, Selector: 8, Stype: 11, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+	DS:   segment{Base: 0, Limit: 0xffffffff, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+	ES:   segment{Base: 0, Limit: 0xffffffff, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+	FS:   segment{Base: 0, Limit: 0xffffffff, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+	GS:   segment{Base: 0, Limit: 0xffffffff, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+	SS:   segment{Base: 0, Limit: 0xffffffff, Selector: 16, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 1, L: 1, G: 1, AVL: 0},
+	TR:   segment{Base: 0, Limit: 0xffff, Selector: 0, Stype: 3, Present: 1, DPL: 0, DB: 0, S: 0, L: 0, G: 0, AVL: 0},
+	LDT:  segment{Base: 0, Limit: 0xffff, Selector: 0, Stype: 2, Present: 1, DPL: 0, DB: 0, S: 0, L: 0, G: 0, AVL: 0},
+	GDT:  dtable{Base: 0, Limit: 0xffff},
+	IDT:  dtable{Base: 0, Limit: 0xffff},
+	CR0:  CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_WP | CR0_AM | CR0_PG,
 	CR2:  0,
 	CR3:  PageTableBase,
-	CR4:  0x20,
+	CR4:  CR4_PAE,
 	CR8:  0,
-	EFER: 0x500,
+	EFER: EFER_LME | EFER_LMA,
 	APIC: 0xfee00900,
 	/*interrupt_bitmap:[0, 0, 0, 0]*/
 }
