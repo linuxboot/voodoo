@@ -1446,6 +1446,13 @@ func SimpleNew() (*Tracee, error) {
 		err:    make(chan error, 1),
 		cmds:   make(chan func()),
 	}
+	// TODO: clean this fucking mess up.
+	for i, r := range regions {
+		t.regions = append(t.regions, &Region{gpa: uint64(r.base), slot: uint32(i), data: r.dat})
+	}
+	t.cpu.id = 0
+	t.cpu.fd = uintptr(vcpufd)
+	t.cpu.m = kvm_run
 
 	go t.trace()
 	return t, nil
