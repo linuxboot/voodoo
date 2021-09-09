@@ -308,14 +308,14 @@ func TestHalt(t *testing.T) {
 		if err := v.Run(); err != nil {
 			t.Errorf("Run: got %v, want nil", err)
 		}
-		r, err = v.GetRegs()
+		r, s, err := v.getRegs()
 		if err != nil {
-			t.Fatalf("GetRegs: got %v, want nil", err)
+			t.Fatalf("getRegs: got %v, want nil", err)
 		}
 		e := v.cpu.VMRun.String()
-		t.Logf("regs %s, exit %s", showone("\t", r), e)
+		t.Logf("regs %s, exit %s", show("\t", r, s), e)
 		if e != "ExitHalt" {
-			t.Errorf("VM exit: got %v, want 'ExitHalt', regs %s", e, showone("\t", r))
+			t.Fatalf("VM exit: got %v, want 'ExitHalt', regs %s", e, showone("\t", r))
 		}
 	}
 }
