@@ -148,12 +148,10 @@ func TestEFI(t *testing.T) {
 	Debug = t.Logf
 
 	for {
-		go func() {
-			if err := v.Run(); err != nil {
-				t.Errorf("Run: got %v, want nil", err)
-			}
-		}()
-		ev := <-v.Events()
+		if err := v.Run(); err != nil {
+			t.Errorf("Run: got %v, want nil", err)
+		}
+		ev := v.info
 		t.Logf("Event %#x", ev)
 		if ev.Trapno != ExitDebug {
 			t.Logf("Trapno: got %#x", ev.Trapno)

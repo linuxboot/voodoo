@@ -834,7 +834,7 @@ func (t Tracee) getRegs() (*regs, *sregs, error) {
 	}
 
 	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getSregs, uintptr(unsafe.Pointer(&sdata[0]))); errno != 0 {
-		return errno
+		return nil, nil, errno
 	}
 	if err := binary.Read(bytes.NewReader(sdata[:]), binary.LittleEndian, s); err != nil {
 		return nil, nil, err
@@ -859,7 +859,7 @@ func (t *Tracee) GetIPtr() (uintptr, error) {
 	if err := syscall.PtraceGetRegs(int(t.dev.Fd()), &regs); err != nil {
 		return 0, err
 	}
-	return regs.Rip, niil
+	return uintptr(regs.Rip), nil
 }
 
 // SetRegs sets regs for a Tracee.
@@ -885,10 +885,24 @@ func (t *Tracee) SetRegs(pr *syscall.PtraceRegs) error {
 			return err
 		}
 		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setSregs, uintptr(unsafe.Pointer(&sdata.Bytes()[0]))); errno != 0 {
-			errchan <- errno
+			return errno
 		}
 	}
 	return nil
+}
+
+func tioctl(fd int, op uintptr, arg uintptr) (int, error) {
+	r1, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), op, arg)
+	if errno != 0 {
+		return int(r1), errno
+	}
+	return int(r1), nil
+}
+
+//func Mmap(fd int, offset int64, length int, prot int, flags int) (data []byte, err error)
+//        void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
+func mmap(_ uintptr, length uintptr, prot int, flags int, fd int, offset uintptr) ([]byte, error) {
+	return unix.Mmap(fd, int64(offset), int(length), prot, flags)
 }
 
 // We are going for broke here, setting up a 64-bit machine.
@@ -898,28 +912,61 @@ func (t *Tracee) archInit() error {
 	if errno != 0 {
 		return errno
 	}
+	// This is exactly following the TestHalt failing test, if that matters to you.
+	vcpufd, err := tioctl(int(t.vm), createCPU, 0)
+	if err != nil {
+		return err
+	}
+
+	vcpu_mmap_size, err := tioctl(int(t.dev.Fd()), vcpuMmapSize, 0)
+	if err != nil {
+		return err
+	}
+
+	kvm_run, err := mmap(0, uintptr(vcpu_mmap_size), unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED, vcpufd, 0)
+	if err != nil {
+		return err
+	}
+	t.cpu.id = 0
+	t.cpu.fd = uintptr(vcpufd)
+	t.cpu.m = kvm_run
+
+	var regions = []struct {
+		base uintptr
+		size uintptr
+		dat  []byte
+	}{
+		{base: 0, size: 0x8000_0000},
+		{base: 0xffff0000, size: 0x10000},
+		{base: 0xff000000, size: 0x800000},
+	}
+	for i, s := range regions {
+		mem, err := mmap(s.base, s.size, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_PRIVATE|unix.MAP_ANONYMOUS|unix.MAP_NORESERVE, -1, 0)
+		if err != nil {
+			return err
+		}
+
+		for i := range mem {
+			mem[i] = 0xf4
+		}
+
+		p := &bytes.Buffer{}
+		u := &UserRegion{Slot: uint32(i), Flags: 0, GPA: uint64(s.base), Size: uint64(s.size), UserAddr: uint64(uintptr(unsafe.Pointer(&mem[0])))}
+		if err := binary.Write(p, binary.LittleEndian, u); err != nil {
+			return err
+		}
+		if false {
+			log.Printf("ioctl %s", hex.Dump(p.Bytes()))
+		}
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), uintptr(setMem), uintptr(unsafe.Pointer(&p.Bytes()[0]))); errno != 0 {
+			return err
+		}
+		regions[i].dat = mem
+	}
 	// slot 0 is low memory, to 2g for now.
-	type lowbios [2048 * 1048576]byte
-	low := &lowbios{}
-	blow := []byte(low[:])
-	// poison it with hlt.
-	if true {
-		for i := range blow {
-			blow[i] = 0xf4
-		}
-	}
-	if err := t.mem(blow, 0x0); err != nil {
-		return fmt.Errorf("creating %d byte region: got %v, want nil", len(blow), err)
-	}
+
 	// slot 1 is high bios, 64k at top of 4g.
-	type page [64 * 1024]byte
-	b := &page{}
-	high64k := []byte(b[:])
-	if true {
-		for i := range high64k {
-			high64k[i] = 0xf4
-		}
-	}
+	high64k := regions[1].dat
 	// Set up page tables for long mode.
 	// take the first six pages of an area it should not touch -- PageTableBase
 	// present, read/write, page table at 0xffff0000
@@ -944,30 +991,21 @@ func (t *Tracee) archInit() error {
 	if true {
 		Debug("Page tables: %s", hex.Dump(high64k[:0x6000]))
 	}
-	if err := t.mem([]byte(high64k[:]), 0xffff0000); err != nil {
-		return fmt.Errorf("creating %d byte region: got %v, want nil", len(b), err)
-	}
-
 	// Set up 8M of image table data at 0xff000000
 	// UEFI mixes function pointers and data in the protocol structs.
 	// yegads it's so bad.
 	//
 	// The pattern needs to work if there is a deref via load/store
 	// or via call.
-	type functions [8 * 1048576]byte
-	fun := &functions{}
-	ffun := []byte(fun[:])
+	ffun := regions[2].dat
 	// poison it with hlt.
-	if true {
+	if false {
 		for i := 0; i < len(ffun); i += 8 {
 			// bogus pointer but the low 16 bits are hlt; retq
 			bogus := uint64(0x10000c3f4)
 			bogus = uint64(0xc3f4) | uint64(0xdeadbe<<36) | uint64(i<<16)
 			binary.LittleEndian.PutUint64(ffun[i:], bogus)
 		}
-	}
-	if err := t.mem(ffun, 0xff000000); err != nil {
-		return fmt.Errorf("creating %d byte region: got %v, want nil", len(ffun), err)
 	}
 	t.tab = ffun
 	// Now for CPUID. What a pain.
@@ -982,10 +1020,91 @@ func (t *Tracee) archInit() error {
 	Debug("%v", i)
 	t.cpu.idInfo = i
 
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(vcpufd), setCPUID, uintptr(unsafe.Pointer(i))); errno != 0 {
+		return fmt.Errorf("Set  CPUID entries err %v", errno)
+	}
+
+	if false {
+		sdata := &bytes.Buffer{}
+		if err := binary.Write(sdata, binary.LittleEndian, bit64); err != nil {
+			return err
+		}
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setSregs, uintptr(unsafe.Pointer(&sdata.Bytes()[0]))); errno != 0 {
+			return fmt.Errorf("can not set sregs: %v", errno)
+		}
+	} else {
+		Debug("Testing 64-bit mode\n")
+		var rdata [unsafe.Sizeof(regs{})]byte
+		var sdata [unsafe.Sizeof(sregs{})]byte
+		r := &regs{}
+		s := &sregs{}
+
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getRegs, uintptr(unsafe.Pointer(&rdata[0]))); errno != 0 {
+			return errno
+		}
+		if err := binary.Read(bytes.NewReader(rdata[:]), binary.LittleEndian, r); err != nil {
+			return err
+		}
+
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getSregs, uintptr(unsafe.Pointer(&sdata[0]))); errno != 0 {
+			return errno
+		}
+		if err := binary.Read(bytes.NewReader(sdata[:]), binary.LittleEndian, s); err != nil {
+			return err
+		}
+
+		s.CR3 = uint64(0xffff_0000)
+		s.CR4 = CR4_PAE
+		s.CR0 = CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_WP | CR0_AM | CR0_PG
+		s.EFER = EFER_LME | EFER_LMA
+
+		seg := segment{
+			Base:     0,
+			Limit:    0xffffffff,
+			Selector: 1 << 3,
+			Present:  1,
+			Stype:    11, /* Code: execute, read, accessed */
+			DPL:      0,
+			DB:       0,
+			S:        1, /* Code/data */
+			L:        1,
+			G:        1, /* 4KB granularity */
+			AVL:      0,
+		}
+
+		s.CS = seg
+
+		seg.Stype = 3 /* Data: read/write, accessed */
+		seg.Selector = 2 << 3
+		s.DS, s.ES, s.FS, s.GS, s.SS = seg, seg, seg, seg, seg
+
+		/* Clear all FLAGS bits, except bit 1 which is always set. */
+		r.Rflags = 2
+		r.Rip = 0x100000
+		/* Create stack at top of 2 MB page and grow down. */
+		r.Rsp = 2 << 20
+
+		if err := binary.Write(bytes.NewBuffer(rdata[:]), binary.LittleEndian, r); err != nil {
+			return err
+		}
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setRegs, uintptr(unsafe.Pointer(&rdata[0]))); errno != 0 {
+			return errno
+		}
+
+		var sw = &bytes.Buffer{}
+		if err := binary.Write(sw, binary.LittleEndian, s); err != nil {
+			return err
+		}
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setSregs, uintptr(unsafe.Pointer(&sw.Bytes()[0]))); errno != 0 {
+			return errno
+		}
+
+	}
 	return nil
 }
 
 func (t *Tracee) archNewProc() error {
+	return nil
 	Debug("Set CPUID entries in %v", t)
 	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setCPUID, uintptr(unsafe.Pointer(t.cpu.idInfo))); errno != 0 {
 		Debug("Set  CPUID entries err %v", errno)

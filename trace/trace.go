@@ -10,18 +10,15 @@ import (
 
 // Trace is the interface to a traced process
 type Trace interface {
-	// Exec starts a process in a trace
+	Event() unix.SignalfdSiginfo
 	NewProc(id int) error
-	Exec(name string, args ...string) error
 	ReadWord(address uintptr) (uint64, error)
 	Read(address uintptr, data []byte) error
 	Write(address uintptr, data []byte) error
 	GetRegs() (*syscall.PtraceRegs, error)
 	SetRegs(pr *syscall.PtraceRegs) error
 	SingleStep(onoff bool) error
-	ReArm() error
 	Run() error
-	Events() <-chan unix.SignalfdSiginfo
 	Tab() []byte
 }
 

@@ -71,6 +71,10 @@ func (t *Tracee) String() string {
 	return fmt.Sprintf("%s(kvmfd %d, vmfd %d, vcpufd %d)", t.dev.Name(), t.dev.Fd(), t.vm, t.cpu.fd)
 }
 
+func (t *Tracee) Event() unix.SignalfdSiginfo {
+	return t.info
+}
+
 func (t *Tracee) Tab() []byte {
 	return t.tab
 }
@@ -184,6 +188,7 @@ func New() (*Tracee, error) {
 // NewProc creates a CPU, given an id.
 // TODO :we're getting sloppy about the t.do stuff, fix.
 func (t *Tracee) NewProc(id int) error {
+	return nil
 	r1, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), uintptr(createCPU), 0)
 	if errno != 0 {
 		return errno

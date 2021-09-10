@@ -27,17 +27,17 @@ var ()
 type msg func()
 
 var (
-	optional   = flag.Bool("optional", false, "Print optional registers")
-	singlestep = flag.Bool("singlestep", false, "single step instructions")
-	debug      = flag.Bool("debug", false, "Enable debug prints")
-	dryrun     = flag.Bool("dryrun", false, "set up but don't run")
-	regpath    = flag.String("registerfile", "", "file to log registers to, in .csv format")
+	optional        = flag.Bool("optional", false, "Print optional registers")
+	singlestep      = flag.Bool("singlestep", false, "single step instructions")
+	debug           = flag.Bool("debug", false, "Enable debug prints")
+	dryrun          = flag.Bool("dryrun", false, "set up but don't run")
+	regpath         = flag.String("registerfile", "", "file to log registers to, in .csv format")
 	handleConsoleIO = flag.Bool("doIO", false, "break glass -- enable this to check IO exits for console")
-	regfile    *os.File
-	Debug      = func(string, ...interface{}) {}
-	step       = func(...string) {}
-	dat        uintptr
-	line       int
+	regfile         *os.File
+	Debug           = func(string, ...interface{}) {}
+	step            = func(...string) {}
+	dat             uintptr
+	line            int
 )
 
 func any(f ...string) {
@@ -147,12 +147,10 @@ func main() {
 		line++
 		Debug("------------------------------------------------------------------->> %d: ", line)
 		// DOUBLE CHECK that run fails to produce an event!
-		go func() {
-			for err := v.Run(); err != nil; err = v.Run() {
-				log.Printf("Run: got %v, want nil", err)
-			}
-		}()
-		ev := <-v.Events()
+		for err := v.Run(); err != nil; err = v.Run() {
+			log.Printf("Run: got %v, want nil", err)
+		}
+		ev := v.Event()
 		s := unix.Signal(ev.Signo)
 		Debug("\t %d: Event %#x, trap %d", line, ev, ev.Trapno)
 		insn, r, g, err := trace.Inst(v)
