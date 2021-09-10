@@ -49,7 +49,7 @@ func loadPE(t trace.Trace, n string, r *syscall.PtraceRegs, log func(string, ...
 		// Zero it out.
 		log("Copy section to %#x:%#x", addr, s.VirtualSize)
 		bb := make([]byte, s.VirtualSize)
-		if true {
+		if false {
 			for i := range bb {
 				bb[i] = 0xf4
 			}
@@ -57,10 +57,8 @@ func loadPE(t trace.Trace, n string, r *syscall.PtraceRegs, log func(string, ...
 		if err := t.Write(addr, bb); err != nil {
 			return fmt.Errorf("Can't write %d bytes of zero @ %#x for this section to process:%v", len(bb), addr, err)
 		}
-		if false {
-			if err := t.Write(addr, dat); err != nil {
-				return fmt.Errorf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err)
-			}
+		if err := t.Write(addr, dat); err != nil {
+			return fmt.Errorf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err)
 		}
 	}
 	r.Rsp = uint64(sp)

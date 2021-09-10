@@ -27,17 +27,17 @@ var ()
 type msg func()
 
 var (
-	optional        = flag.Bool("optional", false, "Print optional registers")
-	singlestep      = flag.Bool("singlestep", false, "single step instructions")
-	debug           = flag.Bool("debug", false, "Enable debug prints")
-	dryrun          = flag.Bool("dryrun", false, "set up but don't run")
-	regpath         = flag.String("registerfile", "", "file to log registers to, in .csv format")
+	optional   = flag.Bool("optional", false, "Print optional registers")
+	singlestep = flag.Bool("singlestep", false, "single step instructions")
+	debug      = flag.Bool("debug", false, "Enable debug prints")
+	dryrun     = flag.Bool("dryrun", false, "set up but don't run")
+	regpath    = flag.String("registerfile", "", "file to log registers to, in .csv format")
 	handleConsoleIO = flag.Bool("doIO", false, "break glass -- enable this to check IO exits for console")
-	regfile         *os.File
-	Debug           = func(string, ...interface{}) {}
-	step            = func(...string) {}
-	dat             uintptr
-	line            int
+	regfile    *os.File
+	Debug      = func(string, ...interface{}) {}
+	step       = func(...string) {}
+	dat        uintptr
+	line       int
 )
 
 func any(f ...string) {
@@ -88,18 +88,16 @@ func main() {
 		}
 		regfile = f
 	}
-	v, err := trace.New("simplekvm")
+	v, err := trace.New("kvm")
 	if err != nil {
 		log.Fatalf("Open: got %v, want nil", err)
 	}
 	//	defer v.Detach()
-	if false {
-		if err := v.NewProc(0); err != nil {
-			log.Fatalf("NewProc: got %v, want nil", err)
-		}
+	if err := v.NewProc(0); err != nil {
+		log.Fatalf("NewProc: got %v, want nil", err)
 	}
 	if err := v.SingleStep(true); err != nil {
-		log.Fatalf("Setting SingleStep to true: Run: got %v, want nil", err)
+		log.Fatalf("Run: got %v, want nil", err)
 	}
 	r, err := v.GetRegs()
 	if err != nil {
@@ -151,7 +149,7 @@ func main() {
 		// DOUBLE CHECK that run fails to produce an event!
 		go func() {
 			for err := v.Run(); err != nil; err = v.Run() {
-				log.Printf("Run loop: got %v, want nil", err)
+				log.Printf("Run: got %v, want nil", err)
 			}
 		}()
 		ev := <-v.Events()
