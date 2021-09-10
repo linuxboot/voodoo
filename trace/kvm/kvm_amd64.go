@@ -1233,7 +1233,7 @@ func mmap(_ uintptr, length uintptr, prot int, flags int, fd int, offset uintptr
 // Something is just plain fucked on intel.
 // Here is something simple, known to work.
 func SimpleNew() (*Tracee, error) {
-	mem_size := uintptr(0x8000_0000)
+	mem_size := uintptr(0x2000_0000)
 
 	k, err := os.OpenFile(*deviceName, os.O_RDWR, 0)
 	if err != nil {
@@ -1442,7 +1442,6 @@ func SimpleNew() (*Tracee, error) {
 	t := &Tracee{
 		dev:    k,
 		vm:     uintptr(fd),
-		tab:    regions[2].dat,
 		events: make(chan unix.SignalfdSiginfo, 1),
 		err:    make(chan error, 1),
 		cmds:   make(chan func()),
