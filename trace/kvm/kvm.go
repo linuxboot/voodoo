@@ -51,9 +51,6 @@ type Region struct {
 type Tracee struct {
 	dev     *os.File
 	vm      uintptr
-	events  chan unix.SignalfdSiginfo
-	err     chan error
-	cmds    chan func()
 	slot    uint32
 	regions []*Region
 	cpu     cpu
@@ -112,54 +109,35 @@ func ioctl(fd uintptr, op uintptr, arg uintptr) (err error) {
 
 // EnableSingleStep enables single stepping the guest
 func (t *Tracee) SingleStep(onoff bool) error {
-	err := make(chan error, 1)
-	if t.do(func() {
-		var debug [unsafe.Sizeof(DebugControl{})]byte
-		if onoff {
-			debug[0] = Enable | SingleStep
-			debug[2] = 0x0002 // 0000
-			//for i := range debug {
-			//debug[i] = 0xff
-			//}
-		}
-		// this is not very nice, but it is easy.
-		// And TBH, the tricks the Linux kernel people
-		// play are a lot nastier.
-		err <- ioctl(t.cpu.fd, setGuestDebug, uintptr(unsafe.Pointer(&debug[0])))
-	}) {
-		return <-err
+	var debug [unsafe.Sizeof(DebugControl{})]byte
+	if onoff {
+		debug[0] = Enable | SingleStep
+		debug[2] = 0x0002 // 0000
+		//for i := range debug {
+		//debug[i] = 0xff
+		//}
 	}
-	return ErrTraceeExited
+	// this is not very nice, but it is easy.
+	// And TBH, the tricks the Linux kernel people
+	// play are a lot nastier.
+	return ioctl(t.cpu.fd, setGuestDebug, uintptr(unsafe.Pointer(&debug[0])))
 }
 
 // SingleStep continues the tracee for one instruction.
 // Todo: see if we are in single step mode, if not, set, etc.
 func (t *Tracee) Run() error {
-	errc := make(chan error, 1)
-	if t.do(func() {
-		e := ioctl(uintptr(t.cpu.fd), run, 0)
-		errc <- e
-	}) {
-		err := <-errc
-		Debug("kvm.Run: run returns with %v", err)
-		if err := t.readInfo(); err != nil {
-			log.Panicf("run: info %v", err)
-		}
-		// Now yank out the exit info.
-		//t.events <- t.info
+	if err := ioctl(uintptr(t.cpu.fd), run, 0); err != nil {
 		return err
 	}
-	return ErrTraceeExited
+	if err := t.readInfo(); err != nil {
+		log.Panicf("run: info %v", err)
+	}
+	return nil
 }
 
 // PID returns the PID for a Tracee.
 // we'll return the cpuid for now.
 func (t *Tracee) PID() int { return int(t.cpu.id) }
-
-// Events returns the events channel for the tracee.
-func (t *Tracee) Events() <-chan unix.SignalfdSiginfo {
-	return t.events
-}
 
 func version(f *os.File) int {
 	r1, _, _ := syscall.Syscall(syscall.SYS_IOCTL, uintptr(f.Fd()), kvmversion, 0)
@@ -194,33 +172,13 @@ func New() (*Tracee, error) {
 	}
 
 	t := &Tracee{
-		dev:    k,
-		vm:     vm,
-		events: make(chan unix.SignalfdSiginfo, 1),
-		err:    make(chan error, 1),
-		cmds:   make(chan func()),
+		dev: k,
+		vm:  vm,
 	}
-	errs := make(chan error)
-	go func() {
-		// mmap and go don't really get along, so we'll not bother
-		// with the mmap'ed bits for now.
-		// if (kvm__check_extensions(kvm)) {
-		// 	pr_err("A required KVM extension is not supported by OS");
-		// 	ret = -ENOSYS;
-		// 	goto err_vm_fd;
-		// }
-
-		// kvm__arch_init(kvm, kvm->cfg.hugetlbfs_path, kvm->cfg.ram_size);
-
-		// kvm__init_ram(kvm);
-		err := t.archInit()
-		errs <- err
-		if err != nil {
-			return
-		}
-		t.trace()
-	}()
-	return t, <-errs
+	if err := t.archInit(); err != nil {
+		return nil, err
+	}
+	return t, nil
 }
 
 // NewProc creates a CPU, given an id.
@@ -281,39 +239,6 @@ func (t *Tracee) mem(b []byte, base uint64) error {
 	return errno
 }
 
-// Exec executes a process with tracing enabled, returning the Tracee
-// or an error if an error occurs while executing the process.
-func (t *Tracee) Exec(name string, argv ...string) error {
-	errs := make(chan error)
-
-	go func() {
-		// kvm->vm_fd = ioctl(kvm->sys_fd, KVM_CREATE_VM, KVM_VM_TYPE);
-		// if (kvm->vm_fd < 0) {
-		// 	pr_err("KVM_CREATE_VM ioctl");
-		// 	ret = kvm->vm_fd;
-		// 	goto err_sys_fd;
-		// }
-
-		// if (kvm__check_extensions(kvm)) {
-		// 	pr_err("A required KVM extension is not supported by OS");
-		// 	ret = -ENOSYS;
-		// 	goto err_vm_fd;
-		// }
-
-		// kvm__arch_init(kvm, kvm->cfg.hugetlbfs_path, kvm->cfg.ram_size);
-
-		// INIT_LIST_HEAD(&kvm->mem_banks);
-		// kvm__init_ram(kvm);
-		var e error
-		errs <- e
-		if e != nil {
-			return
-		}
-		t.trace()
-	}()
-	return <-errs
-}
-
 // Attach attaches to the given process.
 func Attach(pid int) (*Tracee, error) {
 	return nil, fmt.Errorf("Not supported yet")
@@ -325,40 +250,6 @@ func (t *Tracee) Detach() error {
 		return err
 	}
 	return nil
-}
-
-// Continue makes the tracee execute unmanaged by the tracer.  Most commands are not
-// possible in this state, with the notable exception of sending a
-// syscall.SIGSTOP signal.
-func (t *Tracee) Continue() error {
-	err := make(chan error, 1)
-	sig := 0
-	if t.do(func() { err <- syscall.PtraceCont(int(t.dev.Fd()), sig) }) {
-		return <-err
-	}
-	return ErrTraceeExited
-}
-
-// Syscall runs the inferior until it hits, or returns from, a system call.
-func (t *Tracee) Syscall() error {
-	if t.cmds == nil {
-		return ErrTraceeExited
-	}
-	errchan := make(chan error, 1)
-	t.cmds <- func() {
-		err := syscall.PtraceSyscall(int(t.dev.Fd()), 0)
-		errchan <- err
-	}
-	return <-errchan
-}
-
-// SendSignal sends the given signal to the tracee.
-func (t *Tracee) SendSignal(sig syscall.Signal) error {
-	err := make(chan error, 1)
-	if t.do(func() { err <- syscall.Kill(int(t.dev.Fd()), sig) }) {
-		return <-err
-	}
-	return ErrTraceeExited
 }
 
 // ReadWord reads the given word from the inferior's address space.
@@ -374,20 +265,13 @@ func (t *Tracee) ReadWord(address uintptr) (uint64, error) {
 
 // Read grabs memory starting at the given address, for len(data) bytes.
 func (t *Tracee) Read(address uintptr, data []byte) error {
-	err := make(chan error, 1)
-	if t.do(func() {
-		r := t.regions[0]
-		last := r.gpa + uint64(len(r.data))
-		if address > uintptr(last) {
-			err <- fmt.Errorf("Address %#x is out of range", address)
-			return
-		}
-		copy(data, r.data[address:])
-		err <- nil
-	}) {
-		return <-err
+	r := t.regions[0]
+	last := r.gpa + uint64(len(r.data))
+	if address > uintptr(last) {
+		return fmt.Errorf("Address %#x is out of range", address)
 	}
-	return ErrTraceeExited
+	copy(data, r.data[address:])
+	return nil
 }
 
 // WriteWord writes the given word into the inferior's address space.
@@ -398,21 +282,14 @@ func (t *Tracee) WriteWord(address uintptr, word uint64) error {
 }
 
 func (t *Tracee) Write(address uintptr, data []byte) error {
-	err := make(chan error, 1)
-	//Debug("Write %#x %#x", address, data)
-	if t.do(func() {
-		r := t.regions[0]
-		last := r.gpa + uint64(len(r.data))
-		if address+uintptr(len(data)) > uintptr(last) {
-			err <- fmt.Errorf("Address %#x is out of range", address)
-			return
-		}
-		copy(r.data[address:], data)
-		err <- nil
-	}) {
-		return <-err
+	r := t.regions[0]
+	last := r.gpa + uint64(len(r.data))
+	if address+uintptr(len(data)) > uintptr(last) {
+		return fmt.Errorf("Address %#x is out of range", address)
 	}
-	return ErrTraceeExited
+	copy(r.data[address:], data)
+
+	return nil
 }
 
 // GetSiginfo reads the signal information for the signal that stopped the inferior.  Only
@@ -421,46 +298,8 @@ func (t *Tracee) GetSiginfo() (*unix.SignalfdSiginfo, error) {
 	return &t.info, nil
 }
 
-// ReArm does whatever might need to be done to resume.
-// This could allow the inferior
-// to continue after a segfault, for example.
-func (t *Tracee) ReArm() error {
-	errchan := make(chan error, 1)
-	if t.do(func() {
-		errchan <- nil
-	}) {
-		return <-errchan
-	}
-	return ErrTraceeExited
-}
-
-// Sends the command to the tracer go routine.	Returns whether the command
-// was sent or not. The command may not have been sent if the tracee exited.
-func (t *Tracee) do(f func()) bool {
-	if t.cmds != nil {
-		t.cmds <- f
-		return true
-	}
-	return false
-}
-
 // Close closes a Tracee.
 func (t *Tracee) Close() error {
 	var err error
-	select {
-	case err = <-t.err:
-	default:
-		err = nil
-	}
-	close(t.cmds)
-	t.cmds = nil
-
-	syscall.Kill(int(t.dev.Fd()), syscall.SIGKILL)
 	return err
-}
-
-func (t *Tracee) trace() {
-	for cmd := range t.cmds {
-		cmd()
-	}
 }

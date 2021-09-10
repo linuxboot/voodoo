@@ -821,30 +821,25 @@ func (t Tracee) getRegs() (*regs, *sregs, error) {
 		s   *sregs
 		r   *regs
 	}
-	v := make(chan all, 1)
-	if t.do(func() {
-		var rdata [unsafe.Sizeof(regs{})]byte
-		var sdata [unsafe.Sizeof(sregs{})]byte
-		r := &regs{}
-		s := &sregs{}
+	var rdata [unsafe.Sizeof(regs{})]byte
+	var sdata [unsafe.Sizeof(sregs{})]byte
+	r := &regs{}
+	s := &sregs{}
 
-		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getRegs, uintptr(unsafe.Pointer(&rdata[0]))); errno != 0 {
-			v <- all{err: errno}
-			return
-		}
-		binary.Read(bytes.NewReader(rdata[:]), binary.LittleEndian, r)
-
-		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getSregs, uintptr(unsafe.Pointer(&sdata[0]))); errno != 0 {
-			v <- all{err: errno}
-		}
-		binary.Read(bytes.NewReader(sdata[:]), binary.LittleEndian, s)
-		v <- all{r: r, s: s}
-
-	}) {
-		ret := <-v
-		return ret.r, ret.s, ret.err
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getRegs, uintptr(unsafe.Pointer(&rdata[0]))); errno != 0 {
+		return nil, nil, errno
 	}
-	return nil, nil, fmt.Errorf("getRegs: t.do failed")
+	if err := binary.Read(bytes.NewReader(rdata[:]), binary.LittleEndian, r); err != nil {
+		return nil, nil, err
+	}
+
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getSregs, uintptr(unsafe.Pointer(&sdata[0]))); errno != 0 {
+		return errno
+	}
+	if err := binary.Read(bytes.NewReader(sdata[:]), binary.LittleEndian, s); err != nil {
+		return nil, nil, err
+	}
+	return r, s, nil
 }
 
 // GetRegs reads the registers from the inferior.
@@ -860,50 +855,40 @@ func (t *Tracee) GetRegs() (*syscall.PtraceRegs, error) {
 
 // GetIPtr reads the instruction pointer from the inferior and returns it.
 func (t *Tracee) GetIPtr() (uintptr, error) {
-	errchan := make(chan error, 1)
-	value := make(chan uintptr, 1)
-	if t.do(func() {
-		var regs syscall.PtraceRegs
-		regs.Rip = 0
-		err := syscall.PtraceGetRegs(int(t.dev.Fd()), &regs)
-		value <- uintptr(regs.Rip)
-		errchan <- err
-	}) {
-		return <-value, <-errchan
+	var regs syscall.PtraceRegs
+	if err := syscall.PtraceGetRegs(int(t.dev.Fd()), &regs); err != nil {
+		return 0, err
 	}
-	return 0, ErrTraceeExited
+	return regs.Rip, niil
 }
 
 // SetRegs sets regs for a Tracee.
 // The ability to set sregs is limited by what can be set in ptraceregs.
 func (t *Tracee) SetRegs(pr *syscall.PtraceRegs) error {
-	errchan := make(chan error, 1)
-	if t.do(func() {
-		rdata, sdata := &bytes.Buffer{}, &bytes.Buffer{}
-		r := &regs{}
-		s := &sregs{}
-		ptraceRegsToKVMRegs(pr, r, s)
-		binary.Write(rdata, binary.LittleEndian, r)
-		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setRegs, uintptr(unsafe.Pointer(&rdata.Bytes()[0]))); errno != 0 {
+	rdata, sdata := &bytes.Buffer{}, &bytes.Buffer{}
+	r := &regs{}
+	s := &sregs{}
+	ptraceRegsToKVMRegs(pr, r, s)
+	if err := binary.Write(rdata, binary.LittleEndian, r); err != nil {
+		return err
+	}
+	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setRegs, uintptr(unsafe.Pointer(&rdata.Bytes()[0]))); errno != 0 {
+		return errno
+	}
+
+	// We will not allow setting Sregs. It's too dangerous.
+	// ptraceregs don't have enough useful bits.
+	// At some point we might filter the settings and allow
+	// *some* to be set but that's for later.
+	if false {
+		if err := binary.Write(sdata, binary.LittleEndian, s); err != nil {
+			return err
+		}
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setSregs, uintptr(unsafe.Pointer(&sdata.Bytes()[0]))); errno != 0 {
 			errchan <- errno
 		}
-
-		// We will not allow setting Sregs. It's too dangerous.
-		// ptraceregs don't have enough useful bits.
-		// At some point we might filter the settings and allow
-		// *some* to be set but that's for later.
-		if false {
-			binary.Write(sdata, binary.LittleEndian, s)
-			if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setSregs, uintptr(unsafe.Pointer(&sdata.Bytes()[0]))); errno != 0 {
-				errchan <- errno
-			}
-		}
-
-		errchan <- nil
-	}) {
-		return <-errchan
 	}
-	return ErrTraceeExited
+	return nil
 }
 
 // We are going for broke here, setting up a 64-bit machine.
@@ -1211,6 +1196,5 @@ func (t *Tracee) readInfo() error {
 		return fmt.Errorf("readInfo: unhandled exit %s, regs %#x sregs %#x", Exit(e), r, s)
 	}
 	t.info = sig
-	t.events <- sig
 	return nil
 }
