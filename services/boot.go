@@ -287,6 +287,10 @@ func (r *Boot) Call(f *Fault) error {
 		// Just pretend it worked.
 		return nil
 
+	case table.RegisterProtocolNotify:
+		Debug("ignore table.RegisterProtocolNotify?")
+		return nil
+
 	default:
 		log.Panic("unsupported boot service")
 		f.Regs.Rax = uefi.EFI_UNSUPPORTED
