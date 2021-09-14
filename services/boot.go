@@ -171,6 +171,19 @@ func (r *Boot) Call(f *Fault) error {
 		}
 		Debug("OK all done handleprotocol")
 		return nil
+
+	// This is just the worst design ever.
+	case table.LocateDevicePath:
+		f.Args = trace.Args(f.Proc, f.Regs, 3)
+		Debug("table.LocateDevicePath: args %#x", f.Args)
+		var g guid.GUID
+		if err := f.Proc.Read(f.Args[0], g[:]); err != nil {
+			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
+		}
+		Debug("table.LocateDevicePath: GUID %s", g)
+		f.Regs.Rax = uefi.EFI_NOT_FOUND
+		return nil
+
 	case table.PCHandleProtocol:
 		// There. All on one line. Not 7. So, UEFI, did that really hurt so much?
 		// typedef EFI_STATUS (EFIAPI *EFI_HANDLE_PROTOCOL) (IN EFI_HANDLE Handle, IN EFI_GUID *Protocol, OUT VOID **Interface);
