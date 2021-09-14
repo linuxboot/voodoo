@@ -34,6 +34,7 @@ func loadPE(t trace.Trace, n string, r *syscall.PtraceRegs, log func(string, ...
 	// Stack goes at top of reserved stack area.
 	sp := heap + uintptr(h.SizeOfHeapReserve+h.SizeOfStackReserve)
 	totalsize := int(h.SizeOfImage) + int(h.SizeOfHeapReserve+h.SizeOfStackReserve)
+	log("Write %d bytes to %#x", totalsize, base)
 	if err := t.Write(base, make([]byte, totalsize)); err != nil {
 		return fmt.Errorf("Can't write %d bytes of zero @ %#x for this section to process:%v", totalsize, base, err)
 	}

@@ -962,7 +962,9 @@ func (t *Tracee) archInit() error {
 			return err
 		}
 		regions[i].dat = mem
+		t.regions = append(t.regions, &Region{slot: uint32(i), gpa: uint64(s.base), data: mem})
 	}
+
 	// slot 0 is low memory, to 2g for now.
 
 	// slot 1 is high bios, 64k at top of 4g.
