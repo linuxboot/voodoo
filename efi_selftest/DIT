@@ -1,0 +1,3 @@
+#!/bin/bash
+ rm -f main.efi  && rm -rf gnu-efi/x86_64/ && make
+ cp main.efi  ~/go/src/github.com/linuxboot/voodoo/

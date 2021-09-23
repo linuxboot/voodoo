@@ -276,6 +276,17 @@ func (r *Boot) Call(f *Fault) error {
 		}
 		Debug("OK all done LocateProtocol")
 		return nil
+
+	case table.OpenProtocolInformation:
+		f.Args = trace.Args(f.Proc, f.Regs, 4)
+		Debug("LocateProtocol: %#x", f.Args)
+		//
+		// Retrieve information about how the PCI Root Bridge I/O Protocol
+		// instance on ControllerHandle is being used.
+		//
+		//Status = gBS->OpenProtocolInformation (ControllerHandle,&gEfiPciRootBridgeIoProtocolGuid,&OpenInfo,&EntryCount);
+		return nil
+
 	case table.SetWatchdogTimer:
 		f.Args = trace.Args(f.Proc, f.Regs, 5)
 		Debug("SetWatchdogTimer: %#x", f.Args)
