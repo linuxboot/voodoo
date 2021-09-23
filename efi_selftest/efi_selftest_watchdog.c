@@ -68,7 +68,7 @@ static void EFIAPI notify(struct efi_event *event, void *context)
  * @return:	EFI_ST_SUCCESS for success
  */
 static int setup(const EFI_HANDLE handle,
-		 const struct efi_system_table *systable)
+		 const struct EFI_SYSTEM_TABLE *systable)
 {
 	efi_status_t ret;
 
@@ -101,7 +101,7 @@ static int setup(const EFI_HANDLE handle,
  * @return:	EFI_ST_SUCCESS for success
  */
 static int setup_timer(const EFI_HANDLE handle,
-		       const struct efi_system_table *systable)
+		       const struct EFI_SYSTEM_TABLE *systable)
 {
 	watchdog_reset = true;
 	return setup(handle, systable);
@@ -115,7 +115,7 @@ static int setup_timer(const EFI_HANDLE handle,
  * @return:	EFI_ST_SUCCESS for success
  */
 static int setup_reboot(const EFI_HANDLE handle,
-			const struct efi_system_table *systable)
+			const struct EFI_SYSTEM_TABLE *systable)
 {
 	watchdog_reset = false;
 	return setup(handle, systable);

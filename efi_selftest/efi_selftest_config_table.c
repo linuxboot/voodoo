@@ -10,7 +10,7 @@
 
 #include <efi_selftest.h>
 
-static const struct efi_system_table *sys_table;
+static const struct EFI_SYSTEM_TABLE *sys_table;
 static struct efi_boot_services *boottime;
 
 static efi_guid_t table_guid =
@@ -70,7 +70,7 @@ static int check_table(const void *table)
  * @return:	EFI_ST_SUCCESS for success
  */
 static int setup(const EFI_HANDLE handle,
-		 const struct efi_system_table *systable)
+		 const struct EFI_SYSTEM_TABLE *systable)
 {
 	sys_table = systable;
 	boottime = systable->boottime;

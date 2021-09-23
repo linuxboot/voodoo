@@ -19,7 +19,7 @@
  * @return	status code
  */
 efi_status_t EFIAPI efi_main(EFI_HANDLE handle,
-			     struct efi_system_table *systable)
+			     struct EFI_SYSTEM_TABLE *systable)
 {
 	struct efi_simple_text_output_protocol *con_out = systable->con_out;
 

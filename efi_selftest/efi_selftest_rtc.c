@@ -21,7 +21,7 @@ static struct efi_runtime_services *runtime;
  * @return:	EFI_ST_SUCCESS for success
  */
 static int setup(const EFI_HANDLE handle,
-		 const struct efi_system_table *systable)
+		 const struct EFI_SYSTEM_TABLE *systable)
 {
 	runtime = systable->runtime;
 	return EFI_ST_SUCCESS;

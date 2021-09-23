@@ -63,7 +63,7 @@ struct efi_device_path_to_text_protocol *device_path_to_text;
  * @systable:	system table
  */
 static int setup(const EFI_HANDLE img_handle,
-		 const struct efi_system_table *systable)
+		 const struct EFI_SYSTEM_TABLE *systable)
 {
 	struct efi_device_path_vendor vendor_node;
 	struct efi_device_path end_node;

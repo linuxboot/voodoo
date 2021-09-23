@@ -82,7 +82,7 @@ static efi_status_t decompress(u8 **image)
  * @return:	EFI_ST_SUCCESS for success
  */
 static int setup(const EFI_HANDLE handle,
-		 const struct efi_system_table *systable)
+		 const struct EFI_SYSTEM_TABLE *systable)
 {
 	image_handle = handle;
 	boottime = systable->boottime;

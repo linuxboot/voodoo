@@ -13,7 +13,7 @@
 #define EFI_ST_EXECUTE	2
 #define EFI_ST_TEARDOWN	4
 
-static const struct efi_system_table *systable;
+static const struct EFI_SYSTEM_TABLE *systable;
 static const struct efi_boot_services *boottime;
 static const struct efi_runtime_services *runtime;
 static EFI_HANDLE handle;
@@ -222,7 +222,7 @@ void efi_st_do_tests(const u16 *testname, unsigned int phase,
  * @systab:		EFI system table
  */
 efi_status_t EFIAPI efi_selftest(EFI_HANDLE image_handle,
-				 struct efi_system_table *systab)
+				 struct EFI_SYSTEM_TABLE *systab)
 {
 	unsigned int failures = 0;
 	const u16 *testname = NULL;
