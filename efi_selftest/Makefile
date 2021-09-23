@@ -130,6 +130,8 @@ endif
 
 SELFTEST = \
 efi_selftest.o \
+
+NOTYET = \
 efi_selftest_bitblt.o \
 efi_selftest_config_table.o \
 efi_selftest_controllers.o \

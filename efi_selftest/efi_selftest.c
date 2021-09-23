@@ -29,6 +29,7 @@ static u16 reset_message[] = L"Selftest completed";
  */
 void efi_st_exit_boot_services(void)
 {
+	#if 0
 	efi_uintn_t map_size = 0;
 	efi_uintn_t map_key;
 	efi_uintn_t desc_size;
@@ -62,6 +63,7 @@ void efi_st_exit_boot_services(void)
 		efi_st_error("ExitBootServices did not return EFI_SUCCESS\n");
 		return;
 	}
+	#endif
 	efi_st_printc(EFI_WHITE, "\nBoot services terminated\n");
 }
 
@@ -243,6 +245,7 @@ efi_status_t EFIAPI efi_selftest(EFI_HANDLE image_handle,
 		return ret;
 	}
 
+#if 0
 	if (loaded_image->load_options)
 		testname = (u16 *)loaded_image->load_options;
 
@@ -298,6 +301,7 @@ efi_status_t EFIAPI efi_selftest(EFI_HANDLE image_handle,
 	efi_st_get_key();
 	runtime->reset_system(EFI_RESET_WARM, EFI_NOT_READY,
 			      sizeof(reset_message), reset_message);
+#endif
 	efi_st_printf("\n");
 	efi_st_error("Reset failed\n");
 
