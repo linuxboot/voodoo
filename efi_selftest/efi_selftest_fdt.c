@@ -122,7 +122,7 @@ static char *get_property(const u16 *property)
  * @systable:	system table
  * @return:	EFI_ST_SUCCESS for success
  */
-static int setup(const efi_handle_t img_handle,
+static int setup(const EFI_HANDLE img_handle,
 		 const struct efi_system_table *systable)
 {
 	efi_uintn_t i;

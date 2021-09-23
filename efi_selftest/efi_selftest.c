@@ -16,7 +16,7 @@
 static const struct efi_system_table *systable;
 static const struct efi_boot_services *boottime;
 static const struct efi_runtime_services *runtime;
-static efi_handle_t handle;
+static EFI_HANDLE handle;
 static u16 reset_message[] = L"Selftest completed";
 
 /*
@@ -221,7 +221,7 @@ void efi_st_do_tests(const u16 *testname, unsigned int phase,
  * @image_handle:	handle of the loaded EFI image
  * @systab:		EFI system table
  */
-efi_status_t EFIAPI efi_selftest(efi_handle_t image_handle,
+efi_status_t EFIAPI efi_selftest(EFI_HANDLE image_handle,
 				 struct efi_system_table *systab)
 {
 	unsigned int failures = 0;

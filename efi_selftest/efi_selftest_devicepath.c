@@ -12,9 +12,9 @@
 
 static struct efi_boot_services *boottime;
 
-static efi_handle_t handle1;
-static efi_handle_t handle2;
-static efi_handle_t handle3;
+static EFI_HANDLE handle1;
+static EFI_HANDLE handle2;
+static EFI_HANDLE handle3;
 
 struct interface {
 	void (EFIAPI * inc)(void);
@@ -62,7 +62,7 @@ struct efi_device_path_to_text_protocol *device_path_to_text;
  * @handle:	handle of the loaded image
  * @systable:	system table
  */
-static int setup(const efi_handle_t img_handle,
+static int setup(const EFI_HANDLE img_handle,
 		 const struct efi_system_table *systable)
 {
 	struct efi_device_path_vendor vendor_node;
@@ -275,7 +275,7 @@ static int execute(void)
 	u16 *string;
 	efi_status_t ret;
 	efi_uintn_t i, no_handles;
-	efi_handle_t *handles;
+	EFI_HANDLE *handles;
 	struct efi_device_path *dp;
 
 	/* Display all available device paths */

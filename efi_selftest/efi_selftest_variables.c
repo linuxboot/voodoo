@@ -30,7 +30,7 @@ static efi_guid_t guid_vendor1 =
  * @handle	handle of the loaded image
  * @systable	system table
  */
-static int setup(const efi_handle_t img_handle,
+static int setup(const EFI_HANDLE img_handle,
 		 const struct efi_system_table *systable)
 {
 	boottime = systable->boottime;

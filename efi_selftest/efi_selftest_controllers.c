@@ -25,9 +25,9 @@ static efi_guid_t guid_controller =
 static efi_guid_t guid_child_controller =
 	EFI_GUID(0x1d41f6f5, 0x2c41, 0xddfb,
 		 0xe2, 0x9b, 0xb8, 0x0e, 0x2e, 0xe8, 0x3a, 0x85);
-static efi_handle_t handle_controller;
-static efi_handle_t handle_child_controller[NUMBER_OF_CHILD_CONTROLLERS];
-static efi_handle_t handle_driver;
+static EFI_HANDLE handle_controller;
+static EFI_HANDLE handle_child_controller[NUMBER_OF_CHILD_CONTROLLERS];
+static EFI_HANDLE handle_driver;
 
 /*
  * Count child controllers
@@ -37,7 +37,7 @@ static efi_handle_t handle_driver;
  * @count	number of child controllers
  * @return	status code
  */
-static efi_status_t count_child_controllers(efi_handle_t handle,
+static efi_status_t count_child_controllers(EFI_HANDLE handle,
 					    efi_guid_t *protocol,
 					    efi_uintn_t *count)
 {
@@ -73,7 +73,7 @@ static efi_status_t count_child_controllers(efi_handle_t handle,
  */
 static efi_status_t EFIAPI supported(
 		struct efi_driver_binding_protocol *this,
-		efi_handle_t controller_handle,
+		EFI_HANDLE controller_handle,
 		struct efi_device_path *remaining_device_path)
 {
 	efi_status_t ret;
@@ -110,7 +110,7 @@ static efi_status_t EFIAPI supported(
  */
 static efi_status_t EFIAPI start(
 		struct efi_driver_binding_protocol *this,
-		efi_handle_t controller_handle,
+		EFI_HANDLE controller_handle,
 		struct efi_device_path *remaining_device_path)
 {
 	size_t i;
@@ -161,8 +161,8 @@ static efi_status_t EFIAPI start(
  * @child_handle	child controller
  * @return		status code
  */
-static efi_status_t disconnect_child(efi_handle_t controller_handle,
-				     efi_handle_t child_handle)
+static efi_status_t disconnect_child(EFI_HANDLE controller_handle,
+				     EFI_HANDLE child_handle)
 {
 	efi_status_t ret;
 
@@ -193,9 +193,9 @@ static efi_status_t disconnect_child(efi_handle_t controller_handle,
  */
 static efi_status_t EFIAPI stop(
 		struct efi_driver_binding_protocol *this,
-		efi_handle_t controller_handle,
+		EFI_HANDLE controller_handle,
 		size_t number_of_children,
-		efi_handle_t *child_handle_buffer)
+		EFI_HANDLE *child_handle_buffer)
 {
 	efi_status_t ret;
 	efi_uintn_t count;
@@ -263,7 +263,7 @@ static struct efi_driver_binding_protocol binding_interface = {
  * @handle	handle of the loaded image
  * @systable	system table
  */
-static int setup(const efi_handle_t img_handle,
+static int setup(const EFI_HANDLE img_handle,
 		 const struct efi_system_table *systable)
 {
 	efi_status_t ret;

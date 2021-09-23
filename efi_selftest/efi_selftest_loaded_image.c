@@ -13,7 +13,7 @@ static efi_guid_t loaded_image_protocol_guid =
 	EFI_GUID(0x5b1b31a1, 0x9562, 0x11d2,
 		 0x8e, 0x3f, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b);
 static struct efi_boot_services *boottime;
-efi_handle_t image_handle;
+EFI_HANDLE image_handle;
 
 /*
  * Setup unit test.
@@ -21,7 +21,7 @@ efi_handle_t image_handle;
  * @handle:	handle of the loaded image
  * @systable:	system table
  */
-static int setup(const efi_handle_t img_handle,
+static int setup(const EFI_HANDLE img_handle,
 		 const struct efi_system_table *systable)
 {
 	boottime = systable->boottime;

@@ -23,7 +23,7 @@ static struct efi_unicode_collation_protocol *unicode_collation_protocol;
  * @systable:	system table
  * ReturnValue:	EFI_ST_SUCCESS for success
  */
-static int setup(const efi_handle_t handle,
+static int setup(const EFI_HANDLE handle,
 		 const struct efi_system_table *systable)
 {
 	efi_status_t ret;

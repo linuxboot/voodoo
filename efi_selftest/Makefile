@@ -104,7 +104,7 @@ OBJCOPY        := $(CROSS_COMPILE)objcopy
 CFLAGS         += -fno-stack-protector -Wshadow -Wall -Wunused -Werror-implicit-function-declaration
 CFLAGS         += -I$(GNUEFI_DIR)/inc -I$(GNUEFI_DIR)/inc/$(GNUEFI_ARCH) -I$(GNUEFI_DIR)/inc/protocol
 CFLAGS         += -DCONFIG_$(GNUEFI_ARCH) -D__MAKEWITH_GNUEFI -DGNU_EFI_USE_MS_ABI
-CFLAGS         += -DEFI_DEBUG
+CFLAGS         += -DEFI_DEBUG -I./include
 LDFLAGS        += -L$(GNUEFI_DIR)/$(GNUEFI_ARCH)/lib -e $(EP_PREFIX)efi_main
 LDFLAGS        += -s -Wl,-Bsymbolic -nostdlib -shared
 LIBS            = -lefi $(CRT0_LIBS)
@@ -128,8 +128,35 @@ ifneq ($(GCC_ARCH),$(findstring $(GCC_ARCH), $(GCCMACHINE)))
   $(error The selected compiler ($(CC)) is not set for $(ARCH))
 endif
 
+SELFTEST = \
+efi_selftest.o \
+efi_selftest_bitblt.o \
+efi_selftest_config_table.o \
+efi_selftest_controllers.o \
+efi_selftest_console.o \
+efi_selftest_crc32.o \
+efi_selftest_devicepath.o \
+efi_selftest_devicepath_util.o \
+efi_selftest_events.o \
+efi_selftest_event_groups.o \
+efi_selftest_exitbootservices.o \
+efi_selftest_fdt.o \
+efi_selftest_gop.o \
+efi_selftest_loaded_image.o \
+efi_selftest_manageprotocols.o \
+efi_selftest_rtc.o \
+efi_selftest_snp.o \
+efi_selftest_textinput.o \
+efi_selftest_textinputex.o \
+efi_selftest_textoutput.o \
+efi_selftest_tpl.o \
+efi_selftest_unicode_collation.o \
+efi_selftest_util.o \
+efi_selftest_variables.o \
+efi_selftest_watchdog.o
+
 .PHONY: all clean superclean
-all: $(GNUEFI_DIR)/$(GNUEFI_ARCH)/lib/libefi.a main.efi
+all: $(GNUEFI_DIR)/$(GNUEFI_ARCH)/lib/libefi.a $(SELFTEST) main.efi
 
 $(GNUEFI_DIR)/$(GNUEFI_ARCH)/lib/libefi.a:
 	$(MAKE) -C$(GNUEFI_DIR) CROSS_COMPILE=$(CROSS_COMPILE) ARCH=$(GNUEFI_ARCH) $(GNUEFI_LIBS)

@@ -172,7 +172,7 @@ static struct efi_block_io block_io = {
 };
 
 /* Handle for the block IO device */
-static efi_handle_t disk_handle;
+static EFI_HANDLE disk_handle;
 
 /*
  * Setup unit test.
@@ -181,7 +181,7 @@ static efi_handle_t disk_handle;
  * @systable:	system table
  * @return:	EFI_ST_SUCCESS for success
  */
-static int setup(const efi_handle_t handle,
+static int setup(const EFI_HANDLE handle,
 		 const struct efi_system_table *systable)
 {
 	efi_status_t ret;
@@ -297,8 +297,8 @@ static int execute(void)
 {
 	efi_status_t ret;
 	efi_uintn_t no_handles, i, len;
-	efi_handle_t *handles;
-	efi_handle_t handle_partition = NULL;
+	EFI_HANDLE *handles;
+	EFI_HANDLE handle_partition = NULL;
 	struct efi_device_path *dp_partition;
 	struct efi_simple_file_system_protocol *file_system;
 	struct efi_file_handle *root, *file;
