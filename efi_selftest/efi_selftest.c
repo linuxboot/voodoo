@@ -6,17 +6,17 @@
  */
 
 #include <efi_selftest.h>
-//#include <vsprintf.h>
+#include <vsprintf.h>
 
 /* Constants for test step bitmap */
 #define EFI_ST_SETUP	1
 #define EFI_ST_EXECUTE	2
 #define EFI_ST_TEARDOWN	4
 
-static const struct EFI_SYSTEM_TABLE *systable;
+static const struct efi_system_table *systable;
 static const struct efi_boot_services *boottime;
 static const struct efi_runtime_services *runtime;
-static EFI_HANDLE handle;
+static efi_handle_t handle;
 static u16 reset_message[] = L"Selftest completed";
 
 /*
@@ -221,8 +221,8 @@ void efi_st_do_tests(const u16 *testname, unsigned int phase,
  * @image_handle:	handle of the loaded EFI image
  * @systab:		EFI system table
  */
-efi_status_t EFIAPI efi_selftest(EFI_HANDLE image_handle,
-				 struct EFI_SYSTEM_TABLE *systab)
+efi_status_t EFIAPI efi_selftest(efi_handle_t image_handle,
+				 struct efi_system_table *systab)
 {
 	unsigned int failures = 0;
 	const u16 *testname = NULL;
