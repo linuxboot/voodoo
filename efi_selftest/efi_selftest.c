@@ -6,7 +6,7 @@
  */
 
 #include <efi_selftest.h>
-#include <vsprintf.h>
+//#include <vsprintf.h>
 
 /* Constants for test step bitmap */
 #define EFI_ST_SETUP	1
