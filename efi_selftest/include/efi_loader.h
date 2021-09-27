@@ -8,11 +8,10 @@
 #ifndef _EFI_LOADER_H
 #define _EFI_LOADER_H 1
 
-//#include <common.h>
-#include <uboot-part_efi.h>
-#include <uboot-efi_api.h>
+#include <common.h>
+#include <part_efi.h>
+#include <efi_api.h>
 
-#include <setjmp.h>
 /* No need for efi loader support in SPL */
 #if CONFIG_IS_ENABLED(EFI_LOADER)
 
@@ -503,7 +502,7 @@ void *efi_bootmgr_load(struct efi_device_path **device_path,
 #define __efi_runtime
 static inline efi_status_t efi_add_runtime_mmio(void *mmio_ptr, u64 len)
 {
-	return 0; // fuck this.EFI_SUCCESS;
+	return EFI_SUCCESS;
 }
 
 /* No loader configured, stub out EFI_ENTRY */

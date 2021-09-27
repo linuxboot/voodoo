@@ -16,7 +16,7 @@
 #ifndef _EFI_API_H
 #define _EFI_API_H
 
-#include <uboot-efi.h>
+#include <efi.h>
 
 #ifdef CONFIG_EFI_LOADER
 #include <asm/setjmp.h>

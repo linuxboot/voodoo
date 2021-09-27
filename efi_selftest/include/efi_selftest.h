@@ -1,38 +1,150 @@
-#include <unistd.h>
+/* SPDX-License-Identifier: GPL-2.0+ */
+/*
+ *  EFI application loader
+ *
+ *  Copyright (c) 2017 Heinrich Schuchardt <xypron.glpk@gmx.de>
+ */
 
-// fuck all this include shit, we know what they are.
-typedef unsigned char u8;
-typedef unsigned char uint8_t;
-typedef unsigned short u16;
-typedef unsigned short uint16_t;
-typedef unsigned long u32;
-typedef unsigned long uint32_t;
-typedef unsigned long long ulong;
-typedef unsigned long long u64;
-typedef unsigned long long __u64;
-typedef unsigned long long uint64_t;
+#ifndef _EFI_SELFTEST_H
+#define _EFI_SELFTEST_H
 
-typedef char s8;
-typedef short s16;
-typedef long s32;
-typedef long long s64;
+#include <common.h>
+#include <efi.h>
+#include <efi_api.h>
+#include <efi_loader.h>
+#include <linker_lists.h>
 
-typedef int bool;
+#define EFI_ST_SUCCESS 0
+#define EFI_ST_FAILURE 1
 
-// oh, give it a fucking rest, will you? -- jmk
-// Whenever I see code that asks what the native byte order is, it's almost certain the code is either wrong or misguided.  -- rob
-// learn to fucking program -- me
-typedef u16 __le16;
-typedef u32 __le32;
-typedef u64 __le64;
+/*
+ * Prints a message.
+ */
+#define efi_st_printf(...) \
+	(efi_st_printc(-1, __VA_ARGS__))
 
-#define __packed	__attribute__((packed))
-#define __aligned(x)		__attribute__((aligned(x)))
-#define aligned_u64 __u64 __aligned(8)
-#define CONFIG_IS_ENABLED(x) 0
+/*
+ * Prints an error message.
+ *
+ * @...	format string followed by fields to print
+ */
+#define efi_st_error(...) \
+	(efi_st_printc(EFI_LIGHTRED, "%s(%u):\nERROR: ", __FILE__, __LINE__), \
+	efi_st_printc(EFI_LIGHTRED, __VA_ARGS__))
 
-#include "uboot-efi_selftest.h"
-#include "uboot-efi_api.h"
-#include "uboot-efi_driver.h"
-#include "uboot-efi.h"
-#include "uboot-efi_loader.h"
+/*
+ * Prints a TODO message.
+ *
+ * @...	format string followed by fields to print
+ */
+#define efi_st_todo(...) \
+	(efi_st_printc(EFI_YELLOW, "%s(%u):\nTODO: ", __FILE__, __LINE__), \
+	efi_st_printc(EFI_YELLOW, __VA_ARGS__)) \
+
+/*
+ * A test may be setup and executed at boottime,
+ * it may be setup at boottime and executed at runtime,
+ * or it may be setup and executed at runtime.
+ */
+enum efi_test_phase {
+	EFI_EXECUTE_BEFORE_BOOTTIME_EXIT = 1,
+	EFI_SETUP_BEFORE_BOOTTIME_EXIT,
+	EFI_SETUP_AFTER_BOOTTIME_EXIT,
+};
+
+extern struct efi_simple_text_output_protocol *con_out;
+extern struct efi_simple_text_input_protocol *con_in;
+
+/*
+ * Exit the boot services.
+ *
+ * The size of the memory map is determined.
+ * Pool memory is allocated to copy the memory map.
+ * The memory amp is copied and the map key is obtained.
+ * The map key is used to exit the boot services.
+ */
+void efi_st_exit_boot_services(void);
+
+/*
+ * Print a colored message
+ *
+ * @color	color, see constants in efi_api.h, use -1 for no color
+ * @fmt		printf format
+ * @...		arguments to be printed
+ *		on return position of terminating zero word
+ */
+void efi_st_printc(int color, const char *fmt, ...)
+		 __attribute__ ((format (__printf__, 2, 3)));
+
+/**
+ * efi_st_translate_char() - translate a unicode character to a string
+ *
+ * @code:	unicode character
+ * Return:	string
+ */
+u16 *efi_st_translate_char(u16 code);
+
+/**
+ * efi_st_translate_code() - translate a scan code to a human readable string
+ *
+ * @code:	unicode character
+ * Return:	string
+ */
+u16 *efi_st_translate_code(u16 code);
+
+/*
+ * Compare memory.
+ * We cannot use lib/string.c due to different CFLAGS values.
+ *
+ * @buf1:	first buffer
+ * @buf2:	second buffer
+ * @length:	number of bytes to compare
+ * @return:	0 if both buffers contain the same bytes
+ */
+int efi_st_memcmp(const void *buf1, const void *buf2, size_t length);
+
+/*
+ * Compare an u16 string to a char string.
+ *
+ * @buf1:	u16 string
+ * @buf2:	char string
+ * @return:	0 if both buffers contain the same bytes
+ */
+int efi_st_strcmp_16_8(const u16 *buf1, const char *buf2);
+
+/*
+ * Reads an Unicode character from the input device.
+ *
+ * @return: Unicode character
+ */
+u16 efi_st_get_key(void);
+
+/**
+ * struct efi_unit_test - EFI unit test
+ *
+ * An efi_unit_test provides a interface to an EFI unit test.
+ *
+ * @name:	name of unit test
+ * @phase:	specifies when setup and execute are executed
+ * @setup:	set up the unit test
+ * @teardown:	tear down the unit test
+ * @execute:	execute the unit test
+ * @setup_ok:	setup was successful (set at runtime)
+ * @on_request:	test is only executed on request
+ */
+struct efi_unit_test {
+	const char *name;
+	const enum efi_test_phase phase;
+	int (*setup)(const efi_handle_t handle,
+		     const struct efi_system_table *systable);
+	int (*execute)(void);
+	int (*teardown)(void);
+	int setup_ok;
+	bool on_request;
+};
+
+/* Declare a new EFI unit test */
+#define EFI_UNIT_TEST(__name)						\
+	ll_entry_declare(struct efi_unit_test, __name, efi_unit_test)
+
+#endif /* _EFI_SELFTEST_H */

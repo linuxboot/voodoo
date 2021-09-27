@@ -12,11 +12,12 @@
  * http://developer.intel.com/technology/efi/efi.htm
 */
 
+#include <linux/compiler.h>
 
 #ifndef _DISK_PART_EFI_H
 #define _DISK_PART_EFI_H
 
-#include <uboot-efi.h>
+#include <efi.h>
 
 #define MSDOS_MBR_SIGNATURE 0xAA55
 #define MSDOS_MBR_BOOT_CODE_SIZE 440
