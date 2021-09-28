@@ -129,10 +129,8 @@ ifneq ($(GCC_ARCH),$(findstring $(GCC_ARCH), $(GCCMACHINE)))
 endif
 
 SELFTEST = \
-efi_selftest.o \
-
-NOTYET = \
 efi_selftest_bitblt.o \
+efi_selftest.o \
 efi_selftest_config_table.o \
 efi_selftest_controllers.o \
 efi_selftest_console.o \
@@ -142,12 +140,10 @@ efi_selftest_devicepath_util.o \
 efi_selftest_events.o \
 efi_selftest_event_groups.o \
 efi_selftest_exitbootservices.o \
-efi_selftest_fdt.o \
 efi_selftest_gop.o \
 efi_selftest_loaded_image.o \
 efi_selftest_manageprotocols.o \
 efi_selftest_rtc.o \
-efi_selftest_snp.o \
 efi_selftest_textinput.o \
 efi_selftest_textinputex.o \
 efi_selftest_textoutput.o \
@@ -157,9 +153,13 @@ efi_selftest_util.o \
 efi_selftest_variables.o \
 efi_selftest_watchdog.o
 
+NOTYET = \
+efi_selftest_snp.o \
+efi_selftest_fdt.o \
+
 .PHONY: all clean superclean
 #all: $(GNUEFI_DIR)/$(GNUEFI_ARCH)/lib/libefi.a $(SELFTEST) main.efi
-all: $(SELFTEST)
+all: $(SELFTEST) main.efi
 
 #/$(GNUEFI_DIR)/$(GNUEFI_ARCH)/lib/libefi.a:
 #/	$(MAKE) -C$(GNUEFI_DIR) CROSS_COMPILE=$(CROSS_COMPILE) ARCH=$(GNUEFI_ARCH) $(GNUEFI_LIBS)
