@@ -159,7 +159,8 @@ efi_selftest_fdt.o \
 
 .PHONY: all clean superclean
 #all: $(GNUEFI_DIR)/$(GNUEFI_ARCH)/lib/libefi.a $(SELFTEST) main.efi
-all: $(SELFTEST) main.efi
+all: $(SELFTEST)
+	@$(CC) $(LDFLAGS) $< -o main.efi $(SELFTEST)
 
 #/$(GNUEFI_DIR)/$(GNUEFI_ARCH)/lib/libefi.a:
 #/	$(MAKE) -C$(GNUEFI_DIR) CROSS_COMPILE=$(CROSS_COMPILE) ARCH=$(GNUEFI_ARCH) $(GNUEFI_LIBS)
