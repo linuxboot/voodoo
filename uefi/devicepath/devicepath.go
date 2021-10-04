@@ -15,11 +15,15 @@
 
 package devicepath
 
-import "github.com/linuxboot/fiano/pkg/guid"
+import (
+	"unsafe"
+
+	"github.com/linuxboot/fiano/pkg/guid"
+)
 
 // Device path type values
 const (
-	End         = 0x7f
+	EndType     = 0x7f
 	InstanceEnd = 1
 	SubTypeEnd  = 0xff
 )
@@ -43,10 +47,41 @@ type MACAddress struct {
 }
 
 const (
-	PathType          = 0x01
-	PathSubTypeMemory = 0x03
-	PathSubTypeVendor = 0x04
+	TypeDevice    = 0x01
+	SubTypeMemory = 0x03
+	SubTypeVendor = 0x04
 )
+
+func hdrBlob(h Header) []byte {
+	return []byte{h.Type, h.SubType, uint8(h.Length), uint8(h.Length >> 8)}
+}
+
+// End is an end of device path.
+type End struct{}
+
+var _ Path = &End{}
+
+func (e *End) Header() Header {
+	return Header{Type: EndType, SubType: SubTypeEnd, Length: uint16(unsafe.Sizeof(Header{}))}
+}
+
+func (e *End) Blob() []byte {
+	return hdrBlob(e.Header())
+}
+
+// Root is a pre-filled-in Root record.
+// Do we need it? u-boot did but who knows.
+type Root struct{}
+
+var _ Path = &Root{}
+
+func (r *Root) Header() Header {
+	return Header{Type: TypeDevice, SubType: SubTypeVendor, Length: uint16(unsafe.Sizeof(Vendor{}))}
+}
+
+func (r *Root) Blob() []byte {
+	return hdrBlob(r.Header())
+}
 
 // Memory is for memory
 type Memory struct {
