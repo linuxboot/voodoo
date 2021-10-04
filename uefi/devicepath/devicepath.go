@@ -13,137 +13,283 @@
  * From include/linux/efi.h in kernel 4.1 with some additions/subtractions
  */
 
-package uefi
+package devicepath
+
+import "github.com/linuxboot/fiano/pkg/guid"
 
 // Device path type values
 const (
-	End = 0x7f
+	End         = 0x7f
 	InstanceEnd = 1
-	SubTypeEnd = 0xff
+	SubTypeEnd  = 0xff
 )
 
-// Path is the generic Device Path type
-type Path struct {
-	Type uint8
+// Header is the common Device Path header.
+type Header struct {
+	Type    uint8
 	SubType uint8
-	Length uint16
-} 
+	Length  uint16
+}
 
-// MAC is a mac address
-type MAC struct {
-	Addr[32] uint8
-} 
+type Path interface {
+	Header() Header
+	// Blob return []byte so that they can easily be concatenated.
+	Blob() []byte
+}
+
+// MAC is a MAC address
+type MACAddress struct {
+	Addr [32]uint8
+}
 
 const (
-PathType = 	0x01
-PathSubTypeMemory=		0x03
-PathSubTypeVendor =	0x04
+	PathType          = 0x01
+	PathSubTypeMemory = 0x03
+	PathSubTypeVendor = 0x04
 )
 
 // Memory is for memory
 type Memory struct {
-	 DP Path
-	Type uint32
+	h     Header
+	Type  uint32
 	Start uint64
-	End uint64
-} 
+	End   uint64
+}
+
+var _ Path = &Memory{}
+
+func (m *Memory) Header() Header {
+	return m.h
+}
+
+func (m *Memory) Blob() []byte {
+	return []byte{}
+}
 
 // Vendor is for vendor data.
-type efi_device_path_vendor {
-	 DP Path
-	GUID  guid.GUID
+type Vendor struct {
+	h    Header
+	GUID guid.GUID
 
-	Data[] uint8
-} 
+	Data []uint8
+}
 
 const (
-	ACPI = 2
+	TypeACPI    = 2
 	SubTypeACPI = 1
 )
 
+func EFIPNPID(ID int) uint32 {
+	return uint32((ID << 16) | 0x41d0)
+}
+
+/* do we need this EISA shit?
 #define EFI_PNP_ID(ID)				(u32)(((ID) << 16) | 0x41D0)
 #define EISA_PNP_ID(ID)				EFI_PNP_ID(ID)
 #define EISA_PNP_NUM(ID)			((ID) >> 16)
+*/
 
-type efi_device_path_acpi_path {
-	 DP Path
-	hid uint32
-	uid uint32
-} 
+// an ACPI path
+type ACPI struct {
+	h   Header
+	HID uint32
+	UID uint32
+}
 
-#define DEVICE_PATH_TYPE_MESSAGING_DEVICE	0x03
-#  define DEVICE_PATH_SUB_TYPE_MSG_ATAPI	0x01
-#  define DEVICE_PATH_SUB_TYPE_MSG_SCSI		0x02
-#  define DEVICE_PATH_SUB_TYPE_MSG_USB		0x05
-#  define DEVICE_PATH_SUB_TYPE_MSG_MAC_ADDR	0x0b
-#  define DEVICE_PATH_SUB_TYPE_MSG_USB_CLASS	0x0f
-#  define DEVICE_PATH_SUB_TYPE_MSG_SD		0x1a
-#  define DEVICE_PATH_SUB_TYPE_MSG_MMC		0x1d
+// This section is called "UEFI doesn't understand storage abstractions"
+const (
+	TypeMessaging   = 3
+	SubTypeATAPI    = 1
+	SubTypeSCSI     = 2
+	SubTypeUSB      = 5
+	SubTypeMAC      = 0xb
+	SubTypeUSBClass = 0xf
+	SubTypeMSGSD    = 0x1a
+	SubTypeMSGMMC   = 0x1d
+)
 
-type efi_device_path_atapi {
-	 DP Path
-	primary_secondary uint8
-	slave_master uint8
-	logical_unit_number uint16
-} 
+type ATAPI struct {
+	h                Header
+	PrimarySecondary uint8
+	// Cringe.
+	// SlaveMaster uint8
+	TargetHost uint8
+	LUN        uint16
+}
 
-type efi_device_path_scsi {
-	 DP Path
-	target_id uint16
-	logical_unit_number uint16
-} 
+type SCSI struct {
+	h        Header
+	TargetID uint16
+	LUN      uint16
+}
 
-type efi_device_path_usb {
-	 DP Path
-	parent_port_number uint8
-	usb_interface uint8
-} 
+type USB struct {
+	h            Header
+	ParentPort   uint8
+	USBInterface uint8
+}
 
-type efi_device_path_mac_addr {
-	 DP Path
-	 efi_mac_addr mac
-	if_type uint8
-} 
+type MAC struct {
+	h      Header
+	MAC    MACAddress
+	IFType uint8
+}
 
-type efi_device_path_usb_class {
-	 DP Path
-	vendor_id uint16
-	product_id uint16
-	device_class uint8
-	device_subclass uint8
-	device_protocol uint8
-} 
+type USBClass struct {
+	h              Header
+	VID            uint16
+	DID            uint16
+	Class          uint8
+	SubClass       uint8
+	DeviceProtocol uint8
+}
 
-type efi_device_path_sd_mmc_path {
-	 DP Path
-	slot_number uint8
-} 
+type MMC struct {
+	h          Header
+	SlotNumber uint8
+}
 
-#define DEVICE_PATH_TYPE_MEDIA_DEVICE		0x04
-#  define DEVICE_PATH_SUB_TYPE_HARD_DRIVE_PATH	0x01
-#  define DEVICE_PATH_SUB_TYPE_CDROM_PATH	0x02
-#  define DEVICE_PATH_SUB_TYPE_FILE_PATH	0x04
+const (
+	TypeMedia        = 4
+	SubTypeHardDrive = 1
+	SubTypeCDROM     = 2
+	SubTypeFile      = 4
+)
 
-type efi_device_path_hard_drive_path {
-	DP Path
-	partition_number uint32
-	partition_start uint64
-	partition_end uint64
-	partition_signature[16] uint8
-	partmap_type uint8
-	signature_type uint8
-} 
+type HardDrive struct {
+	h                  Header
+	Partition          uint32
+	PartitionStart     uint64
+	PartitionEnd       uint64
+	PartitionSignature [16]uint8
+	PartmapType        uint8
+	SignatureType      uint8
+}
 
-type efi_device_path_cdrom_path {
-	 DP Path
-	boot_entry uint32
-	partition_start uint64
-	partition_end uint64
-} 
+type CDROM struct {
+	h              Header
+	BootEntry      uint32
+	PartitionStart uint64
+	PartitionEnd   uint64
+}
 
-type efi_device_path_file_path {
-	 DP Path
-	str[] uint16
-} 
+type FILE struct {
+	h Header
+	// oh god UEFI.
+	// String. uint16.
+	str []uint16
+}
 
-var 	DevicePathGUID                                       = guid.MustParse(DEVICE_PATH_GUID)
+const DEVICE_PATH_GUID = "09576E91-6D3F-11D2-8E39-00A0C969723B"
+
+var DevicePathGUID = guid.MustParse(DEVICE_PATH_GUID)
+
+var _ Path = &Vendor{}
+
+func (v *Vendor) Header() Header {
+	return v.h
+}
+
+func (v *Vendor) Blob() []byte {
+	return []byte{}
+}
+
+var _ Path = &ACPI{}
+
+func (a *ACPI) Header() Header {
+	return a.h
+}
+
+func (a *ACPI) Blob() []byte {
+	return []byte{}
+}
+
+var _ Path = &ATAPI{}
+
+func (a *ATAPI) Header() Header {
+	return a.h
+}
+
+func (a *ATAPI) Blob() []byte {
+	return []byte{}
+}
+
+var _ Path = &SCSI{}
+
+func (s *SCSI) Header() Header {
+	return s.h
+}
+
+func (s *SCSI) Blob() []byte {
+	return []byte{}
+}
+
+var _ Path = &USB{}
+
+func (u *USB) Header() Header {
+	return u.h
+}
+
+func (u *USB) Blob() []byte {
+	return []byte{}
+}
+
+var _ Path = &MAC{}
+
+func (m *MAC) Header() Header {
+	return m.h
+}
+
+func (m *MAC) Blob() []byte {
+	return []byte{}
+}
+
+var _ Path = &USBClass{}
+
+func (u *USBClass) Header() Header {
+	return u.h
+}
+
+func (u *USBClass) Blob() []byte {
+	return []byte{}
+}
+
+var _ Path = &MMC{}
+
+func (m *MMC) Header() Header {
+	return m.h
+}
+
+func (m *MMC) Blob() []byte {
+	return []byte{}
+}
+
+var _ Path = &HardDrive{}
+
+func (h *HardDrive) Header() Header {
+	return h.h
+}
+
+func (h *HardDrive) Blob() []byte {
+	return []byte{}
+}
+
+var _ Path = &CDROM{}
+
+func (c *CDROM) Header() Header {
+	return c.h
+}
+
+func (c *CDROM) Blob() []byte {
+	return []byte{}
+}
+
+var _ Path = &FILE{}
+
+func (f *FILE) Header() Header {
+	return f.h
+}
+
+func (f *FILE) Blob() []byte {
+	return []byte{}
+}
