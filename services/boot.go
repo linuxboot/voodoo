@@ -305,7 +305,7 @@ func (r *Boot) Call(f *Fault) error {
 		return nil
 
 	default:
-		log.Panic("unsupported boot service")
+		log.Panicf("unsupported boot service %#x %q", op, table.BootServicesNames[int(op)])
 		f.Regs.Rax = uefi.EFI_UNSUPPORTED
 	}
 	return nil
