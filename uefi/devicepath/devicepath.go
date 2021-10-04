@@ -16,6 +16,7 @@
 package devicepath
 
 import (
+	"fmt"
 	"unsafe"
 
 	"github.com/linuxboot/fiano/pkg/guid"
@@ -23,7 +24,7 @@ import (
 
 // Device path type values
 const (
-	EndType     = 0x7f
+	TypeEnd     = 0x7f
 	InstanceEnd = 1
 	SubTypeEnd  = 0xff
 )
@@ -62,7 +63,7 @@ type End struct{}
 var _ Path = &End{}
 
 func (e *End) Header() Header {
-	return Header{Type: EndType, SubType: SubTypeEnd, Length: uint16(unsafe.Sizeof(Header{}))}
+	return Header{Type: TypeEnd, SubType: SubTypeEnd, Length: uint16(unsafe.Sizeof(Header{}))}
 }
 
 func (e *End) Blob() []byte {
@@ -131,7 +132,7 @@ type ACPI struct {
 	UID uint32
 }
 
-// This section is called "UEFI doesn't understand storage abstractions"
+// This section is called"UEFI doesn't understand storage abstractions"
 const (
 	TypeMessaging   = 3
 	SubTypeATAPI    = 1
@@ -327,4 +328,45 @@ func (f *FILE) Header() Header {
 
 func (f *FILE) Blob() []byte {
 	return []byte{}
+}
+
+// TypeNames provides a name for a Device Path Type
+var TypeNames = map[uint8]string{
+	TypeEnd:       "TypeEnd",
+	TypeDevice:    "TypeDevice",
+	TypeACPI:      "TypeACPI",
+	TypeMessaging: "TypeMessaging",
+	TypeMedia:     "TypeMedia",
+}
+
+// // SubTypeNames provides a name for a Device Path SubType
+// var SubTypeNames = map[int]string{
+// 	SubTypeEnd:"SubTypeEnd",
+// 	SubTypeMemory:"SubTypeMemory",
+// 	SubTypeVendor:"SubTypeVendor",
+// 	SubTypeACPI:"SubTypeACPI",
+// 	SubTypeATAPI:"SubTypeATAPI",
+// 	SubTypeSCSI:"SubTypeSCSI",
+// 	SubTypeUSB:"SubTypeUSB",
+// 	SubTypeMAC:"SubTypeMAC",
+// 	SubTypeUSBClass:"SubTypeUSBClass",
+// 	SubTypeMSGSD:"SubTypeMSGSD",
+// 	SubTypeMSGMMC:"SubTypeMSGMMC",
+// 	SubTypeHardDrive:"SubTypeHardDrive",
+// 	SubTypeCDROM:"SubTypeCDROM",
+// 	SubTypeFile:"SubTypeFile",
+// }
+
+// String implements String
+func (h *Header) String() string {
+	t, ok := TypeNames[h.Type]
+	if !ok {
+		t = "Unknown Device Path Type"
+	}
+	// later.
+	// s, ok := SubTypeNames[h.SubType]
+	// if !ok {
+	// 	s ="Unknown Device Path SubType"
+	// }
+	return fmt.Sprintf("%s:%v:%d", t, h.SubType, h.Length)
 }
