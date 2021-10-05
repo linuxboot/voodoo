@@ -17,10 +17,13 @@ package devicepath
 
 import (
 	"fmt"
+	"strings"
 	"unsafe"
 
 	"github.com/linuxboot/fiano/pkg/guid"
 )
+
+var Debug = func(string, ...interface{}) {}
 
 // Device path type values
 const (
@@ -81,7 +84,7 @@ func (r *Root) Header() Header {
 }
 
 func (r *Root) Blob() []byte {
-	return hdrBlob(r.Header())
+	return append(hdrBlob(r.Header()), RootGUID[:]...)
 }
 
 // Memory is for memory
@@ -159,6 +162,16 @@ type SCSI struct {
 	LUN      uint16
 }
 
+var _ Path = &SCSI{}
+
+func (s *SCSI) Header() Header {
+	return Header{Type: TypeMessaging, SubType: SubTypeSCSI, Length: uint16(unsafe.Sizeof(SCSI{}))}
+}
+
+func (s *SCSI) Blob() []byte {
+	return append(hdrBlob(s.Header()), uint8(s.TargetID), uint8(s.TargetID>>8), uint8(s.LUN), uint8(s.LUN>>8))
+}
+
 type USB struct {
 	h            Header
 	ParentPort   uint8
@@ -216,9 +229,15 @@ type FILE struct {
 	str []uint16
 }
 
-const DEVICE_PATH_GUID = "09576E91-6D3F-11D2-8E39-00A0C969723B"
+const (
+	DEVICE_PATH_GUID = "09576E91-6D3F-11D2-8E39-00A0C969723B"
+	U_BOOT_GUID      = "e61d73b9-a384-4acc-aeab-82e828f3628b"
+)
 
-var DevicePathGUID = guid.MustParse(DEVICE_PATH_GUID)
+var (
+	DevicePathGUID = guid.MustParse(DEVICE_PATH_GUID)
+	RootGUID       = guid.MustParse(U_BOOT_GUID)
+)
 
 var _ Path = &Vendor{}
 
@@ -247,16 +266,6 @@ func (a *ATAPI) Header() Header {
 }
 
 func (a *ATAPI) Blob() []byte {
-	return []byte{}
-}
-
-var _ Path = &SCSI{}
-
-func (s *SCSI) Header() Header {
-	return s.h
-}
-
-func (s *SCSI) Blob() []byte {
 	return []byte{}
 }
 
@@ -369,4 +378,38 @@ func (h *Header) String() string {
 	// 	s ="Unknown Device Path SubType"
 	// }
 	return fmt.Sprintf("%s:%v:%d", t, h.SubType, h.Length)
+}
+
+// Marshal marshals a string to a []Path, returning an error if any.
+// The string is of the form a/b@parm@parm@parm/d
+func Marshal(s string) ([]Path, error) {
+	paths := []Path{&Root{}}
+	if len(s) == 0 {
+		return paths, nil
+	}
+	ops := strings.Split(s, "/")
+	Debug("Marshal: %d paths %v", len(ops), ops)
+	for i, el := range ops {
+		args := strings.Split(el, "@")
+		if len(args) == 0 {
+			return nil, fmt.Errorf("Empty element %d in %s", i, s)
+		}
+		var p Path
+		switch args[0] {
+		case "scsi":
+			p = &SCSI{}
+		default:
+			return nil, fmt.Errorf("Unknown path type %q", args[0])
+		}
+		paths = append(paths, p)
+	}
+	return paths, nil
+}
+
+func Blob(paths ...Path) []byte {
+	var b []byte
+	for _, p := range paths {
+		b = append(b, p.Blob()...)
+	}
+	return b
 }

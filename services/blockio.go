@@ -9,6 +9,7 @@ import (
 	"github.com/linuxboot/fiano/pkg/guid"
 	"github.com/linuxboot/voodoo/table"
 	"github.com/linuxboot/voodoo/uefi"
+	"github.com/linuxboot/voodoo/uefi/devicepath"
 )
 
 // BlockIO implements Service
@@ -107,7 +108,7 @@ func NewBlockIO(tab []byte, u ServPtr) (Service, error) {
 	serv := &BlockIO{u: u.Base(), up: u, media: ServPtr(media), devicepathproto: dpp}
 	h.PutService(uefi.BlockIOGUID, serv, u)
 	pathserv := &DevicePath{u: dpp.Base(), up: dpp}
-	h.PutService(uefi.DevicePathGUID, pathserv, dpp)
+	h.PutService(devicepath.DevicePathGUID, pathserv, dpp)
 	return serv, nil
 }
 

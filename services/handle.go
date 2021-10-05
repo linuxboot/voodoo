@@ -38,9 +38,11 @@ func (h *Handle) Put(g *guid.GUID, aliases ...*guid.GUID) error {
 		return fmt.Errorf("No service for %v", g)
 	}
 	h.protocols[g.String()] = d
+	Debug("Put %v: %s", h, g.String())
 
 	for _, g := range aliases {
 		h.protocols[g.String()] = d
+		Debug("Put %v: alias %s", h, g.String())
 	}
 	return nil
 }
