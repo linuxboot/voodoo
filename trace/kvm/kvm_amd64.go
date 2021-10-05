@@ -905,6 +905,16 @@ func mmap(_ uintptr, length uintptr, prot int, flags int, fd int, offset uintptr
 	return unix.Mmap(fd, int64(offset), int(length), prot, flags)
 }
 
+func readonly(b []byte) error {
+	base := uintptr(unsafe.Pointer(&b[0]))
+	sz := uintptr(len(b))
+	_, _, errno := syscall.Syscall6(syscall.SYS_MPROTECT, base, sz, syscall.PROT_READ, 0, 0, 0)
+	if errno != 0 {
+		return fmt.Errorf("Marking %#x/%#x readonly: %v", base, sz, errno)
+	}
+	return nil
+}
+
 // We are going for broke here, setting up a 64-bit machine.
 // We also set up the BIOS areas, at 0xe0000 and 0xff000000.
 func (t *Tracee) archInit() error {
@@ -1007,6 +1017,9 @@ func (t *Tracee) archInit() error {
 			bogus = uint64(0xc3f4) | uint64(0xdeadbe<<36) | uint64(i<<16)
 			binary.LittleEndian.PutUint64(regions[2].dat[i:], bogus)
 		}
+		if err := readonly(regions[2].dat[0x400000:]); err != nil {
+			log.Panicf("Marking ffun readonly: %v", err)
+		}
 	}
 	t.tab = regions[2].dat
 	// Now for CPUID. What a pain.
@@ -1025,6 +1038,11 @@ func (t *Tracee) archInit() error {
 		return fmt.Errorf("Set  CPUID entries err %v", errno)
 	}
 
+	// We learned the hard way: for portability, you MUST read all the processor state, e.g. segment stuff,
+	// modify it to taste, and write it back. You can NOT simply cons up what you think are correct values
+	// and write them.
+	// We're leaving the broken code here as a warning, in case someone gets tempted.
+	// This worked for a long time on AMD, then failed on Intel, and this was the reason.
 	if false {
 		sdata := &bytes.Buffer{}
 		if err := binary.Write(sdata, binary.LittleEndian, bit64); err != nil {
