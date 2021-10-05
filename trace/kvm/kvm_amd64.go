@@ -1279,6 +1279,9 @@ func (t *Tracee) readInfo() error {
 	case ExitHlt:
 		sig.Addr = r.Rip
 		Debug("ExitHalt: %#x", r.Rip)
+		if r.Rip&3 != 0 {
+			log.Panicf("Rip %#x is not 4 byte aligned", r.Rip)
+		}
 	case ExitIo:
 		var x xio
 		if err := binary.Read(vmr, binary.LittleEndian, &x); err != nil {
