@@ -999,17 +999,16 @@ func (t *Tracee) archInit() error {
 	//
 	// The pattern needs to work if there is a deref via load/store
 	// or via call.
-	ffun := regions[2].dat
 	// poison it with hlt.
-	if false {
-		for i := 0; i < len(ffun); i += 8 {
+	if true {
+		for i := 0; i < len(regions[2].dat); i += 8 {
 			// bogus pointer but the low 16 bits are hlt; retq
 			bogus := uint64(0x10000c3f4)
 			bogus = uint64(0xc3f4) | uint64(0xdeadbe<<36) | uint64(i<<16)
-			binary.LittleEndian.PutUint64(ffun[i:], bogus)
+			binary.LittleEndian.PutUint64(regions[2].dat[i:], bogus)
 		}
 	}
-	t.tab = ffun
+	t.tab = regions[2].dat
 	// Now for CPUID. What a pain.
 	var i = &CPUIDInfo{
 		nent: uint32(len(CPUIDInfo{}.ents)),
