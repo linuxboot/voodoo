@@ -16,10 +16,11 @@ typedef unsigned int uint;
 /* this is a special 64bit data type that is 8-byte aligned */
 #define aligned_u64 uint64_t __aligned(8)
 #define aligned_le64 uint64_t __aligned(8)
+#define __aligned(x)			__attribute__((aligned(x)))
 
-#include <linker_lists.h>
 #include <efi.h>
 #include <efilib.h>
+#include <linker_lists.h>
 
 #define EFI_ST_SUCCESS 0
 #define EFI_ST_FAILURE 1
