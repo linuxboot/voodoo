@@ -27,26 +27,26 @@ static efi_guid_t efi_gop_guid = EFI_GOP_GUID;
 static struct efi_gop *gop;
 static struct efi_gop_pixel *bitmap;
 static struct efi_event *event;
-static efi_uintn_t xpos;
+static uint xpos;
 
-static void ellipse(efi_uintn_t x, efi_uintn_t y,
-		    efi_uintn_t x0, efi_uintn_t y0,
-		    efi_uintn_t x1, efi_uintn_t y1,
+static void ellipse(uint x, uint y,
+		    uint x0, uint y0,
+		    uint x1, uint y1,
 		    const struct efi_gop_pixel col, struct efi_gop_pixel *pix)
 {
-	efi_uintn_t xm = x0 + x1;
-	efi_uintn_t ym = y0 + y1;
-	efi_uintn_t dx = x1 - x0 + 1;
-	efi_uintn_t dy = y1 - y0 + 1;
+	uint xm = x0 + x1;
+	uint ym = y0 + y1;
+	uint dx = x1 - x0 + 1;
+	uint dy = y1 - y0 + 1;
 
 	if (dy * dy * (2 * x - xm) * (2 * x - xm) +
 	    dx * dx * (2 * y - ym) * (2 * y - ym) <= dx * dx * dy * dy)
 		*pix = col;
 }
 
-static void rectangle(efi_uintn_t x, efi_uintn_t y,
-		      efi_uintn_t x0, efi_uintn_t y0,
-		      efi_uintn_t x1, efi_uintn_t y1,
+static void rectangle(uint x, uint y,
+		      uint x0, uint y0,
+		      uint x1, uint y1,
 		      const struct efi_gop_pixel col, struct efi_gop_pixel *pix)
 {
 	if (x >= x0 && y >= y0 && x <= x1 && y <= y1)
@@ -62,8 +62,8 @@ static void rectangle(efi_uintn_t x, efi_uintn_t y,
  */
 static void EFIAPI notify(struct efi_event *event, void *context)
 {
-	efi_uintn_t *pos = context;
-	efi_uintn_t dx, sx, width;
+	uint *pos = context;
+	uint dx, sx, width;
 
 	if (!pos)
 		return;
@@ -96,12 +96,12 @@ static void EFIAPI notify(struct efi_event *event, void *context)
  * @systable:	system table
  * @return:	EFI_ST_SUCCESS for success
  */
-static int setup(const efi_handle_t handle,
+static int setup(const EFI_HANDLE handle,
 		 const struct efi_system_table *systable)
 {
 	efi_status_t ret;
 	struct efi_gop_pixel pix;
-	efi_uintn_t x, y;
+	uint x, y;
 
 	boottime = systable->boottime;
 
@@ -229,7 +229,7 @@ static int teardown(void)
  */
 static int execute(void)
 {
-	u32 max_mode;
+	uint32_t max_mode;
 	efi_status_t ret;
 	struct efi_gop_mode_info *info;
 

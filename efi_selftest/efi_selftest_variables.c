@@ -30,7 +30,7 @@ static efi_guid_t guid_vendor1 =
  * @handle	handle of the loaded image
  * @systable	system table
  */
-static int setup(const efi_handle_t img_handle,
+static int setup(const EFI_HANDLE img_handle,
 		 const struct efi_system_table *systable)
 {
 	boottime = systable->boottime;
@@ -45,15 +45,15 @@ static int setup(const efi_handle_t img_handle,
 static int execute(void)
 {
 	efi_status_t ret;
-	efi_uintn_t len;
-	u32 attr;
-	u8 v[16] = {0x5d, 0xd1, 0x5e, 0x51, 0x5a, 0x05, 0xc7, 0x0c,
+	uint len;
+	uint32_t attr;
+	uint8_t v[16] = {0x5d, 0xd1, 0x5e, 0x51, 0x5a, 0x05, 0xc7, 0x0c,
 		    0x35, 0x4a, 0xae, 0x87, 0xa5, 0xdf, 0x0f, 0x65,};
-	u8 data[EFI_ST_MAX_DATA_SIZE];
-	u16 varname[EFI_ST_MAX_VARNAME_SIZE];
+	uint8_t data[EFI_ST_MAX_DATA_SIZE];
+	uint16_t varname[EFI_ST_MAX_VARNAME_SIZE];
 	int flag;
 	efi_guid_t guid;
-	u64 max_storage, rem_storage, max_size;
+	uint64_t max_storage, rem_storage, max_size;
 
 	ret = runtime->query_variable_info(EFI_VARIABLE_BOOTSERVICE_ACCESS,
 					   &max_storage, &rem_storage,

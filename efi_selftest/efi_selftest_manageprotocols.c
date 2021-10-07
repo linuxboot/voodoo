@@ -31,8 +31,8 @@ static efi_guid_t guid2 =
 static efi_guid_t guid3 =
 	EFI_GUID(0x06d641a3, 0xf4e7, 0xe0c9,
 		 0xe7, 0x8d, 0x41, 0x2d, 0x72, 0xa6, 0xb1, 0x24);
-static efi_handle_t handle1;
-static efi_handle_t handle2;
+static EFI_HANDLE handle1;
+static EFI_HANDLE handle2;
 static struct interface interface1;
 static struct interface interface2;
 static struct interface interface3;
@@ -45,8 +45,8 @@ static struct interface interface4;
  * @count:	number of entries in the array
  * @buffer:	array to search
  */
-efi_status_t find_in_buffer(efi_handle_t handle, size_t count,
-			    efi_handle_t *buffer)
+efi_status_t find_in_buffer(EFI_HANDLE handle, size_t count,
+			    EFI_HANDLE *buffer)
 {
 	size_t i;
 
@@ -73,11 +73,11 @@ efi_status_t find_in_buffer(efi_handle_t handle, size_t count,
  * @handle:	handle of the loaded image
  * @systable:	system table
  */
-static int setup(const efi_handle_t img_handle,
+static int setup(const EFI_HANDLE img_handle,
 		 const struct efi_system_table *systable)
 {
 	efi_status_t ret;
-	efi_handle_t handle;
+	EFI_HANDLE handle;
 
 	boottime = systable->boottime;
 
@@ -135,11 +135,11 @@ static int execute(void)
 {
 	struct interface *interface;
 	efi_status_t ret;
-	efi_handle_t *buffer;
+	EFI_HANDLE *buffer;
 	size_t buffer_size;
-	efi_uintn_t count = 0;
+	uint count = 0;
 	efi_guid_t **prot_buffer;
-	efi_uintn_t prot_count;
+	uint prot_count;
 
 	/*
 	 * Test HandleProtocol
@@ -227,19 +227,19 @@ static int execute(void)
 		return EFI_ST_FAILURE;
 	}
 	/* Clear the buffer, we are reusing it it the next step. */
-	boottime->set_mem(buffer, sizeof(efi_handle_t) * buffer_size, 0);
+	boottime->set_mem(buffer, sizeof(EFI_HANDLE) * buffer_size, 0);
 
 	/*
 	 * Test LocateHandle with ByProtocol
 	 */
-	count = buffer_size * sizeof(efi_handle_t);
+	count = buffer_size * sizeof(EFI_HANDLE);
 	ret = boottime->locate_handle(BY_PROTOCOL, &guid1, NULL,
 				      &count, buffer);
 	if (ret != EFI_SUCCESS) {
 		efi_st_error("LocateHandle with ByProtocol failed\n");
 		return EFI_ST_FAILURE;
 	}
-	if (count / sizeof(efi_handle_t) != 2) {
+	if (count / sizeof(EFI_HANDLE) != 2) {
 		efi_st_error("LocateHandle failed to locate new handles\n");
 		return EFI_ST_FAILURE;
 	}
@@ -305,7 +305,7 @@ static int execute(void)
 		efi_st_error("Failed to locate new handle\n");
 		return EFI_ST_FAILURE;
 	}
-	boottime->set_mem(buffer, sizeof(efi_handle_t) * buffer_size, 0);
+	boottime->set_mem(buffer, sizeof(EFI_HANDLE) * buffer_size, 0);
 
 	/*
 	 * Test ProtocolsPerHandle

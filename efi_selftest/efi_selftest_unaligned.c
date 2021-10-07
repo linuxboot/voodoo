@@ -21,7 +21,7 @@ struct aligned_buffer {
  * @addr:	address to read
  * @return:	value at the address
  */
-static inline u32 deref(u32 *addr)
+static inline uint32_t deref(uint32_t *addr)
 {
 	int ret;
 
@@ -45,7 +45,7 @@ static int execute(void)
 		{0, 1, 2, 3, 4, 5, 6, 7},
 		};
 	void *v = &buf;
-	u32 r = 0;
+	uint32_t r = 0;
 
 	/* Read an unaligned address */
 	r = deref(v + 1);

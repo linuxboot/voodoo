@@ -23,7 +23,7 @@ static struct efi_unicode_collation_protocol *unicode_collation_protocol;
  * @systable:	system table
  * ReturnValue:	EFI_ST_SUCCESS for success
  */
-static int setup(const efi_handle_t handle,
+static int setup(const EFI_HANDLE handle,
 		 const struct efi_system_table *systable)
 {
 	efi_status_t ret;
@@ -44,9 +44,9 @@ static int setup(const efi_handle_t handle,
 static int test_stri_coll(void)
 {
 	efi_intn_t ret;
-	u16 c1[] = L"first";
-	u16 c2[] = L"FIRST";
-	u16 c3[] = L"second";
+	uint16_t c1[] = L"first";
+	uint16_t c2[] = L"FIRST";
+	uint16_t c3[] = L"second";
 
 	ret = unicode_collation_protocol->stri_coll(unicode_collation_protocol,
 						    c1, c2);
@@ -78,7 +78,7 @@ static int test_stri_coll(void)
 static int test_metai_match(void)
 {
 	bool ret;
-	const u16 c[] = L"Das U-Boot";
+	const uint16_t c[] = L"Das U-Boot";
 
 	ret = unicode_collation_protocol->metai_match(
 		unicode_collation_protocol, c, L"*");
@@ -148,7 +148,7 @@ static int test_metai_match(void)
 
 static int test_str_lwr(void)
 {
-	u16 c[] = L"U-Boot";
+	uint16_t c[] = L"U-Boot";
 
 	unicode_collation_protocol->str_lwr(unicode_collation_protocol, c);
 	if (efi_st_strcmp_16_8(c, "u-boot")) {
@@ -161,7 +161,7 @@ static int test_str_lwr(void)
 
 static int test_str_upr(void)
 {
-	u16 c[] = L"U-Boot";
+	uint16_t c[] = L"U-Boot";
 
 	unicode_collation_protocol->str_upr(unicode_collation_protocol, c);
 	if (efi_st_strcmp_16_8(c, "U-BOOT")) {
@@ -174,7 +174,7 @@ static int test_str_upr(void)
 
 static int test_fat_to_str(void)
 {
-	u16 str[16];
+	uint16_t str[16];
 
 	boottime->set_mem(str, sizeof(str), 0);
 	unicode_collation_protocol->fat_to_str(unicode_collation_protocol, 6,

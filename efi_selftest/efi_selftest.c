@@ -6,7 +6,6 @@
  */
 
 #include <efi_selftest.h>
-#include <vsprintf.h>
 
 /* Constants for test step bitmap */
 #define EFI_ST_SETUP	1
@@ -16,8 +15,8 @@
 static const struct efi_system_table *systable;
 static const struct efi_boot_services *boottime;
 static const struct efi_runtime_services *runtime;
-static efi_handle_t handle;
-static u16 reset_message[] = L"Selftest completed";
+static EFI_HANDLE handle;
+static uint16_t reset_message[] = L"Selftest completed";
 
 /*
  * Exit the boot services.
@@ -29,10 +28,10 @@ static u16 reset_message[] = L"Selftest completed";
  */
 void efi_st_exit_boot_services(void)
 {
-	efi_uintn_t map_size = 0;
-	efi_uintn_t map_key;
-	efi_uintn_t desc_size;
-	u32 desc_version;
+	uint map_size = 0;
+	uint map_key;
+	uint desc_size;
+	uint32_t desc_version;
 	efi_status_t ret;
 	struct efi_mem_desc *memory_map;
 
@@ -146,7 +145,7 @@ static int teardown(struct efi_unit_test *test, unsigned int *failures)
  * @testname:	name of the test
  * @return:	test, or NULL if not found
  */
-static struct efi_unit_test *find_test(const u16 *testname)
+static struct efi_unit_test *find_test(const uint16_t *testname)
 {
 	struct efi_unit_test *test;
 
@@ -183,7 +182,7 @@ static void list_all_tests(void)
  * @steps	steps to execute (mask with bits from EFI_ST_...)
  * failures	returns EFI_ST_SUCCESS if all test steps succeeded
  */
-void efi_st_do_tests(const u16 *testname, unsigned int phase,
+void efi_st_do_tests(const uint16_t *testname, unsigned int phase,
 		     unsigned int steps, unsigned int *failures)
 {
 	struct efi_unit_test *test;
@@ -221,11 +220,11 @@ void efi_st_do_tests(const u16 *testname, unsigned int phase,
  * @image_handle:	handle of the loaded EFI image
  * @systab:		EFI system table
  */
-efi_status_t EFIAPI efi_selftest(efi_handle_t image_handle,
+efi_status_t EFIAPI efi_selftest(EFI_HANDLE image_handle,
 				 struct efi_system_table *systab)
 {
 	unsigned int failures = 0;
-	const u16 *testname = NULL;
+	const uint16_t *testname = NULL;
 	struct efi_loaded_image *loaded_image;
 	efi_status_t ret;
 
@@ -244,7 +243,7 @@ efi_status_t EFIAPI efi_selftest(efi_handle_t image_handle,
 	}
 
 	if (loaded_image->load_options)
-		testname = (u16 *)loaded_image->load_options;
+		testname = (uint16_t *)loaded_image->load_options;
 
 	if (testname) {
 		if (!efi_st_strcmp_16_8(testname, "list") ||

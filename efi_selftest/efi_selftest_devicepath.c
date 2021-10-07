@@ -12,9 +12,9 @@
 
 static struct efi_boot_services *boottime;
 
-static efi_handle_t handle1;
-static efi_handle_t handle2;
-static efi_handle_t handle3;
+static EFI_HANDLE handle1;
+static EFI_HANDLE handle2;
+static EFI_HANDLE handle3;
 
 struct interface {
 	void (EFIAPI * inc)(void);
@@ -41,9 +41,9 @@ static efi_guid_t guid_vendor3 =
 	EFI_GUID(0xdbca4c98, 0x6cb0, 0x694d,
 		 0x08, 0x72, 0x81, 0x9c, 0x65, 0x0c, 0xbb, 0xc3);
 
-static u8 *dp1;
-static u8 *dp2;
-static u8 *dp3;
+static uint8_t *dp1;
+static uint8_t *dp2;
+static uint8_t *dp3;
 
 struct efi_device_path_to_text_protocol *device_path_to_text;
 
@@ -62,7 +62,7 @@ struct efi_device_path_to_text_protocol *device_path_to_text;
  * @handle:	handle of the loaded image
  * @systable:	system table
  */
-static int setup(const efi_handle_t img_handle,
+static int setup(const EFI_HANDLE img_handle,
 		 const struct efi_system_table *systable)
 {
 	struct efi_device_path_vendor vendor_node;
@@ -265,17 +265,17 @@ static int execute(void)
 	 */
 	struct {
 		struct efi_device_path dp;
-		u16 text[12];
+		uint16_t text[12];
 	} __packed dp_node = {
 			{ DEVICE_PATH_TYPE_MEDIA_DEVICE,
 			  DEVICE_PATH_SUB_TYPE_FILE_PATH,
 			  sizeof(struct efi_device_path) + 12},
 			L"u-boot.bin",
 		};
-	u16 *string;
+	uint16_t *string;
 	efi_status_t ret;
-	efi_uintn_t i, no_handles;
-	efi_handle_t *handles;
+	uint i, no_handles;
+	EFI_HANDLE *handles;
 	struct efi_device_path *dp;
 
 	/* Display all available device paths */

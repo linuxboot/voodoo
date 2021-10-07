@@ -47,7 +47,7 @@ static efi_status_t EFIAPI efi_key_notify_function
  * @systable:	system table
  * @return:	EFI_ST_SUCCESS for success
  */
-static int setup(const efi_handle_t handle,
+static int setup(const EFI_HANDLE handle,
 		 const struct efi_system_table *systable)
 {
 	efi_status_t ret;
@@ -118,7 +118,7 @@ static int execute(void)
 {
 	struct efi_key_data input_key = { {0, 0}, {0, 0} };
 	efi_status_t ret;
-	efi_uintn_t index;
+	uint index;
 
 	if (!con_in_ex) {
 		efi_st_printf("Setup failed\n");

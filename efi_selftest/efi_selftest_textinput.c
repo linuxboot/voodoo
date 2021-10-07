@@ -23,7 +23,7 @@ static struct efi_boot_services *boottime;
  * @systable:	system table
  * @return:	EFI_ST_SUCCESS for success
  */
-static int setup(const efi_handle_t handle,
+static int setup(const EFI_HANDLE handle,
 		 const struct efi_system_table *systable)
 {
 	boottime = systable->boottime;
@@ -40,7 +40,7 @@ static int execute(void)
 {
 	struct efi_input_key input_key = {0};
 	efi_status_t ret;
-	efi_uintn_t index;
+	uint index;
 
 	/* Drain the console input */
 	ret = con_in->reset(con_in, true);

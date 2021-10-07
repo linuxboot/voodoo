@@ -19,7 +19,7 @@
 /* Binary logarithm of the block size */
 #define LB_BLOCK_SIZE 9
 
-static efi_handle_t image_handle;
+static EFI_HANDLE image_handle;
 static struct efi_boot_services *boottime;
 
 /* One 8 byte block of the compressed disk image */
@@ -37,7 +37,7 @@ struct compressed_file_image {
 static struct compressed_file_image img = EFI_ST_DISK_IMG;
 
 /* Decompressed file image */
-static u8 *image;
+static uint8_t *image;
 
 /*
  * Decompress the disk image.
@@ -45,9 +45,9 @@ static u8 *image;
  * @image	decompressed disk image
  * @return	status code
  */
-static efi_status_t decompress(u8 **image)
+static efi_status_t decompress(uint8_t **image)
 {
-	u8 *buf;
+	uint8_t *buf;
 	size_t i;
 	size_t addr;
 	size_t len;
@@ -81,7 +81,7 @@ static efi_status_t decompress(u8 **image)
  * @systable:	system table
  * @return:	EFI_ST_SUCCESS for success
  */
-static int setup(const efi_handle_t handle,
+static int setup(const EFI_HANDLE handle,
 		 const struct efi_system_table *systable)
 {
 	image_handle = handle;
@@ -122,7 +122,7 @@ static int teardown(void)
 static int execute(void)
 {
 	efi_status_t ret;
-	efi_handle_t handle;
+	EFI_HANDLE handle;
 
 	ret = boottime->load_image(false, image_handle, NULL, image,
 				   img.length, &handle);

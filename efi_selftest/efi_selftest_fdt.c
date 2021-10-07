@@ -46,7 +46,7 @@ static uint32_t f2h(fdt32_t val)
  * @name	name of the property
  * @return	value of the property
  */
-static char *get_property(const u16 *property)
+static char *get_property(const uint16_t *property)
 {
 	struct fdt_header *header = (struct fdt_header *)fdt;
 	const fdt32_t *pos;
@@ -82,7 +82,7 @@ static char *get_property(const u16 *property)
 			/* Check if this is the property to be returned */
 			if (!efi_st_strcmp_16_8(property, label)) {
 				char *str;
-				efi_uintn_t len = f2h(prop->len);
+				uint len = f2h(prop->len);
 
 				if (!len)
 					return NULL;
@@ -122,10 +122,10 @@ static char *get_property(const u16 *property)
  * @systable:	system table
  * @return:	EFI_ST_SUCCESS for success
  */
-static int setup(const efi_handle_t img_handle,
+static int setup(const EFI_HANDLE img_handle,
 		 const struct efi_system_table *systable)
 {
-	efi_uintn_t i;
+	uint i;
 
 	boottime = systable->boottime;
 

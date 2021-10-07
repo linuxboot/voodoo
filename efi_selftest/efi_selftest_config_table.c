@@ -38,7 +38,7 @@ static void EFIAPI notify(struct efi_event *event, void *context)
 static int check_table(const void *table)
 {
 	efi_status_t ret;
-	u32 crc32, res;
+	uint32_t crc32, res;
 	/* Casting from const to not const */
 	struct efi_table_hdr *hdr = (struct efi_table_hdr *)table;
 
@@ -69,7 +69,7 @@ static int check_table(const void *table)
  * @systable:	system table
  * @return:	EFI_ST_SUCCESS for success
  */
-static int setup(const efi_handle_t handle,
+static int setup(const EFI_HANDLE handle,
 		 const struct efi_system_table *systable)
 {
 	sys_table = systable;
@@ -93,9 +93,9 @@ static int execute(void)
 	struct efi_event *event;
 	void *table;
 	const unsigned int tables[2];
-	efi_uintn_t i;
-	efi_uintn_t tabcnt;
-	efi_uintn_t table_count = sys_table->nr_tables;
+	uint i;
+	uint tabcnt;
+	uint table_count = sys_table->nr_tables;
 
 	ret = boottime->create_event_ex(0, TPL_NOTIFY,
 					notify, (void *)&counter,

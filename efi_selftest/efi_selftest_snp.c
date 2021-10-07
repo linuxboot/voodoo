@@ -19,29 +19,29 @@
 /*
  * MAC address for broadcasts
  */
-static const u8 BROADCAST_MAC[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+static const uint8_t BROADCAST_MAC[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 struct dhcp_hdr {
-	u8 op;
+	uint8_t op;
 #define BOOTREQUEST 1
 #define BOOTREPLY 2
-	u8 htype;
+	uint8_t htype;
 # define HWT_ETHER 1
-	u8 hlen;
+	uint8_t hlen;
 # define HWL_ETHER 6
-	u8 hops;
-	u32 xid;
-	u16 secs;
-	u16 flags;
+	uint8_t hops;
+	uint32_t xid;
+	uint16_t secs;
+	uint16_t flags;
 #define DHCP_FLAGS_UNICAST	0x0000
 #define DHCP_FLAGS_BROADCAST	0x0080
-	u32 ciaddr;
-	u32 yiaddr;
-	u32 siaddr;
-	u32 giaddr;
-	u8 chaddr[16];
-	u8 sname[64];
-	u8 file[128];
+	uint32_t ciaddr;
+	uint32_t yiaddr;
+	uint32_t siaddr;
+	uint32_t giaddr;
+	uint8_t chaddr[16];
+	uint8_t sname[64];
+	uint8_t file[128];
 };
 
 /*
@@ -60,7 +60,7 @@ struct dhcp {
 	struct ethernet_hdr eth_hdr;
 	struct ip_udp_hdr ip_udp;
 	struct dhcp_hdr dhcp_hdr;
-	u8 opt[128];
+	uint8_t opt[128];
 } __packed;
 
 static struct efi_boot_services *boottime;
@@ -81,8 +81,8 @@ static unsigned int net_ip_id;
 static unsigned int efi_ip_checksum(const void *buf, size_t len)
 {
 	size_t i;
-	u32 sum = 0;
-	const u16 *pos = buf;
+	uint32_t sum = 0;
+	const uint16_t *pos = buf;
 
 	for (i = 0; i < len; i += 2)
 		sum += *pos++;
@@ -176,7 +176,7 @@ static efi_status_t send_dhcp_discover(void)
  * @systable:	system table
  * @return:	EFI_ST_SUCCESS for success
  */
-static int setup(const efi_handle_t handle,
+static int setup(const EFI_HANDLE handle,
 		 const struct efi_system_table *systable)
 {
 	efi_status_t ret;
@@ -259,15 +259,15 @@ static int execute(void)
 {
 	efi_status_t ret;
 	struct efi_event *events[2];
-	efi_uintn_t index;
+	uint index;
 	union {
 		struct dhcp p;
-		u8 b[PKTSIZE];
+		uint8_t b[PKTSIZE];
 	} buffer;
 	struct efi_mac_address srcaddr;
 	struct efi_mac_address destaddr;
 	size_t buffer_size;
-	u8 *addr;
+	uint8_t *addr;
 	/*
 	 * The timeout is to occur after 10 s.
 	 */
@@ -357,7 +357,7 @@ static int execute(void)
 	/*
 	 * Write a log message.
 	 */
-	addr = (u8 *)&buffer.p.ip_udp.ip_src;
+	addr = (uint8_t *)&buffer.p.ip_udp.ip_src;
 	efi_st_printf("DHCP reply received from %u.%u.%u.%u (%pm) ",
 		      addr[0], addr[1], addr[2], addr[3], &srcaddr);
 	if (!efi_st_memcmp(&destaddr, BROADCAST_MAC, ARP_HLEN))

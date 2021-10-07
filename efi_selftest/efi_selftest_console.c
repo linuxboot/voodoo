@@ -18,13 +18,13 @@ struct efi_simple_text_input_protocol *con_in;
  * @buf: pointer to buffer address
  * on return position of terminating zero word
  */
-static void mac(void *pointer, u16 **buf)
+static void mac(void *pointer, uint16_t **buf)
 {
 	int i, j;
-	u16 c;
-	u8 *p = (u8 *)pointer;
-	u8 byte;
-	u16 *pos = *buf;
+	uint16_t c;
+	uint8_t *p = (uint8_t *)pointer;
+	uint8_t byte;
+	uint16_t *pos = *buf;
 
 	for (i = 0; i < ARP_HLEN; ++i) {
 		if (i)
@@ -49,12 +49,12 @@ static void mac(void *pointer, u16 **buf)
  * @buf: pointer to buffer address
  * on return position of terminating zero word
  */
-static void pointer(void *pointer, u16 **buf)
+static void pointer(void *pointer, uint16_t **buf)
 {
 	int i;
-	u16 c;
+	uint16_t c;
 	uintptr_t p = (uintptr_t)pointer;
-	u16 *pos = *buf;
+	uint16_t *pos = *buf;
 
 	for (i = 8 * sizeof(p) - 4; i >= 0; i -= 4) {
 		c = (p >> i) & 0x0f;
@@ -75,12 +75,12 @@ static void pointer(void *pointer, u16 **buf)
  * @buf:	pointer to buffer address
  *		on return position of terminating zero word
  */
-static void uint2dec(u32 value, int prec, u16 **buf)
+static void uint2dec(uint32_t value, int prec, uint16_t **buf)
 {
-	u16 *pos = *buf;
+	uint16_t *pos = *buf;
 	int i;
-	u16 c;
-	u64 f;
+	uint16_t c;
+	uint64_t f;
 
 	/*
 	 * Increment by .5 and multiply with
@@ -115,10 +115,10 @@ static void uint2dec(u32 value, int prec, u16 **buf)
  * @buf:	pointer to buffer address
  * on return position of terminating zero word
  */
-static void int2dec(s32 value, int prec, u16 **buf)
+static void int2dec(s32 value, int prec, uint16_t **buf)
 {
-	u32 u;
-	u16 *pos = *buf;
+	uint32_t u;
+	uint16_t *pos = *buf;
 
 	if (value < 0) {
 		*pos++ = '-';
@@ -140,11 +140,11 @@ static void int2dec(s32 value, int prec, u16 **buf)
 void efi_st_printc(int color, const char *fmt, ...)
 {
 	va_list args;
-	u16 buf[160];
+	uint16_t buf[160];
 	const char *c;
-	u16 *pos = buf;
+	uint16_t *pos = buf;
 	const char *s;
-	u16 *u;
+	uint16_t *u;
 	int prec;
 
 	va_start(args, fmt);
@@ -200,7 +200,7 @@ void efi_st_printc(int color, const char *fmt, ...)
 
 				/* u16 string */
 				case 's':
-					u = va_arg(args, u16*);
+					u = va_arg(args, uint16_t*);
 					if (pos > buf) {
 						*pos = 0;
 						con_out->output_string(con_out,
@@ -220,7 +220,7 @@ void efi_st_printc(int color, const char *fmt, ...)
 					*pos++ = *s;
 				break;
 			case 'u':
-				uint2dec(va_arg(args, u32), prec, &pos);
+				uint2dec(va_arg(args, uint32_t), prec, &pos);
 				break;
 			default:
 				break;
@@ -242,7 +242,7 @@ void efi_st_printc(int color, const char *fmt, ...)
  *
  * @return: Unicode character
  */
-u16 efi_st_get_key(void)
+uint16_t efi_st_get_key(void)
 {
 	struct efi_input_key input_key;
 	efi_status_t ret;

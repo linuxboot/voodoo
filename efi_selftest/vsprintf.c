@@ -155,8 +155,8 @@ static noinline char *put_dec(char *buf, uint64_t num)
 	++str; \
 	} while (0)
 
-static char *number(char *buf, char *end, u64 num,
-		int base, int size, int precision, int type)
+static char *number(char *buf, char *end, uint64_t num,
+		    int base, int size, int precision, int type)
 {
 	/* we are called with base 8, 10 or 16, only, thus don't need "G..."  */
 	static const char digits[16] = "0123456789ABCDEF";
@@ -276,10 +276,10 @@ static char *string(char *buf, char *end, char *s, int field_width,
 
 /* U-Boot uses UTF-16 strings in the EFI context only. */
 #if CONFIG_IS_ENABLED(EFI_LOADER) && !defined(API_BUILD)
-static char *string16(char *buf, char *end, u16 *s, int field_width,
-		int precision, int flags)
+static char *string16(char *buf, char *end, uint16_t *s, int field_width,
+		      int precision, int flags)
 {
-	u16 *str = s ? s : L"<NULL>";
+	uint16_t *str = s ? s : L"<NULL>";
 	ssize_t len = utf16_strnlen(str, precision);
 
 	if (!(flags & LEFT))
@@ -294,7 +294,7 @@ static char *string16(char *buf, char *end, u16 *s, int field_width,
 static char *device_path_string(char *buf, char *end, void *dp, int field_width,
 				int precision, int flags)
 {
-	u16 *str;
+	uint16_t *str;
 
 	/* If dp == NULL output the string '<NULL>' */
 	if (!dp)
@@ -311,7 +311,8 @@ static char *device_path_string(char *buf, char *end, void *dp, int field_width,
 #endif
 
 #ifdef CONFIG_CMD_NET
-static char *mac_address_string(char *buf, char *end, u8 *addr, int field_width,
+static char *mac_address_string(char *buf, char *end, uint8_t *addr,
+				int field_width,
 				int precision, int flags)
 {
 	/* (6 * 2 hex digits), 5 colons and trailing zero */
@@ -330,8 +331,9 @@ static char *mac_address_string(char *buf, char *end, u8 *addr, int field_width,
 		      flags & ~SPECIAL);
 }
 
-static char *ip6_addr_string(char *buf, char *end, u8 *addr, int field_width,
-			 int precision, int flags)
+static char *ip6_addr_string(char *buf, char *end, uint8_t *addr,
+			     int field_width,
+			     int precision, int flags)
 {
 	/* (8 * 4 hex digits), 7 colons and trailing zero */
 	char ip6_addr[8 * 5];
@@ -350,8 +352,9 @@ static char *ip6_addr_string(char *buf, char *end, u8 *addr, int field_width,
 		      flags & ~SPECIAL);
 }
 
-static char *ip4_addr_string(char *buf, char *end, u8 *addr, int field_width,
-			 int precision, int flags)
+static char *ip4_addr_string(char *buf, char *end, uint8_t *addr,
+			     int field_width,
+			     int precision, int flags)
 {
 	/* (4 * 3 decimal digits), 3 dots and trailing zero */
 	char ip4_addr[4 * 4];
@@ -383,7 +386,7 @@ static char *ip4_addr_string(char *buf, char *end, u8 *addr, int field_width,
  *   %pUb:   01020304-0506-0708-090a-0b0c0d0e0f10
  *   %pUl:   04030201-0605-0807-090a-0b0c0d0e0f10
  */
-static char *uuid_string(char *buf, char *end, u8 *addr, int field_width,
+static char *uuid_string(char *buf, char *end, uint8_t *addr, int field_width,
 			 int precision, int flags, const char *fmt)
 {
 	char uuid[UUID_STR_LEN + 1];
@@ -432,7 +435,7 @@ static char *uuid_string(char *buf, char *end, u8 *addr, int field_width,
 static char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 		int field_width, int precision, int flags)
 {
-	u64 num = (uintptr_t)ptr;
+	uint64_t num = (uintptr_t)ptr;
 
 	/*
 	 * Being a boot loader, we explicitly allow pointers to
@@ -501,7 +504,7 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 static int vsnprintf_internal(char *buf, size_t size, const char *fmt,
 			      va_list args)
 {
-	u64 num;
+	uint64_t num;
 	int base;
 	char *str;
 
@@ -610,7 +613,8 @@ repeat:
 /* U-Boot uses UTF-16 strings in the EFI context only. */
 #if CONFIG_IS_ENABLED(EFI_LOADER) && !defined(API_BUILD)
 			if (qualifier == 'l') {
-				str = string16(str, end, va_arg(args, u16 *),
+				str = string16(str, end,
+					       va_arg(args, uint16_t *),
 					       field_width, precision, flags);
 			} else
 #endif

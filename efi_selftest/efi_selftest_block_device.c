@@ -50,7 +50,7 @@ struct compressed_disk_image {
 static const struct compressed_disk_image img = EFI_ST_DISK_IMG;
 
 /* Decompressed disk image */
-static u8 *image;
+static uint8_t *image;
 
 /*
  * Reset service of the block IO protocol.
@@ -76,10 +76,11 @@ static efi_status_t EFIAPI reset(
  * @return	status code
  */
 static efi_status_t EFIAPI read_blocks(
-			struct efi_block_io *this, u32 media_id, u64 lba,
-			efi_uintn_t buffer_size, void *buffer)
+			struct efi_block_io *this, uint32_t media_id,
+			uint64_t lba,
+			uint buffer_size, void *buffer)
 {
-	u8 *start;
+	uint8_t *start;
 
 	if ((lba << LB_BLOCK_SIZE) + buffer_size > img.length)
 		return EFI_INVALID_PARAMETER;
@@ -101,10 +102,11 @@ static efi_status_t EFIAPI read_blocks(
  * @return	status code
  */
 static efi_status_t EFIAPI write_blocks(
-			struct efi_block_io *this, u32 media_id, u64 lba,
-			efi_uintn_t buffer_size, void *buffer)
+			struct efi_block_io *this, uint32_t media_id,
+			uint64_t lba,
+			uint buffer_size, void *buffer)
 {
-	u8 *start;
+	uint8_t *start;
 
 	if ((lba << LB_BLOCK_SIZE) + buffer_size > img.length)
 		return EFI_INVALID_PARAMETER;
@@ -132,9 +134,9 @@ static efi_status_t EFIAPI flush_blocks(struct efi_block_io *this)
  * @image	decompressed disk image
  * @return	status code
  */
-static efi_status_t decompress(u8 **image)
+static efi_status_t decompress(uint8_t **image)
 {
-	u8 *buf;
+	uint8_t *buf;
 	size_t i;
 	size_t addr;
 	size_t len;
@@ -172,7 +174,7 @@ static struct efi_block_io block_io = {
 };
 
 /* Handle for the block IO device */
-static efi_handle_t disk_handle;
+static EFI_HANDLE disk_handle;
 
 /*
  * Setup unit test.
@@ -181,7 +183,7 @@ static efi_handle_t disk_handle;
  * @systable:	system table
  * @return:	EFI_ST_SUCCESS for success
  */
-static int setup(const efi_handle_t handle,
+static int setup(const EFI_HANDLE handle,
 		 const struct efi_system_table *systable)
 {
 	efi_status_t ret;
@@ -279,7 +281,7 @@ static int teardown(void)
  * @dp		device path
  * @return	length of device path in bytes
  */
-static efi_uintn_t dp_size(struct efi_device_path *dp)
+static uint dp_size(struct efi_device_path *dp)
 {
 	struct efi_device_path *pos = dp;
 
@@ -296,17 +298,17 @@ static efi_uintn_t dp_size(struct efi_device_path *dp)
 static int execute(void)
 {
 	efi_status_t ret;
-	efi_uintn_t no_handles, i, len;
-	efi_handle_t *handles;
-	efi_handle_t handle_partition = NULL;
+	uint no_handles, i, len;
+	EFI_HANDLE *handles;
+	EFI_HANDLE handle_partition = NULL;
 	struct efi_device_path *dp_partition;
 	struct efi_simple_file_system_protocol *file_system;
 	struct efi_file_handle *root, *file;
 	struct {
 		struct efi_file_system_info info;
-		u16 label[12];
+		uint16_t label[12];
 	} system_info;
-	efi_uintn_t buf_size;
+	uint buf_size;
 	char buf[16] __aligned(ARCH_DMA_MINALIGN);
 
 	/* Connect controller to virtual disk */

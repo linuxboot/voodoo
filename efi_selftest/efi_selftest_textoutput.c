@@ -24,9 +24,9 @@ static int execute(void)
 	size_t attrib;
 	efi_status_t ret;
 	s16 col;
-	u16 cr[] = { 0x0d, 0x00 };
-	u16 lf[] = { 0x0a, 0x00 };
-	u16 brahmi[] = { /* 2 Brahmi letters */
+	uint16_t cr[] = { 0x0d, 0x00 };
+	uint16_t lf[] = { 0x0a, 0x00 };
+	uint16_t brahmi[] = { /* 2 Brahmi letters */
 		0xD804, 0xDC05,
 		0xD804, 0xDC22,
 		0};

@@ -24,7 +24,7 @@ struct efi_device_path_utilities_protocol *dpu;
  * @handle:	handle of the loaded image
  * @systable:	system table
  */
-static int setup(const efi_handle_t img_handle,
+static int setup(const EFI_HANDLE img_handle,
 		 const struct efi_system_table *systable)
 {
 	int ret;
@@ -55,7 +55,7 @@ static int create_single_node_device_path(unsigned int length,
 					  struct efi_device_path **dp)
 {
 	struct efi_device_path *node;
-	efi_uintn_t len;
+	uint len;
 	int ret;
 
 	node = dpu->create_device_node(DEVICE_PATH_TYPE_MEDIA_DEVICE,
@@ -95,7 +95,7 @@ static int execute(void)
 	struct efi_device_path *dp2;
 	struct efi_device_path *dp3;
 
-	efi_uintn_t len;
+	uint len;
 	int ret;
 
 	/* IsDevicePathMultiInstance(NULL) */

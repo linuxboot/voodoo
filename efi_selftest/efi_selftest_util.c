@@ -10,8 +10,8 @@
 #include <efi_selftest.h>
 
 struct efi_st_translate {
-	u16 code;
-	u16 *text;
+	uint16_t code;
+	uint16_t *text;
 };
 
 static struct efi_st_translate efi_st_control_characters[] = {
@@ -23,8 +23,8 @@ static struct efi_st_translate efi_st_control_characters[] = {
 	{0, NULL},
 };
 
-static u16 efi_st_ch[] = L"' '";
-static u16 efi_st_unknown[] = L"unknown";
+static uint16_t efi_st_ch[] = L"' '";
+static uint16_t efi_st_unknown[] = L"unknown";
 
 static struct efi_st_translate efi_st_scan_codes[] = {
 	{0x00, L"Null"},
@@ -76,7 +76,7 @@ static struct efi_st_translate efi_st_scan_codes[] = {
 	{0x0, NULL},
 };
 
-u16 *efi_st_translate_char(u16 code)
+uint16_t *efi_st_translate_char(uint16_t code)
 {
 	struct efi_st_translate *tr;
 
@@ -91,7 +91,7 @@ u16 *efi_st_translate_char(u16 code)
 	return efi_st_unknown;
 }
 
-u16 *efi_st_translate_code(u16 code)
+uint16_t *efi_st_translate_code(uint16_t code)
 {
 	struct efi_st_translate *tr;
 
@@ -104,8 +104,8 @@ u16 *efi_st_translate_code(u16 code)
 
 int efi_st_memcmp(const void *buf1, const void *buf2, size_t length)
 {
-	const u8 *pos1 = buf1;
-	const u8 *pos2 = buf2;
+	const uint8_t *pos1 = buf1;
+	const uint8_t *pos2 = buf2;
 
 	for (; length; --length) {
 		if (*pos1 != *pos2)
@@ -116,7 +116,7 @@ int efi_st_memcmp(const void *buf1, const void *buf2, size_t length)
 	return 0;
 }
 
-int efi_st_strcmp_16_8(const u16 *buf1, const char *buf2)
+int efi_st_strcmp_16_8(const uint16_t *buf1, const char *buf2)
 {
 	for (; *buf1 || *buf2; ++buf1, ++buf2) {
 		if (*buf1 != *buf2)
