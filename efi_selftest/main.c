@@ -64,7 +64,12 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	 */
 	Print(L"\n%H*** UEFI:SIMPLE ***%N\n\n");
 	status = uefi_call_wrapper(BS->HandleProtocol, 3, ImageHandle, &gEfiLoadedImageProtocolGuid, (VOID *)&elip);
-	Print(L"HandleProtocol returns %r\n", status);
+	if ((uint64_t)elip == 0xFF000000ULL)
+		Print(L"pointer to loaded image protocol value looks GOOD\n");
+	else
+		Print(L"pointer to loaded image protocol value looks BAD, please fix\n");
+
+	Print(L"HandleProtocol returns %r, guid %g, elip %x\n", status, &gEfiLoadedImageProtocolGuid, elip);
 
 	Print(L"%Evia return? \n");
 	return EFI_SUCCESS;
