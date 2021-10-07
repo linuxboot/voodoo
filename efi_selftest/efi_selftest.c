@@ -12,7 +12,7 @@
 #define EFI_ST_EXECUTE	2
 #define EFI_ST_TEARDOWN	4
 
-static const struct efi_system_table *systable;
+static const struct _EFI_SYSTEM_TABLE *systable;
 static const struct efi_boot_services *boottime;
 static const struct efi_runtime_services *runtime;
 static EFI_HANDLE handle;
