@@ -33,6 +33,7 @@ void efi_st_exit_boot_services(void)
 	uint desc_size;
 	uint32_t desc_version;
 	EFI_STATUS ret;
+# ifdef TODO_TEST_MEMORY_ALLOCATION
 	struct efi_mem_desc *memory_map;
 
 	ret = boottime->get_memory_map(&map_size, NULL, &map_key, &desc_size,
@@ -62,6 +63,8 @@ void efi_st_exit_boot_services(void)
 		return;
 	}
 	efi_st_printc(EFI_WHITE, "\nBoot services terminated\n");
+#endif
+	
 }
 
 /*
