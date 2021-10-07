@@ -1,4 +1,3 @@
-sed -i 's/struct  *efi_system_table  \*/EFI_SYSTEM_TABLE/' $*
-sed -i 's/efi_st_printc(/EFI_SYSTEM_TABLE/' $*
+sed -i 's/struct  *efi_system_table  *\*/EFI_SYSTEM_TABLE /' $*
 sed -i 's/efi_st_printc(EFI_LIGHTBLUE, /Print(L"%B",/' $*
 

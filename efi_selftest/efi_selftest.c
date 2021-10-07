@@ -80,7 +80,7 @@ static int setup(struct efi_unit_test *test, unsigned int *failures)
 		test->setup_ok = EFI_ST_SUCCESS;
 		return EFI_ST_SUCCESS;
 	}
-	efi_st_printc(EFI_LIGHTBLUE, "\nSetting up '%s'\n", test->name);
+	Print(L"%B","\nSetting up '%s'\n", test->name);
 	test->setup_ok = test->setup(handle, systable);
 	if (test->setup_ok != EFI_ST_SUCCESS) {
 		efi_st_error("Setting up '%s' failed\n", test->name);
@@ -105,7 +105,7 @@ static int execute(struct efi_unit_test *test, unsigned int *failures)
 
 	if (!test->execute)
 		return EFI_ST_SUCCESS;
-	efi_st_printc(EFI_LIGHTBLUE, "\nExecuting '%s'\n", test->name);
+	Print(L"%B","\nExecuting '%s'\n", test->name);
 	ret = test->execute();
 	if (ret != EFI_ST_SUCCESS) {
 		efi_st_error("Executing '%s' failed\n", test->name);
@@ -130,7 +130,7 @@ static int teardown(struct efi_unit_test *test, unsigned int *failures)
 
 	if (!test->teardown)
 		return EFI_ST_SUCCESS;
-	efi_st_printc(EFI_LIGHTBLUE, "\nTearing down '%s'\n", test->name);
+	Print(L"%B","\nTearing down '%s'\n", test->name);
 	ret = test->teardown();
 	if (ret != EFI_ST_SUCCESS) {
 		efi_st_error("Tearing down '%s' failed\n", test->name);
