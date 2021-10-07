@@ -22,7 +22,7 @@ static int execute(void)
 	size_t foreground;
 	size_t background;
 	size_t attrib;
-	efi_status_t ret;
+	EFI_STATUS ret;
 	s16 col;
 	uint16_t cr[] = { 0x0d, 0x00 };
 	uint16_t lf[] = { 0x0a, 0x00 };

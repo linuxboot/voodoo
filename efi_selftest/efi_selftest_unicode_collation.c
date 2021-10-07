@@ -26,7 +26,7 @@ static struct efi_unicode_collation_protocol *unicode_collation_protocol;
 static int setup(const EFI_HANDLE handle,
 		 const struct efi_system_table *systable)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	boottime = systable->boottime;
 

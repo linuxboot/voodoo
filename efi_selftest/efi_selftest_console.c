@@ -245,7 +245,7 @@ void efi_st_printc(int color, const char *fmt, ...)
 uint16_t efi_st_get_key(void)
 {
 	struct efi_input_key input_key;
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	/* Wait for next key */
 	do {

@@ -99,7 +99,7 @@ static void EFIAPI notify(struct efi_event *event, void *context)
 static int setup(const EFI_HANDLE handle,
 		 const struct efi_system_table *systable)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	struct efi_gop_pixel pix;
 	uint x, y;
 
@@ -202,7 +202,7 @@ static int setup(const EFI_HANDLE handle,
  */
 static int teardown(void)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	if (bitmap) {
 		ret = boottime->free_pool(bitmap);
@@ -230,7 +230,7 @@ static int teardown(void)
 static int execute(void)
 {
 	uint32_t max_mode;
-	efi_status_t ret;
+	EFI_STATUS ret;
 	struct efi_gop_mode_info *info;
 
 	if (!gop)

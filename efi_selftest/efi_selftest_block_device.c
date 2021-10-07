@@ -58,7 +58,7 @@ static uint8_t *image;
  * @this	block IO protocol
  * @return	status code
  */
-static efi_status_t EFIAPI reset(
+static EFI_STATUS EFIAPI reset(
 			struct efi_block_io *this,
 			char extended_verification)
 {
@@ -75,7 +75,7 @@ static efi_status_t EFIAPI reset(
  * @buffer	target buffer
  * @return	status code
  */
-static efi_status_t EFIAPI read_blocks(
+static EFI_STATUS EFIAPI read_blocks(
 			struct efi_block_io *this, uint32_t media_id,
 			uint64_t lba,
 			uint buffer_size, void *buffer)
@@ -101,7 +101,7 @@ static efi_status_t EFIAPI read_blocks(
  * @buffer	source buffer
  * @return	status code
  */
-static efi_status_t EFIAPI write_blocks(
+static EFI_STATUS EFIAPI write_blocks(
 			struct efi_block_io *this, uint32_t media_id,
 			uint64_t lba,
 			uint buffer_size, void *buffer)
@@ -123,7 +123,7 @@ static efi_status_t EFIAPI write_blocks(
  * @this	block IO protocol
  * @return	status code
  */
-static efi_status_t EFIAPI flush_blocks(struct efi_block_io *this)
+static EFI_STATUS EFIAPI flush_blocks(struct efi_block_io *this)
 {
 	return EFI_SUCCESS;
 }
@@ -134,13 +134,13 @@ static efi_status_t EFIAPI flush_blocks(struct efi_block_io *this)
  * @image	decompressed disk image
  * @return	status code
  */
-static efi_status_t decompress(uint8_t **image)
+static EFI_STATUS decompress(uint8_t **image)
 {
 	uint8_t *buf;
 	size_t i;
 	size_t addr;
 	size_t len;
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	ret = boottime->allocate_pool(EFI_LOADER_DATA, img.length,
 				      (void **)&buf);
@@ -186,7 +186,7 @@ static EFI_HANDLE disk_handle;
 static int setup(const EFI_HANDLE handle,
 		 const struct efi_system_table *systable)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	struct efi_device_path_vendor vendor_node;
 	struct efi_device_path end_node;
 
@@ -245,7 +245,7 @@ static int setup(const EFI_HANDLE handle,
  */
 static int teardown(void)
 {
-	efi_status_t r = EFI_ST_SUCCESS;
+	EFI_STATUS r = EFI_ST_SUCCESS;
 
 	if (disk_handle) {
 		r = boottime->uninstall_protocol_interface(disk_handle,
@@ -297,7 +297,7 @@ static uint dp_size(struct efi_device_path *dp)
  */
 static int execute(void)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	uint no_handles, i, len;
 	EFI_HANDLE *handles;
 	EFI_HANDLE handle_partition = NULL;

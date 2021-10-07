@@ -37,7 +37,7 @@ static void EFIAPI notify(struct efi_event *event, void *context)
  */
 static int check_table(const void *table)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	uint32_t crc32, res;
 	/* Casting from const to not const */
 	struct efi_table_hdr *hdr = (struct efi_table_hdr *)table;
@@ -88,7 +88,7 @@ static int setup(const EFI_HANDLE handle,
  */
 static int execute(void)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	unsigned int counter = 0;
 	struct efi_event *event;
 	void *table;

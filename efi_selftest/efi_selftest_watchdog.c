@@ -23,7 +23,7 @@
  */
 struct notify_context {
 	/* Status code returned when resetting watchdog */
-	efi_status_t status;
+	EFI_STATUS status;
 	/* Number of invocations of the notification function */
 	unsigned int timer_ticks;
 };
@@ -44,7 +44,7 @@ static bool watchdog_reset;
 static void EFIAPI notify(struct efi_event *event, void *context)
 {
 	struct notify_context *notify_context = context;
-	efi_status_t ret = EFI_SUCCESS;
+	EFI_STATUS ret = EFI_SUCCESS;
 
 	if (!notify_context)
 		return;
@@ -70,7 +70,7 @@ static void EFIAPI notify(struct efi_event *event, void *context)
 static int setup(const EFI_HANDLE handle,
 		 const struct efi_system_table *systable)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	boottime = systable->boottime;
 
@@ -130,7 +130,7 @@ static int setup_reboot(const EFI_HANDLE handle,
  */
 static int teardown(void)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	/* Set the watchdog timer to the five minute default value */
 	ret = boottime->set_watchdog_timer(300, 0, 0, NULL);
@@ -171,7 +171,7 @@ static int teardown(void)
 static int execute(void)
 {
 	size_t index;
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	/* Set the watchdog timeout to one second */
 	ret = boottime->set_watchdog_timer(1, 0, 0, NULL);

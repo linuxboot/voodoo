@@ -61,7 +61,7 @@ static int execute(void)
 	unsigned int counter[GROUP_SIZE] = {0};
 	struct efi_event *events[GROUP_SIZE];
 	size_t i, j;
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	for (i = 0; i < GROUP_SIZE; ++i) {
 		ret = boottime->create_event_ex(0, TPL_NOTIFY,

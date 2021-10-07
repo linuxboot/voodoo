@@ -42,7 +42,7 @@ static void EFIAPI notify(struct efi_event *event, void *context)
 static int setup(const EFI_HANDLE handle,
 		 const struct efi_system_table *systable)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	boottime = systable->boottime;
 
@@ -72,7 +72,7 @@ static int setup(const EFI_HANDLE handle,
  */
 static int teardown(void)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	if (event_notify) {
 		ret = boottime->close_event(event_notify);
@@ -111,7 +111,7 @@ static int teardown(void)
 static int execute(void)
 {
 	uint index;
-	efi_status_t ret;
+	EFI_STATUS ret;
 	uint old_tpl;
 
 	/* Set 10 ms timer */

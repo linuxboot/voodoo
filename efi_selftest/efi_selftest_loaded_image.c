@@ -38,7 +38,7 @@ static int setup(const EFI_HANDLE img_handle,
  */
 static int execute(void)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	uint i, protocol_buffer_count = 0;
 	efi_guid_t **protocol_buffer = NULL;
 	bool found = false;

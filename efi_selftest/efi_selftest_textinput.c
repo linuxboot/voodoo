@@ -39,7 +39,7 @@ static int setup(const EFI_HANDLE handle,
 static int execute(void)
 {
 	struct efi_input_key input_key = {0};
-	efi_status_t ret;
+	EFI_STATUS ret;
 	uint index;
 
 	/* Drain the console input */

@@ -32,7 +32,7 @@ void efi_st_exit_boot_services(void)
 	uint map_key;
 	uint desc_size;
 	uint32_t desc_version;
-	efi_status_t ret;
+	EFI_STATUS ret;
 	struct efi_mem_desc *memory_map;
 
 	ret = boottime->get_memory_map(&map_size, NULL, &map_key, &desc_size,
@@ -220,13 +220,13 @@ void efi_st_do_tests(const uint16_t *testname, unsigned int phase,
  * @image_handle:	handle of the loaded EFI image
  * @systab:		EFI system table
  */
-efi_status_t EFIAPI efi_selftest(EFI_HANDLE image_handle,
+EFI_STATUS EFIAPI efi_selftest(EFI_HANDLE image_handle,
 				 struct efi_system_table *systab)
 {
 	unsigned int failures = 0;
 	const uint16_t *testname = NULL;
 	struct efi_loaded_image *loaded_image;
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	systable = systab;
 	boottime = systable->boottime;

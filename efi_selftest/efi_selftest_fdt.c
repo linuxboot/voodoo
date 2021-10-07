@@ -77,7 +77,7 @@ static char *get_property(const uint16_t *property)
 		case FDT_PROP: {
 			struct fdt_property *prop = (struct fdt_property *)pos;
 			const char *label = &strings[f2h(prop->nameoff)];
-			efi_status_t ret;
+			EFI_STATUS ret;
 
 			/* Check if this is the property to be returned */
 			if (!efi_st_strcmp_16_8(property, label)) {
@@ -151,7 +151,7 @@ static int setup(const EFI_HANDLE img_handle,
 static int execute(void)
 {
 	char *str;
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	str = get_property(L"compatible");
 	if (str) {

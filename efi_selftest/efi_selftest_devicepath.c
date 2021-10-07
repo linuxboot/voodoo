@@ -67,7 +67,7 @@ static int setup(const EFI_HANDLE img_handle,
 {
 	struct efi_device_path_vendor vendor_node;
 	struct efi_device_path end_node;
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	boottime = systable->boottime;
 
@@ -189,7 +189,7 @@ out_of_memory:
  */
 static int teardown(void)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	ret = boottime->uninstall_protocol_interface(handle1,
 						     &guid_device_path,
@@ -273,7 +273,7 @@ static int execute(void)
 			L"u-boot.bin",
 		};
 	uint16_t *string;
-	efi_status_t ret;
+	EFI_STATUS ret;
 	uint i, no_handles;
 	EFI_HANDLE *handles;
 	struct efi_device_path *dp;

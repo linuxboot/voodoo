@@ -97,9 +97,9 @@ static unsigned int efi_ip_checksum(const void *buf, size_t len)
 /*
  * Transmit a DHCPDISCOVER message.
  */
-static efi_status_t send_dhcp_discover(void)
+static EFI_STATUS send_dhcp_discover(void)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	struct dhcp p = {};
 
 	/*
@@ -179,7 +179,7 @@ static efi_status_t send_dhcp_discover(void)
 static int setup(const EFI_HANDLE handle,
 		 const struct efi_system_table *systable)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	boottime = systable->boottime;
 
@@ -257,7 +257,7 @@ static int setup(const EFI_HANDLE handle,
  */
 static int execute(void)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	struct efi_event *events[2];
 	uint index;
 	union {
@@ -378,7 +378,7 @@ static int execute(void)
  */
 static int teardown(void)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	int exit_status = EFI_ST_SUCCESS;
 
 	if (timer) {

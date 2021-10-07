@@ -45,7 +45,7 @@ static struct interface interface4;
  * @count:	number of entries in the array
  * @buffer:	array to search
  */
-efi_status_t find_in_buffer(EFI_HANDLE handle, size_t count,
+EFI_STATUS find_in_buffer(EFI_HANDLE handle, size_t count,
 			    EFI_HANDLE *buffer)
 {
 	size_t i;
@@ -76,7 +76,7 @@ efi_status_t find_in_buffer(EFI_HANDLE handle, size_t count,
 static int setup(const EFI_HANDLE img_handle,
 		 const struct efi_system_table *systable)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	EFI_HANDLE handle;
 
 	boottime = systable->boottime;
@@ -134,7 +134,7 @@ static int teardown(void)
 static int execute(void)
 {
 	struct interface *interface;
-	efi_status_t ret;
+	EFI_STATUS ret;
 	EFI_HANDLE *buffer;
 	size_t buffer_size;
 	uint count = 0;

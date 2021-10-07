@@ -36,7 +36,7 @@ static int setup(const EFI_HANDLE handle,
  */
 static int execute(void)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	struct efi_time tm;
 
 	/* Display current time */

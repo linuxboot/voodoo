@@ -37,11 +37,11 @@ static EFI_HANDLE handle_driver;
  * @count	number of child controllers
  * @return	status code
  */
-static efi_status_t count_child_controllers(EFI_HANDLE handle,
+static EFI_STATUS count_child_controllers(EFI_HANDLE handle,
 					    efi_guid_t *protocol,
 					    uint *count)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	uint entry_count;
 	struct efi_open_protocol_info_entry *entry_buffer;
 
@@ -71,12 +71,12 @@ static efi_status_t count_child_controllers(EFI_HANDLE handle,
  * @remaining_device_path	path specifying the child controller
  * @return			status code
  */
-static efi_status_t EFIAPI supported(
+static EFI_STATUS EFIAPI supported(
 		struct efi_driver_binding_protocol *this,
 		EFI_HANDLE controller_handle,
 		struct efi_device_path *remaining_device_path)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	void *interface;
 
 	ret = boottime->open_protocol(
@@ -108,13 +108,13 @@ static efi_status_t EFIAPI supported(
  * @remaining_device_path	path specifying the child controller
  * @return			status code
  */
-static efi_status_t EFIAPI start(
+static EFI_STATUS EFIAPI start(
 		struct efi_driver_binding_protocol *this,
 		EFI_HANDLE controller_handle,
 		struct efi_device_path *remaining_device_path)
 {
 	size_t i;
-	efi_status_t ret;
+	EFI_STATUS ret;
 	void *interface;
 
 	/* Attach driver to controller */
@@ -161,10 +161,10 @@ static efi_status_t EFIAPI start(
  * @child_handle	child controller
  * @return		status code
  */
-static efi_status_t disconnect_child(EFI_HANDLE controller_handle,
+static EFI_STATUS disconnect_child(EFI_HANDLE controller_handle,
 				     EFI_HANDLE child_handle)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	ret = boottime->close_protocol(
 				controller_handle, &guid_controller,
@@ -191,13 +191,13 @@ static efi_status_t disconnect_child(EFI_HANDLE controller_handle,
  * @child_handle_buffer		handles of the child controllers to remove
  * @return			status code
  */
-static efi_status_t EFIAPI stop(
+static EFI_STATUS EFIAPI stop(
 		struct efi_driver_binding_protocol *this,
 		EFI_HANDLE controller_handle,
 		size_t number_of_children,
 		EFI_HANDLE *child_handle_buffer)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	uint count;
 	struct efi_open_protocol_info_entry *entry_buffer;
 
@@ -266,7 +266,7 @@ static struct efi_driver_binding_protocol binding_interface = {
 static int setup(const EFI_HANDLE img_handle,
 		 const struct efi_system_table *systable)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	boottime = systable->boottime;
 
@@ -306,7 +306,7 @@ static int setup(const EFI_HANDLE img_handle,
  */
 static int execute(void)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	uint count;
 
 	/* Connect controller to driver */

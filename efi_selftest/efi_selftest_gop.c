@@ -23,7 +23,7 @@ static struct efi_gop *gop;
 static int setup(const EFI_HANDLE handle,
 		 const struct efi_system_table *systable)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	boottime = systable->boottime;
 
@@ -53,7 +53,7 @@ static int teardown(void)
  */
 static int execute(void)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	uint32_t i, max_mode;
 	uint size;
 	struct efi_gop_mode_info *info;

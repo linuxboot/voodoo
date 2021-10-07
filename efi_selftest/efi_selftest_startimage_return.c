@@ -45,13 +45,13 @@ static uint8_t *image;
  * @image	decompressed disk image
  * @return	status code
  */
-static efi_status_t decompress(uint8_t **image)
+static EFI_STATUS decompress(uint8_t **image)
 {
 	uint8_t *buf;
 	size_t i;
 	size_t addr;
 	size_t len;
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	ret = boottime->allocate_pool(EFI_LOADER_DATA, img.length,
 				      (void **)&buf);
@@ -100,7 +100,7 @@ static int setup(const EFI_HANDLE handle,
  */
 static int teardown(void)
 {
-	efi_status_t r = EFI_ST_SUCCESS;
+	EFI_STATUS r = EFI_ST_SUCCESS;
 
 	if (image) {
 		r = efi_free_pool(image);
@@ -121,7 +121,7 @@ static int teardown(void)
  */
 static int execute(void)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	EFI_HANDLE handle;
 
 	ret = boottime->load_image(false, image_handle, NULL, image,

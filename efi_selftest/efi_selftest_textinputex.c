@@ -32,7 +32,7 @@ static bool efi_running;
  * @key_data:		next key
  * Return:		status code
  */
-static efi_status_t EFIAPI efi_key_notify_function
+static EFI_STATUS EFIAPI efi_key_notify_function
 				(struct efi_key_data *key_data)
 {
 	efi_running = false;
@@ -50,7 +50,7 @@ static efi_status_t EFIAPI efi_key_notify_function
 static int setup(const EFI_HANDLE handle,
 		 const struct efi_system_table *systable)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	struct efi_key_data key_data = {
 		.key = {
 			.scan_code = 0,
@@ -97,7 +97,7 @@ static int setup(const EFI_HANDLE handle,
  */
 static int teardown(void)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 
 	ret = con_in_ex->unregister_key_notify
 			(con_in_ex, efi_key_notify_handle);
@@ -117,7 +117,7 @@ static int teardown(void)
 static int execute(void)
 {
 	struct efi_key_data input_key = { {0, 0}, {0, 0} };
-	efi_status_t ret;
+	EFI_STATUS ret;
 	uint index;
 
 	if (!con_in_ex) {

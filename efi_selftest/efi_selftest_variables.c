@@ -44,7 +44,7 @@ static int setup(const EFI_HANDLE img_handle,
  */
 static int execute(void)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	uint len;
 	uint32_t attr;
 	uint8_t v[16] = {0x5d, 0xd1, 0x5e, 0x51, 0x5a, 0x05, 0xc7, 0x0c,

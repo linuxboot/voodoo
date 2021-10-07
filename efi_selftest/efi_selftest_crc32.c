@@ -17,7 +17,7 @@ efi_status_t (EFIAPI *bs_crc32)(const void *data, efi_uintn_t data_size,
 
 static int check_table(const void *table)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	uint32_t crc32, res;
 	/* Casting from const to not const */
 	struct efi_table_hdr *hdr = (struct efi_table_hdr *)table;
@@ -72,7 +72,7 @@ static int check_table(const void *table)
 static int setup(const EFI_HANDLE handle,
 		 const struct efi_system_table *systable)
 {
-	efi_status_t ret;
+	EFI_STATUS ret;
 	uint32_t res;
 
 	st = systable;
