@@ -140,7 +140,7 @@ main.efi: main.o efi_selftest.o
 
 %.o: %.c
 	@echo  [CC]  $(notdir $@)
-	@$(CC) -I. $(CFLAGS) -ffreestanding -c $<
+	@$(CC) -I. $(CFLAGS) -ffreestanding -Wno-unused-variable -c $<
 
 qemu: CFLAGS += -D_DEBUG
 qemu: all $(FW_BASE)_$(FW_ARCH).fd image/efi/boot/boot$(ARCH).efi
