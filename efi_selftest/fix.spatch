@@ -1,0 +1,49 @@
+@ uintn_t @
+typedef efi_uintn_t;
+typedef uint;
+@@
+- efi_uintn_t
++ uint
+
+@ uint8_t @
+typedef u8;
+typedef uint8_t;
+@@
+- u8
++ uint8_t
+
+@ uint16_t @
+typedef u16;
+typedef uint16_t;
+@@
+- u16
++ uint16_t
+
+@ uint32_t @
+typedef u32;
+typedef uint32_t;
+@@
+- u32
++ uint32_t
+
+@ uint64_t @
+typedef u64;
+typedef uint64_t;
+@@
+- u64
++ uint64_t
+
+@ handle @
+typedef efi_handle_t;
+typedef EFI_HANDLE;
+@@
+-efi_handle_t
++EFI_HANDLE
+
+@ status @
+typedef efi_status_t;
+typedef EFI_STATUS;
+@@
+-efi_status_t
++EFI_STATUS
+
