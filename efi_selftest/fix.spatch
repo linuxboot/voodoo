@@ -1,3 +1,9 @@
+@ bool @
+typedef bool;
+@@
+- bool
++ int
+
 @ uintn_t @
 typedef efi_uintn_t;
 typedef uint;
@@ -19,12 +25,26 @@ typedef uint16_t;
 - u16
 + uint16_t
 
+@ int16_t @
+typedef s16;
+typedef int16_t;
+@@
+- s16
++ int16_t
+
 @ uint32_t @
 typedef u32;
 typedef uint32_t;
 @@
 - u32
 + uint32_t
+
+@ int32_t @
+typedef s32;
+typedef int32_t;
+@@
+- s32
++ int32_t
 
 @ uint64_t @
 typedef u64;

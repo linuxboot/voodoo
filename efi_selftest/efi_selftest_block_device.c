@@ -184,7 +184,7 @@ static EFI_HANDLE disk_handle;
  * @return:	EFI_ST_SUCCESS for success
  */
 static int setup(const EFI_HANDLE handle,
-		 const struct efi_system_table *systable)
+		 const EFI_SYSTEM_TABLE *systable)
 {
 	EFI_STATUS ret;
 	struct efi_device_path_vendor vendor_node;

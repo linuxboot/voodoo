@@ -264,7 +264,7 @@ static struct efi_driver_binding_protocol binding_interface = {
  * @systable	system table
  */
 static int setup(const EFI_HANDLE img_handle,
-		 const struct efi_system_table *systable)
+		 const EFI_SYSTEM_TABLE *systable)
 {
 	EFI_STATUS ret;
 

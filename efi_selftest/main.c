@@ -72,6 +72,8 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	Print(L"HandleProtocol returns %r, guid %g, elip %x\n", status, &gEfiLoadedImageProtocolGuid, elip);
 
 	Print(L"Testing EFI API implementation\n");
+	EFI_STATUS EFIAPI efi_selftest(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *systab);
+	status = efi_selftest(ImageHandle, SystemTable);
 
 	Print(L"%Evia return? \n");
 	return EFI_SUCCESS;

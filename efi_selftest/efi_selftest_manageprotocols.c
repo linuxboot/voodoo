@@ -74,7 +74,7 @@ EFI_STATUS find_in_buffer(EFI_HANDLE handle, size_t count,
  * @systable:	system table
  */
 static int setup(const EFI_HANDLE img_handle,
-		 const struct efi_system_table *systable)
+		 const EFI_SYSTEM_TABLE *systable)
 {
 	EFI_STATUS ret;
 	EFI_HANDLE handle;

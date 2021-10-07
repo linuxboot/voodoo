@@ -24,7 +24,7 @@ static struct efi_boot_services *boottime;
  * @return:	EFI_ST_SUCCESS for success
  */
 static int setup(const EFI_HANDLE handle,
-		 const struct efi_system_table *systable)
+		 const EFI_SYSTEM_TABLE *systable)
 {
 	boottime = systable->boottime;
 

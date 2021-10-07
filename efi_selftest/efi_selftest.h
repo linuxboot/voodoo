@@ -14,14 +14,17 @@
 typedef unsigned int uint;
 // Shit we don't want to include the universe to get
 /* this is a special 64bit data type that is 8-byte aligned */
-#define aligned_u64 uint64_t __aligned(8)
+#define aligned_uint64_t uint64_t __aligned(8)
 #define aligned_le64 uint64_t __aligned(8)
 #define __aligned(x)			__attribute__((aligned(x)))
+#define __packed			__attribute__((packed))
 
 #include <efi.h>
 #include <efilib.h>
 #include <linker_lists.h>
 
+#include <ubootefi.h>
+#include <ubootefi_api.h>
 #define EFI_ST_SUCCESS 0
 #define EFI_ST_FAILURE 1
 
@@ -82,9 +85,8 @@ void efi_st_exit_boot_services(void);
  * @...		arguments to be printed
  *		on return position of terminating zero word
  */
-void efi_st_printc(int color, const char *fmt, ...)
-		 __attribute__ ((format (__printf__, 2, 3)));
-
+//void efi_st_printc(int color, const char *fmt, ...)
+//		 __attribute__ ((format (__printf__, 2, 3)));
 /**
  * efi_st_translate_char() - translate a unicode character to a string
  *

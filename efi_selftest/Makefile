@@ -134,9 +134,13 @@ all: $(GNUEFI_DIR)/$(GNUEFI_ARCH)/lib/libefi.a main.efi
 $(GNUEFI_DIR)/$(GNUEFI_ARCH)/lib/libefi.a:
 	$(MAKE) -C$(GNUEFI_DIR) CROSS_COMPILE=$(CROSS_COMPILE) ARCH=$(GNUEFI_ARCH) $(GNUEFI_LIBS)
 
-main.efi: main.o efi_selftest.o
+OBJ=\
+	main.o \
+	efi_selftest.o \
+
+main.efi: $(OBJ)
 	@echo  [LD]  $(notdir $@)
-	$(CC) $(LDFLAGS) $< -o $@ $(LIBS)
+	$(CC) $(LDFLAGS) $(OBJ) -o $@ $(LIBS)
 
 %.o: %.c
 	@echo  [CC]  $(notdir $@)

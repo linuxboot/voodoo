@@ -177,7 +177,7 @@ static EFI_STATUS send_dhcp_discover(void)
  * @return:	EFI_ST_SUCCESS for success
  */
 static int setup(const EFI_HANDLE handle,
-		 const struct efi_system_table *systable)
+		 const EFI_SYSTEM_TABLE *systable)
 {
 	EFI_STATUS ret;
 

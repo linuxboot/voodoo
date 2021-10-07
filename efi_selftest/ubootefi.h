@@ -13,12 +13,9 @@
  * From include/linux/efi.h in kernel 4.1 with some additions/subtractions
  */
 
-#ifndef _EFI_H
-#define _EFI_H
+#ifndef _UBOOT_EFI_H
+#define _UBOOT_EFI_H
 
-#include <linux/linkage.h>
-#include <linux/string.h>
-#include <linux/types.h>
 
 /*
  * EFI on x86_64 uses the Microsoft ABI which is not the default for GCC.
@@ -48,54 +45,20 @@
 struct efi_device_path;
 
 typedef struct {
-	u8 b[16];
+	uint8_t b[16];
 } efi_guid_t;
 
 #define EFI_BITS_PER_LONG	(sizeof(long) * 8)
 
 /* Bit mask for EFI status code with error */
-#define EFI_ERROR_MASK (1UL << (EFI_BITS_PER_LONG - 1))
+
 /* Status codes returned by EFI protocols */
 #define EFI_SUCCESS			0
-#define EFI_LOAD_ERROR			(EFI_ERROR_MASK | 1)
-#define EFI_INVALID_PARAMETER		(EFI_ERROR_MASK | 2)
-#define EFI_UNSUPPORTED			(EFI_ERROR_MASK | 3)
-#define EFI_BAD_BUFFER_SIZE		(EFI_ERROR_MASK | 4)
-#define EFI_BUFFER_TOO_SMALL		(EFI_ERROR_MASK | 5)
-#define EFI_NOT_READY			(EFI_ERROR_MASK | 6)
-#define EFI_DEVICE_ERROR		(EFI_ERROR_MASK | 7)
-#define EFI_WRITE_PROTECTED		(EFI_ERROR_MASK | 8)
-#define EFI_OUT_OF_RESOURCES		(EFI_ERROR_MASK | 9)
-#define EFI_VOLUME_CORRUPTED		(EFI_ERROR_MASK | 10)
-#define EFI_VOLUME_FULL			(EFI_ERROR_MASK | 11)
-#define EFI_NO_MEDIA			(EFI_ERROR_MASK | 12)
-#define EFI_MEDIA_CHANGED		(EFI_ERROR_MASK | 13)
-#define EFI_NOT_FOUND			(EFI_ERROR_MASK | 14)
-#define EFI_ACCESS_DENIED		(EFI_ERROR_MASK | 15)
-#define EFI_NO_RESPONSE			(EFI_ERROR_MASK | 16)
-#define EFI_NO_MAPPING			(EFI_ERROR_MASK | 17)
-#define EFI_TIMEOUT			(EFI_ERROR_MASK | 18)
-#define EFI_NOT_STARTED			(EFI_ERROR_MASK | 19)
-#define EFI_ALREADY_STARTED		(EFI_ERROR_MASK | 20)
-#define EFI_ABORTED			(EFI_ERROR_MASK | 21)
-#define EFI_ICMP_ERROR			(EFI_ERROR_MASK | 22)
-#define EFI_TFTP_ERROR			(EFI_ERROR_MASK | 23)
-#define EFI_PROTOCOL_ERROR		(EFI_ERROR_MASK | 24)
-#define EFI_INCOMPATIBLE_VERSION	(EFI_ERROR_MASK | 25)
-#define EFI_SECURITY_VIOLATION		(EFI_ERROR_MASK | 26)
-#define EFI_CRC_ERROR			(EFI_ERROR_MASK | 27)
-#define EFI_END_OF_MEDIA		(EFI_ERROR_MASK | 28)
-#define EFI_END_OF_FILE			(EFI_ERROR_MASK | 31)
-#define EFI_INVALID_LANGUAGE		(EFI_ERROR_MASK | 32)
-#define EFI_COMPROMISED_DATA		(EFI_ERROR_MASK | 33)
-#define EFI_IP_ADDRESS_CONFLICT		(EFI_ERROR_MASK | 34)
-#define EFI_HTTP_ERROR			(EFI_ERROR_MASK | 35)
 
-#define EFI_WARN_DELETE_FAILURE	2
 
 typedef unsigned long efi_status_t;
-typedef u64 efi_physical_addr_t;
-typedef u64 efi_virtual_addr_t;
+typedef uint64_t efi_physical_addr_t;
+typedef uint64_t efi_virtual_addr_t;
 typedef void *efi_handle_t;
 
 #define EFI_GUID(a, b, c, d0, d1, d2, d3, d4, d5, d6, d7) \
@@ -107,11 +70,11 @@ typedef void *efi_handle_t;
 
 /* Generic EFI table header */
 struct efi_table_hdr {
-	u64 signature;
-	u32 revision;
-	u32 headersize;
-	u32 crc32;
-	u32 reserved;
+	uint64_t signature;
+	uint32_t revision;
+	uint32_t headersize;
+	uint32_t crc32;
+	uint32_t reserved;
 };
 
 /* Enumeration of memory types introduced in UEFI */
@@ -174,32 +137,14 @@ enum efi_mem_type {
 };
 
 /* Attribute values */
-#define EFI_MEMORY_UC		((u64)0x0000000000000001ULL)	/* uncached */
-#define EFI_MEMORY_WC		((u64)0x0000000000000002ULL)	/* write-coalescing */
-#define EFI_MEMORY_WT		((u64)0x0000000000000004ULL)	/* write-through */
-#define EFI_MEMORY_WB		((u64)0x0000000000000008ULL)	/* write-back */
-#define EFI_MEMORY_UCE		((u64)0x0000000000000010ULL)	/* uncached, exported */
-#define EFI_MEMORY_WP		((u64)0x0000000000001000ULL)	/* write-protect */
-#define EFI_MEMORY_RP		((u64)0x0000000000002000ULL)	/* read-protect */
-#define EFI_MEMORY_XP		((u64)0x0000000000004000ULL)	/* execute-protect */
-#define EFI_MEMORY_NV		((u64)0x0000000000008000ULL)	/* non-volatile */
-#define EFI_MEMORY_MORE_RELIABLE \
-				((u64)0x0000000000010000ULL)	/* higher reliability */
-#define EFI_MEMORY_RO		((u64)0x0000000000020000ULL)	/* read-only */
-#define EFI_MEMORY_RUNTIME	((u64)0x8000000000000000ULL)	/* range requires runtime mapping */
-#define EFI_MEM_DESC_VERSION	1
-
-#define EFI_PAGE_SHIFT		12
-#define EFI_PAGE_SIZE		(1UL << EFI_PAGE_SHIFT)
-#define EFI_PAGE_MASK		(EFI_PAGE_SIZE - 1)
 
 struct efi_mem_desc {
-	u32 type;
-	u32 reserved;
+	uint32_t type;
+	uint32_t reserved;
 	efi_physical_addr_t physical_start;
 	efi_virtual_addr_t virtual_start;
-	u64 num_pages;
-	u64 attribute;
+	uint64_t num_pages;
+	uint64_t attribute;
 };
 
 #define EFI_MEMORY_DESCRIPTOR_VERSION 1
@@ -211,28 +156,25 @@ struct efi_mem_desc {
 #define EFI_MAX_ALLOCATE_TYPE		3
 
 /* Types and defines for Time Services */
-#define EFI_TIME_ADJUST_DAYLIGHT 0x1
-#define EFI_TIME_IN_DAYLIGHT     0x2
-#define EFI_UNSPECIFIED_TIMEZONE 0x07ff
 
 struct efi_time {
-	u16 year;
-	u8 month;
-	u8 day;
-	u8 hour;
-	u8 minute;
-	u8 second;
-	u8 pad1;
-	u32 nanosecond;
-	s16 timezone;
-	u8 daylight;
-	u8 pad2;
+	uint16_t year;
+	uint8_t month;
+	uint8_t day;
+	uint8_t hour;
+	uint8_t minute;
+	uint8_t second;
+	uint8_t pad1;
+	uint32_t nanosecond;
+	int16_t timezone;
+	uint8_t daylight;
+	uint8_t pad2;
 };
 
 struct efi_time_cap {
-	u32 resolution;
-	u32 accuracy;
-	u8 sets_to_zero;
+	uint32_t resolution;
+	uint32_t accuracy;
+	uint8_t sets_to_zero;
 };
 
 enum efi_locate_search_type {
@@ -242,10 +184,10 @@ enum efi_locate_search_type {
 };
 
 struct efi_open_protocol_info_entry {
-	efi_handle_t agent_handle;
-	efi_handle_t controller_handle;
-	u32 attributes;
-	u32 open_count;
+	EFI_HANDLE agent_handle;
+	EFI_HANDLE controller_handle;
+	uint32_t attributes;
+	uint32_t open_count;
 };
 
 enum efi_entry_t {
@@ -269,10 +211,10 @@ enum efi_entry_t {
  * @spare:	Spare space for expansion
  */
 struct efi_info_hdr {
-	u32 version;
-	u32 hdr_size;
-	u32 total_size;
-	u32 spare[5];
+	uint32_t version;
+	uint32_t hdr_size;
+	uint32_t total_size;
+	uint32_t spare[5];
 };
 
 /**
@@ -286,12 +228,12 @@ struct efi_info_hdr {
  * @spare2:	Spare space for expansion
  */
 struct efi_entry_hdr {
-	u32 type;
-	u32 size;
-	u64 addr;
-	u32 link;
-	u32 spare1;
-	u64 spare2;
+	uint32_t type;
+	uint32_t size;
+	uint64_t addr;
+	uint32_t link;
+	uint32_t spare1;
+	uint64_t spare2;
 };
 
 /**
@@ -303,9 +245,9 @@ struct efi_entry_hdr {
  * @desc:	An array of descriptors, each @desc_size bytes apart
  */
 struct efi_entry_memmap {
-	u32 version;
-	u32 desc_size;
-	u64 spare;
+	uint32_t version;
+	uint32_t desc_size;
+	uint64_t spare;
 	struct efi_mem_desc desc[];
 };
 
@@ -326,20 +268,20 @@ struct efi_entry_gopmode {
 	 * using 'long' will cause mismatch between the producer (stub) and
 	 * the consumer (payload).
 	 */
-	u64 fb_size;
-	u64 info_size;
+	uint64_t fb_size;
+	uint64_t info_size;
 	/*
 	 * We cannot directly use 'struct efi_gop_mode_info info[]' here as
 	 * it causes compiler to complain: array type has incomplete element
 	 * type 'struct efi_gop_mode_info'.
 	 */
 	struct /* efi_gop_mode_info */ {
-		u32 version;
-		u32 width;
-		u32 height;
-		u32 pixel_format;
-		u32 pixel_bitmask[4];
-		u32 pixels_per_scanline;
+		uint32_t version;
+		uint32_t width;
+		uint32_t height;
+		uint32_t pixel_format;
+		uint32_t pixel_bitmask[4];
+		uint32_t pixels_per_scanline;
 	} info[];
 };
 
@@ -355,16 +297,16 @@ struct efi_entry_systable {
 static inline struct efi_mem_desc *efi_get_next_mem_desc(
 		struct efi_entry_memmap *map, struct efi_mem_desc *desc)
 {
-	return (struct efi_mem_desc *)((ulong)desc + map->desc_size);
+	return (struct efi_mem_desc *)((unsigned long long)desc + map->desc_size);
 }
 
 struct efi_priv {
-	efi_handle_t parent_image;
+	EFI_HANDLE parent_image;
 	struct efi_device_path *device_path;
 	struct efi_system_table *sys_table;
 	struct efi_boot_services *boot;
 	struct efi_runtime_services *run;
-	bool use_pool_for_malloc;
+	int use_pool_for_malloc;
 	unsigned long ram_base;
 	unsigned int image_data_type;
 	struct efi_info_hdr *info;
@@ -381,13 +323,6 @@ extern char _binary_u_boot_bin_start[], _binary_u_boot_bin_end[];
 /*
  * Variable Attributes
  */
-#define EFI_VARIABLE_NON_VOLATILE       0x0000000000000001
-#define EFI_VARIABLE_BOOTSERVICE_ACCESS 0x0000000000000002
-#define EFI_VARIABLE_RUNTIME_ACCESS     0x0000000000000004
-#define EFI_VARIABLE_HARDWARE_ERROR_RECORD 0x0000000000000008
-#define EFI_VARIABLE_AUTHENTICATED_WRITE_ACCESS 0x0000000000000010
-#define EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS 0x0000000000000020
-#define EFI_VARIABLE_APPEND_WRITE	0x0000000000000040
 
 #define EFI_VARIABLE_MASK	(EFI_VARIABLE_NON_VOLATILE | \
 				EFI_VARIABLE_BOOTSERVICE_ACCESS | \
@@ -422,7 +357,7 @@ unsigned long efi_get_ram_base(void);
  * @image:	The image handle passed to efi_main()
  * @sys_table:	The EFI system table pointer passed to efi_main()
  */
-int efi_init(struct efi_priv *priv, const char *banner, efi_handle_t image,
+int efi_init(struct efi_priv *priv, const char *banner, EFI_HANDLE image,
 	     struct efi_system_table *sys_table);
 
 /**
@@ -433,7 +368,7 @@ int efi_init(struct efi_priv *priv, const char *banner, efi_handle_t image,
  * @retp:	Return EFI status result
  * @return pointer to memory allocated, or NULL on error
  */
-void *efi_malloc(struct efi_priv *priv, int size, efi_status_t *retp);
+void *efi_malloc(struct efi_priv *priv, int size, EFI_STATUS *retp);
 
 /**
  * efi_free() - Free memory allocated from EFI
@@ -481,6 +416,6 @@ int efi_info_get(enum efi_entry_t type, void **datap, int *sizep);
  * @return pointer to the new table. It should be freed with free() by the
  *	   caller
  */
-void *efi_build_mem_table(struct efi_entry_memmap *map, int size, bool skip_bs);
+void *efi_build_mem_table(struct efi_entry_memmap *map, int size, int skip_bs);
 
 #endif /* _LINUX_EFI_H */

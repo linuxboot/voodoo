@@ -224,19 +224,20 @@ void efi_st_do_tests(const uint16_t *testname, unsigned int phase,
  * @systab:		EFI system table
  */
 EFI_STATUS EFIAPI efi_selftest(EFI_HANDLE image_handle,
-				 struct efi_system_table *systab)
+				 EFI_SYSTEM_TABLE *systab)
 {
 	unsigned int failures = 0;
 	const uint16_t *testname = NULL;
 	struct efi_loaded_image *loaded_image;
 	EFI_STATUS ret;
-
+	const efi_guid_t efi_guid_loaded_image = LOADED_IMAGE_GUID;
+	
 	systable = systab;
-	boottime = systable->boottime;
-	runtime = systable->runtime;
+	boottime = ((struct efi_system_table *)systable)->boottime;
+	runtime = ((struct efi_system_table *)systable)->runtime;
 	handle = image_handle;
-	con_out = systable->con_out;
-	con_in = systable->con_in;
+	con_out = ((struct efi_system_table *)systable)->con_out;
+	con_in = ((struct efi_system_table *)systable)->con_in;
 
 	ret = boottime->handle_protocol(image_handle, &efi_guid_loaded_image,
 					(void **)&loaded_image);

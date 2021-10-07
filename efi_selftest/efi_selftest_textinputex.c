@@ -48,7 +48,7 @@ static EFI_STATUS EFIAPI efi_key_notify_function
  * @return:	EFI_ST_SUCCESS for success
  */
 static int setup(const EFI_HANDLE handle,
-		 const struct efi_system_table *systable)
+		 const EFI_SYSTEM_TABLE *systable)
 {
 	EFI_STATUS ret;
 	struct efi_key_data key_data = {

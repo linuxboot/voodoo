@@ -22,7 +22,7 @@ EFI_HANDLE image_handle;
  * @systable:	system table
  */
 static int setup(const EFI_HANDLE img_handle,
-		 const struct efi_system_table *systable)
+		 const EFI_SYSTEM_TABLE *systable)
 {
 	boottime = systable->boottime;
 	image_handle = img_handle;

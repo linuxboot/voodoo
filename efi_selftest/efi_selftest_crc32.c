@@ -11,7 +11,7 @@
 
 #include <efi_selftest.h>
 
-const struct efi_system_table *st;
+const EFI_SYSTEM_TABLE *st;
 efi_status_t (EFIAPI *bs_crc32)(const void *data, efi_uintn_t data_size,
 				u32 *crc32);
 
@@ -70,7 +70,7 @@ static int check_table(const void *table)
  * @return:	EFI_ST_SUCCESS for success
  */
 static int setup(const EFI_HANDLE handle,
-		 const struct efi_system_table *systable)
+		 const EFI_SYSTEM_TABLE *systable)
 {
 	EFI_STATUS ret;
 	uint32_t res;
