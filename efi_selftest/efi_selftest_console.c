@@ -137,7 +137,7 @@ static void int2dec(s32 value, int prec, uint16_t **buf)
  * @fmt		format string
  * @...		optional arguments
  */
-void efi_st_printc(int color, const char *fmt, ...)
+void Print(/*int color*/L const char *fmt, ...)
 {
 	va_list args;
 	uint16_t buf[160];

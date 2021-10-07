@@ -62,7 +62,7 @@ void efi_st_exit_boot_services(void)
 		efi_st_error("ExitBootServices did not return EFI_SUCCESS\n");
 		return;
 	}
-	efi_st_printc(EFI_WHITE, "\nBoot services terminated\n");
+	Print(/*EFI_WHITE*/L "\nBoot services terminated\n");
 #endif
 	
 }
@@ -83,11 +83,10 @@ static int setup(struct efi_unit_test *test, unsigned int *failures)
 	Print(L"%B","\nSetting up '%s'\n", test->name);
 	test->setup_ok = test->setup(handle, systable);
 	if (test->setup_ok != EFI_ST_SUCCESS) {
-		efi_st_error("Setting up '%s' failed\n", test->name);
+		efi_st_error(L"Setting up '%s' failed\n", test->name);
 		++*failures;
 	} else {
-		efi_st_printc(EFI_LIGHTGREEN,
-			      "Setting up '%s' succeeded\n", test->name);
+		Print(/*EFI_LIGHTGREEN*/L"Setting up '%s' succeeded\n", test->name);
 	}
 	return test->setup_ok;
 }
@@ -108,11 +107,10 @@ static int execute(struct efi_unit_test *test, unsigned int *failures)
 	Print(L"%B","\nExecuting '%s'\n", test->name);
 	ret = test->execute();
 	if (ret != EFI_ST_SUCCESS) {
-		efi_st_error("Executing '%s' failed\n", test->name);
+		efi_st_error(L"Executing '%s' failed\n", test->name);
 		++*failures;
 	} else {
-		efi_st_printc(EFI_LIGHTGREEN,
-			      "Executing '%s' succeeded\n", test->name);
+		Print(/*EFI_LIGHTGREEN*/L"Executing '%s' succeeded\n", test->name);
 	}
 	return ret;
 }
@@ -133,11 +131,10 @@ static int teardown(struct efi_unit_test *test, unsigned int *failures)
 	Print(L"%B","\nTearing down '%s'\n", test->name);
 	ret = test->teardown();
 	if (ret != EFI_ST_SUCCESS) {
-		efi_st_error("Tearing down '%s' failed\n", test->name);
+		efi_st_error(L"Tearing down '%s' failed\n", test->name);
 		++*failures;
 	} else {
-		efi_st_printc(EFI_LIGHTGREEN,
-			      "Tearing down '%s' succeeded\n", test->name);
+		Print(/*EFI_LIGHTGREEN*/L"Tearing down '%s' succeeded\n", test->name);
 	}
 	return ret;
 }
@@ -157,7 +154,7 @@ static struct efi_unit_test *find_test(const uint16_t *testname)
 		if (!efi_st_strcmp_16_8(testname, test->name))
 			return test;
 	}
-	efi_st_printf("\nTest '%ps' not found\n", testname);
+	Print(L"\nTest '%ps' not found\n", testname);
 	return NULL;
 }
 
@@ -169,10 +166,10 @@ static void list_all_tests(void)
 	struct efi_unit_test *test;
 
 	/* List all tests */
-	efi_st_printf("\nAvailable tests:\n");
+	Print(L"\nAvailable tests:\n");
 	for (test = ll_entry_start(struct efi_unit_test, efi_unit_test);
 	     test < ll_entry_end(struct efi_unit_test, efi_unit_test); ++test) {
-		efi_st_printf("'%s'%s\n", test->name,
+		Print(L"'%s'%s\n", test->name,
 			      test->on_request ? " - on request" : "");
 	}
 }
@@ -242,7 +239,7 @@ EFI_STATUS EFIAPI efi_selftest(EFI_HANDLE image_handle,
 	ret = boottime->handle_protocol(image_handle, &efi_guid_loaded_image,
 					(void **)&loaded_image);
 	if (ret != EFI_SUCCESS) {
-		efi_st_error("Cannot open loaded image protocol\n");
+		efi_st_error(L"Cannot open loaded image protocol\n");
 		return ret;
 	}
 
@@ -265,12 +262,12 @@ EFI_STATUS EFIAPI efi_selftest(EFI_HANDLE image_handle,
 		}
 	}
 
-	efi_st_printc(EFI_WHITE, "\nTesting EFI API implementation\n");
+	Print(/*EFI_WHITE*/L"\nTesting EFI API implementation\n");
 
 	if (testname)
-		efi_st_printc(EFI_WHITE, "\nSelected test: '%ps'\n", testname);
+		Print(/*EFI_WHITE*/L"\nSelected test: '%ps'\n", testname);
 	else
-		efi_st_printc(EFI_WHITE, "\nNumber of tests to execute: %u\n",
+		Print(/*EFI_WHITE*/L"\nNumber of tests to execute: %u\n",
 			      ll_entry_count(struct efi_unit_test,
 					     efi_unit_test));
 
@@ -294,15 +291,15 @@ EFI_STATUS EFIAPI efi_selftest(EFI_HANDLE image_handle,
 			&failures);
 
 	/* Give feedback */
-	efi_st_printc(EFI_WHITE, "\nSummary: %u failures\n\n", failures);
+	Print(/*EFI_WHITE*/L"\nSummary: %u failures\n\n", failures);
 
 	/* Reset system */
-	efi_st_printf("Preparing for reset. Press any key...\n");
+	Print(L"Preparing for reset. Press any key...\n");
 	efi_st_get_key();
 	runtime->reset_system(EFI_RESET_WARM, EFI_NOT_READY,
 			      sizeof(reset_message), reset_message);
-	efi_st_printf("\n");
-	efi_st_error("Reset failed\n");
+	Print(L"\n");
+	efi_st_error(L"Reset failed\n");
 
 	return EFI_UNSUPPORTED;
 }

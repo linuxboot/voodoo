@@ -31,17 +31,18 @@ typedef unsigned int uint;
 /*
  * Prints a message.
  */
-#define efi_st_printf(...) \
+/*#define efi_st_printf(...)			\
 	(efi_st_printc(-1, __VA_ARGS__))
-
+*/
 /*
  * Prints an error message.
  *
  * @...	format string followed by fields to print
  */
 #define efi_st_error(...) \
-	(efi_st_printc(EFI_LIGHTRED, "%s(%u):\nERROR: ", __FILE__, __LINE__), \
-	efi_st_printc(EFI_LIGHTRED, __VA_ARGS__))
+	(Print(L"%E%s(%u):\nERROR: ", __FILE__, __LINE__), \
+	 Print(__VA_ARGS__),				   \
+	 Print(L"%N\n"))
 
 /*
  * Prints a TODO message.
