@@ -32,18 +32,17 @@ typedef unsigned int uint;
 /*
  * Prints a message.
  */
-/*#define efi_st_printf(...)			\
+#define efi_st_printf(...)			\
 	(efi_st_printc(-1, __VA_ARGS__))
-*/
+
 /*
  * Prints an error message.
  *
  * @...	format string followed by fields to print
  */
 #define efi_st_error(...) \
-	(Print(L"%E%s(%u):\nERROR: ", __FILE__, __LINE__), \
-	 Print(__VA_ARGS__),				   \
-	 Print(L"%N\n"))
+	(efi_st_printc(EFI_LIGHTRED, "%s(%u):\nERROR: ", __FILE__, __LINE__), \
+	efi_st_printc(EFI_LIGHTRED, __VA_ARGS__))
 
 /*
  * Prints a TODO message.
@@ -51,9 +50,8 @@ typedef unsigned int uint;
  * @...	format string followed by fields to print
  */
 #define efi_st_todo(...) \
-	(Print(L"%V%s(%u):\nTODO: ", __FILE__, __LINE__),	\
-	 Print(L __VA_ARGS__),						\
-	 Print(L"%N"))							\
+	(efi_st_printc(EFI_YELLOW, "%s(%u):\nTODO: ", __FILE__, __LINE__), \
+	efi_st_printc(EFI_YELLOW, __VA_ARGS__)) \
 
 /*
  * A test may be setup and executed at boottime,
@@ -87,8 +85,9 @@ void efi_st_exit_boot_services(void);
  * @...		arguments to be printed
  *		on return position of terminating zero word
  */
-//void efi_st_printc(int color, const char *fmt, ...)
-//		 __attribute__ ((format (__printf__, 2, 3)));
+void efi_st_printc(int color, const char *fmt, ...)
+		 __attribute__ ((format (__printf__, 2, 3)));
+
 /**
  * efi_st_translate_char() - translate a unicode character to a string
  *

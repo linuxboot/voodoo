@@ -151,7 +151,6 @@ NOOBJ=\
 	efi_selftest_manageprotocols.o \
 	efi_selftest_miniapp_exit.o \
 	efi_selftest_miniapp_return.o \
-	efi_selftest_rtc.o \
 	efi_selftest_snp.o \
 	efi_selftest_startimage_exit.o \
 	efi_selftest_startimage_return.o \
@@ -163,12 +162,15 @@ NOOBJ=\
 	efi_selftest_unicode_collation.o \
 	efi_selftest_variables.o \
 	efi_selftest_watchdog.o \
+	efi_selftest_rtc.o \
 
 OBJ=\
 	main.o \
 	efi_selftest.o \
 	efi_selftest_console.o \
 	efi_selftest_util.o \
+
+$(OBJ):  efi_selftest.h
 
 main.efi: $(OBJ)
 	@echo  [LD]  $(notdir $@)
