@@ -134,9 +134,41 @@ all: $(GNUEFI_DIR)/$(GNUEFI_ARCH)/lib/libefi.a main.efi
 $(GNUEFI_DIR)/$(GNUEFI_ARCH)/lib/libefi.a:
 	$(MAKE) -C$(GNUEFI_DIR) CROSS_COMPILE=$(CROSS_COMPILE) ARCH=$(GNUEFI_ARCH) $(GNUEFI_LIBS)
 
+NOOBJ=\
+	efi_selftest_bitblt.o \
+	efi_selftest_block_device.o \
+	efi_selftest_config_table.o \
+	efi_selftest_controllers.o \
+	efi_selftest_crc32.o \
+	efi_selftest_devicepath.o \
+	efi_selftest_devicepath_util.o \
+	efi_selftest_event_groups.o \
+	efi_selftest_events.o \
+	efi_selftest_exitbootservices.o \
+	efi_selftest_fdt.o \
+	efi_selftest_gop.o \
+	efi_selftest_loaded_image.o \
+	efi_selftest_manageprotocols.o \
+	efi_selftest_miniapp_exit.o \
+	efi_selftest_miniapp_return.o \
+	efi_selftest_rtc.o \
+	efi_selftest_snp.o \
+	efi_selftest_startimage_exit.o \
+	efi_selftest_startimage_return.o \
+	efi_selftest_textinput.o \
+	efi_selftest_textinputex.o \
+	efi_selftest_textoutput.o \
+	efi_selftest_tpl.o \
+	efi_selftest_unaligned.o \
+	efi_selftest_unicode_collation.o \
+	efi_selftest_variables.o \
+	efi_selftest_watchdog.o \
+
 OBJ=\
 	main.o \
 	efi_selftest.o \
+	efi_selftest_console.o \
+	efi_selftest_util.o \
 
 main.efi: $(OBJ)
 	@echo  [LD]  $(notdir $@)
@@ -144,7 +176,7 @@ main.efi: $(OBJ)
 
 %.o: %.c
 	@echo  [CC]  $(notdir $@)
-	@$(CC) -I. $(CFLAGS) -ffreestanding -Wno-shadow -Wno-unused-variable -c $<
+	@$(CC) -I. $(CFLAGS) -ffreestanding -Wno-unused-function -Wno-shadow -Wno-unused-variable -c $<
 
 qemu: CFLAGS += -D_DEBUG
 qemu: all $(FW_BASE)_$(FW_ARCH).fd image/efi/boot/boot$(ARCH).efi

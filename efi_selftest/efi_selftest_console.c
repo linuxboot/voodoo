@@ -6,7 +6,6 @@
  */
 
 #include <efi_selftest.h>
-#include <vsprintf.h>
 
 struct efi_simple_text_output_protocol *con_out;
 struct efi_simple_text_input_protocol *con_in;
@@ -115,7 +114,7 @@ static void uint2dec(uint32_t value, int prec, uint16_t **buf)
  * @buf:	pointer to buffer address
  * on return position of terminating zero word
  */
-static void int2dec(s32 value, int prec, uint16_t **buf)
+static void int2dec(int32_t value, int prec, uint16_t **buf)
 {
 	uint32_t u;
 	uint16_t *pos = *buf;
@@ -137,7 +136,7 @@ static void int2dec(s32 value, int prec, uint16_t **buf)
  * @fmt		format string
  * @...		optional arguments
  */
-void Print(/*int color*/L const char *fmt, ...)
+void efi_st_printc(int color, const char *fmt, ...)
 {
 	va_list args;
 	uint16_t buf[160];
@@ -188,7 +187,7 @@ void Print(/*int color*/L const char *fmt, ...)
 				--c;
 				break;
 			case 'd':
-				int2dec(va_arg(args, s32), prec, &pos);
+				int2dec(va_arg(args, int32_t), prec, &pos);
 				break;
 			case 'p':
 				++c;

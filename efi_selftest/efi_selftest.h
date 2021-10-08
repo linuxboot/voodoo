@@ -19,6 +19,7 @@ typedef unsigned int uint;
 #define __aligned(x)			__attribute__((aligned(x)))
 #define __packed			__attribute__((packed))
 
+#define ARP_HLEN 6 
 #include <efi.h>
 #include <efilib.h>
 #include <linker_lists.h>
