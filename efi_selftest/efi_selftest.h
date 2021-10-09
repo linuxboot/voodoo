@@ -147,8 +147,8 @@ uint16_t efi_st_get_key(void);
 struct efi_unit_test {
 	const char *name;
 	const enum efi_test_phase phase;
-	int (*setup)(const EFI_HANDLE handle,
-		     const EFI_SYSTEM_TABLE *systable);
+	int (*setup)(const efi_handle_t handle,
+		     const struct efi_system_table *systable);
 	int (*execute)(void);
 	int (*teardown)(void);
 	int setup_ok;

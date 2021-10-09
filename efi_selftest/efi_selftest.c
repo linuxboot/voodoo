@@ -81,7 +81,7 @@ static int setup(struct efi_unit_test *test, unsigned int *failures)
 		return EFI_ST_SUCCESS;
 	}
 	Print(L"%B","\nSetting up '%s'\n", test->name);
-	test->setup_ok = test->setup(handle, systable);
+	test->setup_ok = test->setup(handle, (const struct efi_system_table*)systable);
 	if (test->setup_ok != EFI_ST_SUCCESS) {
 		efi_st_error("Setting up '%s' failed\n", test->name);
 		++*failures;
@@ -239,7 +239,7 @@ EFI_STATUS EFIAPI efi_selftest(EFI_HANDLE image_handle,
 	Print(L"first call to efi_st_error follows...\n");
 	efi_st_error("Test message from selftest, systable is %x\n", systab);
 	Print(L"if you can read this, it's ok\n");
-	efi_st_error("Test message from selftest, boottime is %x\n", boottime);
+	efi_st_error("Test message from selftest, boottime is %x\n", (uint)boottime);
 	ret = boottime->handle_protocol(image_handle, &efi_guid_loaded_image,
 					(void **)&loaded_image);
 	if (ret != EFI_SUCCESS) {

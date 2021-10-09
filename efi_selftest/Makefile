@@ -162,12 +162,12 @@ NOOBJ=\
 	efi_selftest_unicode_collation.o \
 	efi_selftest_variables.o \
 	efi_selftest_watchdog.o \
-	efi_selftest_rtc.o \
 
 OBJ=\
 	main.o \
 	efi_selftest.o \
 	efi_selftest_console.o \
+	efi_selftest_rtc.o \
 	efi_selftest_util.o \
 
 $(OBJ):  efi_selftest.h

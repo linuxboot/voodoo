@@ -20,8 +20,8 @@ static struct efi_runtime_services *runtime;
  * @systable:	system table
  * @return:	EFI_ST_SUCCESS for success
  */
-static int setup(const EFI_HANDLE handle,
-		 const EFI_SYSTEM_TABLE *systable)
+static int setup(const efi_handle_t handle,
+		 const struct efi_system_table *systable)
 {
 	runtime = systable->runtime;
 	return EFI_ST_SUCCESS;
@@ -36,7 +36,7 @@ static int setup(const EFI_HANDLE handle,
  */
 static int execute(void)
 {
-	EFI_STATUS ret;
+	efi_status_t ret;
 	struct efi_time tm;
 
 	/* Display current time */
