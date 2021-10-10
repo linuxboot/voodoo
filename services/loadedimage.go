@@ -47,8 +47,8 @@ func NewLoadedImage(tab []byte, u ServPtr) (Service, error) {
 	fpx := 0x100 + 0xff400000 + uint64(base)
 	Debug("LoadedImage base at index %#08x; fp[%#02x] at index %#08x", base, fp, fpx)
 	if false {
-	copy(tab[fpx:], fp)
-}
+		copy(tab[fpx:], fp)
+	}
 
 	for p := range table.LoadedImageTableNames {
 		x := base + int(p)

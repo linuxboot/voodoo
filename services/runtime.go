@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"runtime/debug"
 
 	"github.com/linuxboot/fiano/pkg/guid"
 	"github.com/linuxboot/voodoo/table"
@@ -85,7 +86,7 @@ func (r *Runtime) Call(f *Fault) error {
 		f.Regs.Rax = uefi.EFI_SUCCESS
 		// whatever.
 	default:
-		log.Panic("fix me")
+		log.Panicf("fix me: %s(%#x): %s", table.RuntimeServicesNames[uint64(op)], op, string(debug.Stack()))
 		f.Regs.Rax = uefi.EFI_UNSUPPORTED
 	}
 	return nil
