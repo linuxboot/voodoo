@@ -127,6 +127,7 @@ func (r *Runtime) Call(f *Fault) error {
 				return fmt.Errorf("Can't write %d bytes to %#x: %v", b.Len(), dat, err)
 			}
 		}
+		f.Regs.Rax = uefi.EFI_SUCCESS
 
 	default:
 		log.Panicf("fix me: %s(%#x): %s", table.RuntimeServicesNames[uint64(op)], op, string(debug.Stack()))

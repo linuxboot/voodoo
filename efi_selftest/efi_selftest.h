@@ -161,4 +161,6 @@ struct efi_unit_test {
 #define EFI_UNIT_TEST(name)						\
 	struct efi_unit_test name
 
+#define CONFIG_CMD_DATE
+
 #endif /* _EFI_SELFTEST_H */
