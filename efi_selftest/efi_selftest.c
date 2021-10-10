@@ -139,6 +139,16 @@ static int teardown(struct efi_unit_test *test, unsigned int *failures)
 	return ret;
 }
 
+extern EFI_UNIT_TEST(rtc);
+
+struct efi_unit_test *tests[] = {
+	&rtc,
+	
+};
+
+enum {
+	num_tests = sizeof(tests) / sizeof(tests[0])
+};
 /*
  * Check that a test exists.
  *
@@ -149,8 +159,8 @@ static struct efi_unit_test *find_test(const uint16_t *testname)
 {
 	struct efi_unit_test *test;
 
-	for (test = ll_entry_start(struct efi_unit_test, efi_unit_test);
-	     test < ll_entry_end(struct efi_unit_test, efi_unit_test); ++test) {
+	for(int i = 0; i < num_tests; i++) {
+		test = tests[i];
 		if (!efi_st_strcmp_16_8(testname, test->name))
 			return test;
 	}
@@ -167,8 +177,8 @@ static void list_all_tests(void)
 
 	/* List all tests */
 	Print(L"\nAvailable tests:\n");
-	for (test = ll_entry_start(struct efi_unit_test, efi_unit_test);
-	     test < ll_entry_end(struct efi_unit_test, efi_unit_test); ++test) {
+	for(int i = 0; i < num_tests; i++) {
+		test = tests[i];
 		Print(L"'%s'%s\n", test->name,
 			      test->on_request ? " - on request" : "");
 	}
@@ -187,8 +197,8 @@ void efi_st_do_tests(const uint16_t *testname, unsigned int phase,
 {
 	struct efi_unit_test *test;
 
-	for (test = ll_entry_start(struct efi_unit_test, efi_unit_test);
-	     test < ll_entry_end(struct efi_unit_test, efi_unit_test); ++test) {
+	for(int i = 0; i < num_tests; i++) {
+		test = tests[i];
 		if (testname ?
 		    efi_st_strcmp_16_8(testname, test->name) : test->on_request)
 			continue;
@@ -274,9 +284,7 @@ EFI_STATUS EFIAPI efi_selftest(EFI_HANDLE image_handle,
 	if (testname)
 		Print(/*EFI_WHITE*/L"\nSelected test: '%ps'\n", testname);
 	else
-		Print(/*EFI_WHITE*/L"\nNumber of tests to execute: %u\n",
-			      ll_entry_count(struct efi_unit_test,
-					     efi_unit_test));
+		Print(/*EFI_WHITE*/L"\nNumber of tests to execute: %u\n",num_tests);
 
 	/* Execute boottime tests */
 	efi_st_do_tests(testname, EFI_EXECUTE_BEFORE_BOOTTIME_EXIT,

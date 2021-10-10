@@ -59,7 +59,7 @@ static int execute(void)
 	return EFI_ST_SUCCESS;
 }
 
-EFI_UNIT_TEST(rtc) = {
+EFI_UNIT_TEST(rtc) =  {
 	.name = "real time clock",
 	.phase = EFI_EXECUTE_BEFORE_BOOTTIME_EXIT,
 	.setup = setup,

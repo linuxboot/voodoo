@@ -22,7 +22,6 @@ typedef unsigned int uint;
 #define ARP_HLEN 6 
 #include <efi.h>
 #include <efilib.h>
-#include <linker_lists.h>
 
 #include <ubootefi.h>
 #include <ubootefi_api.h>
@@ -156,7 +155,10 @@ struct efi_unit_test {
 };
 
 /* Declare a new EFI unit test */
-#define EFI_UNIT_TEST(__name)						\
-	ll_entry_declare(struct efi_unit_test, __name, efi_unit_test)
+// This used the hacky linked list bullshit. Fuck that.
+// It's impossible to debug, and it's absolute overkill.
+// Just write your fucking declarations.
+#define EFI_UNIT_TEST(name)						\
+	struct efi_unit_test name
 
 #endif /* _EFI_SELFTEST_H */

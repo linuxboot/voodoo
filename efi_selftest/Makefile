@@ -106,7 +106,9 @@ CFLAGS         += -I$(GNUEFI_DIR)/inc -I$(GNUEFI_DIR)/inc/$(GNUEFI_ARCH) -I$(GNU
 CFLAGS         += -DCONFIG_$(GNUEFI_ARCH) -D__MAKEWITH_GNUEFI -DGNU_EFI_USE_MS_ABI
 CFLAGS         += -DEFI_DEBUG
 LDFLAGS        += -L$(GNUEFI_DIR)/$(GNUEFI_ARCH)/lib -e $(EP_PREFIX)efi_main
-LDFLAGS        += -s -Wl,-Bsymbolic -nostdlib -shared
+# don't be stupid and strip it. Why strip it? no idea.
+# LDFLAGS        += -s -Wl,-Bsymbolic -nostdlib -shared
+LDFLAGS        += -Wl,-Bsymbolic -nostdlib -shared
 LIBS            = -lefi $(CRT0_LIBS)
 
 ifeq (, $(shell which $(CC)))
