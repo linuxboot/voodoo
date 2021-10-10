@@ -50,5 +50,23 @@ int main(int argc, char *argv[])
 	fprintf(f, "RTQueryVariableInfo: &val{N: \"QueryVariableInfo\"},\n");
 	fprintf(f, "}\n");
 
+	fprintf(f, "type EfiTime struct {\n"
+		"	Year uint16\n"
+		"	Month uint8\n"
+		"	Day uint8\n"
+		"	Hour uint8\n"
+		"	Minute uint8\n"
+		"	Second uint8\n"
+		"	_ uint8\n"
+		"	Nanosecond uint32\n"
+		"	Timezone int16\n"
+		"	Daylight uint8\n"
+		"		_ uint8\n"
+		"}\n");
+	fprintf(f, "type EfiTimeCap struct {\n"
+		"	Resolution uint32\n"
+		"	Accuracy uint32\n"
+		"	SetsToZero uint8\n"
+		"}\n");
 	pclose(f);
 }
