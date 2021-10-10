@@ -1,10 +1,12 @@
 package services
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"log"
 	"runtime/debug"
+	"time"
 
 	"github.com/linuxboot/fiano/pkg/guid"
 	"github.com/linuxboot/voodoo/table"
@@ -85,6 +87,47 @@ func (r *Runtime) Call(f *Fault) error {
 	case table.RTSetVariable:
 		f.Regs.Rax = uefi.EFI_SUCCESS
 		// whatever.
+	case table.RTGetTime:
+		args := trace.Args(f.Proc, f.Regs, 2)
+		Debug("table.RTGetTime args %#x", args)
+		now := time.Now()
+		if args[0] != 0 {
+			var b = &bytes.Buffer{}
+			if err := binary.Write(b, binary.LittleEndian, &table.EfiTime{
+				Year:       uint16(now.Year()),
+				Month:      uint8(now.Month()),
+				Day:        uint8(now.Day()),
+				Hour:       uint8(now.Hour()),
+				Minute:     uint8(now.Minute()),
+				Second:     uint8(now.Second()),
+				Nanosecond: uint32(now.Nanosecond()),
+				//Timezone: now.Timezone(),
+				Daylight: 1, // uefi.EFI_TIME_ADJUST_DAYLIGHT, //now.Daylight()?
+				//        if (tm.tm_isdst > 0)
+				// time->daylight |= EFI_TIME_IN_DAYLIGHT;
+				Timezone: 0, //uefi.EFI_UNSPECIFIED_TIMEZONE,
+			}); err != nil {
+				log.Fatalf("Can't encode memory: %v", err)
+			}
+			if err := f.Proc.Write(args[0], b.Bytes()); err != nil {
+				return fmt.Errorf("Can't write %d bytes to %#x: %v", b.Len(), dat, err)
+			}
+		}
+		if args[1] != 0 {
+			// Set reasonable dummy values  -- most appropriate for UEFI
+			var b = &bytes.Buffer{}
+			if err := binary.Write(b, binary.LittleEndian, &table.EfiTimeCap{
+				Resolution: 1,         // 1 Hz
+				Accuracy:   100000000, // 100 ppm
+				SetsToZero: 0,
+			}); err != nil {
+				log.Fatalf("Can't encode memory: %v", err)
+			}
+			if err := f.Proc.Write(args[1], b.Bytes()); err != nil {
+				return fmt.Errorf("Can't write %d bytes to %#x: %v", b.Len(), dat, err)
+			}
+		}
+
 	default:
 		log.Panicf("fix me: %s(%#x): %s", table.RuntimeServicesNames[uint64(op)], op, string(debug.Stack()))
 		f.Regs.Rax = uefi.EFI_UNSUPPORTED
