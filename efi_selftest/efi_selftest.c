@@ -13,7 +13,7 @@
 #define EFI_ST_TEARDOWN	4
 
 static const struct _EFI_SYSTEM_TABLE *systable;
-static const struct efi_boot_services *boottime;
+struct efi_boot_services *boottime;
 static const struct efi_runtime_services *runtime;
 static EFI_HANDLE handle;
 static uint16_t reset_message[] = L"Selftest completed";
@@ -140,10 +140,10 @@ static int teardown(struct efi_unit_test *test, unsigned int *failures)
 }
 
 extern EFI_UNIT_TEST(rtc);
-
+EFI_UNIT_TEST(blkdev);
 struct efi_unit_test *tests[] = {
 	&rtc,
-	
+	&blkdev,
 };
 
 enum {
@@ -247,9 +247,8 @@ EFI_STATUS EFIAPI efi_selftest(EFI_HANDLE image_handle,
 
 	Print(L"r %x co %x ci %x\n", runtime, con_out, con_in);
 	Print(L"first call to efi_st_error follows...\n");
-	efi_st_error("Test message from selftest, systable is %x\n", systab);
+	efi_st_error("Test message from selftest\n");
 	Print(L"if you can read this, it's ok\n");
-	efi_st_error("Test message from selftest, boottime is %x\n", (uint)boottime);
 	ret = boottime->handle_protocol(image_handle, &efi_guid_loaded_image,
 					(void **)&loaded_image);
 	if (ret != EFI_SUCCESS) {

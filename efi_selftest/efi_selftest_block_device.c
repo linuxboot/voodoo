@@ -14,22 +14,11 @@
  */
 
 #include <efi_selftest.h>
-static struct efi_boot_services *boottime;
-#if 0
-static const efi_guid_t block_io_protocol_guid = BLOCK_IO_GUID;
-static const efi_guid_t guid_device_path = DEVICE_PATH_GUID;
-static const efi_guid_t guid_simple_file_system_protocol =
-					EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
-static const efi_guid_t guid_file_system_info = EFI_FILE_SYSTEM_INFO_GUID;
-static efi_guid_t guid_vendor =
-	EFI_GUID(0xdbca4c98, 0x6cb0, 0x694d,
-		 0x08, 0x72, 0x81, 0x9c, 0x65, 0x0c, 0xb7, 0xb8);
-
-static struct efi_device_path *dp;
-#endif
 /* Handle for the block IO device */
 static EFI_HANDLE disk_handle;
+static struct efi_device_path *dp;
 
+extern struct efi_boot_services *boottime;
 /*
  * Setup unit test.
  *
@@ -100,7 +89,7 @@ static int execute(void)
 
 	/* Get the handle for the partition */
 	ret = boottime->locate_handle_buffer(
-				BY_PROTOCOL, &guid_device_path, NULL,
+		BY_PROTOCOL, (const efi_guid_t*)&gEfiDevicePathProtocolGuid, NULL,
 				&no_handles, &handles);
 	if (ret != EFI_SUCCESS) {
 		efi_st_error("Failed to locate handles\n");
@@ -108,7 +97,7 @@ static int execute(void)
 	}
 	len = dp_size(dp);
 	for (i = 0; i < no_handles; ++i) {
-		ret = boottime->open_protocol(handles[i], &guid_device_path,
+		ret = boottime->open_protocol(handles[i], (const efi_guid_t*)&gEfiDevicePathProtocolGuid,
 					      (void **)&dp_partition,
 					      NULL, NULL,
 					      EFI_OPEN_PROTOCOL_GET_PROTOCOL);
@@ -123,11 +112,6 @@ static int execute(void)
 		handle_partition = handles[i];
 		break;
 	}
-	ret = boottime->free_pool(handles);
-	if (ret != EFI_SUCCESS) {
-		efi_st_error("Failed to free pool memory\n");
-		return EFI_ST_FAILURE;
-	}
 	if (!handle_partition) {
 		efi_st_error("Partition handle not found\n");
 		return EFI_ST_FAILURE;
@@ -135,7 +119,7 @@ static int execute(void)
 
 	/* Open the simple file system protocol */
 	ret = boottime->open_protocol(handle_partition,
-				      &guid_simple_file_system_protocol,
+				      (const efi_guid_t*)&gEfiSimpleFileSystemProtocolGuid,
 				      (void **)&file_system, NULL, NULL,
 				      EFI_OPEN_PROTOCOL_GET_PROTOCOL);
 	if (ret != EFI_SUCCESS) {
@@ -150,7 +134,7 @@ static int execute(void)
 		return EFI_ST_FAILURE;
 	}
 	buf_size = sizeof(system_info);
-	ret = root->getinfo(root, &guid_file_system_info, &buf_size,
+	ret = root->getinfo(root, (const efi_guid_t*)&gEfiFileSystemInfoGuid, &buf_size,
 			    &system_info);
 	if (ret != EFI_SUCCESS) {
 		efi_st_error("Failed to get file system info\n");
