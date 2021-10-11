@@ -14,16 +14,8 @@
  */
 
 #include <efi_selftest.h>
-#include "efi_selftest_disk_image.h"
-
-/* Block size of compressed disk image */
-#define COMPRESSED_DISK_IMAGE_BLOCK_SIZE 8
-
-/* Binary logarithm of the block size */
-#define LB_BLOCK_SIZE 9
-
 static struct efi_boot_services *boottime;
-
+#if 0
 static const efi_guid_t block_io_protocol_guid = BLOCK_IO_GUID;
 static const efi_guid_t guid_device_path = DEVICE_PATH_GUID;
 static const efi_guid_t guid_simple_file_system_protocol =
@@ -34,145 +26,7 @@ static efi_guid_t guid_vendor =
 		 0x08, 0x72, 0x81, 0x9c, 0x65, 0x0c, 0xb7, 0xb8);
 
 static struct efi_device_path *dp;
-
-/* One 8 byte block of the compressed disk image */
-struct line {
-	size_t addr;
-	char *line;
-};
-
-/* Compressed disk image */
-struct compressed_disk_image {
-	size_t length;
-	struct line lines[];
-};
-
-static const struct compressed_disk_image img = EFI_ST_DISK_IMG;
-
-/* Decompressed disk image */
-static uint8_t *image;
-
-/*
- * Reset service of the block IO protocol.
- *
- * @this	block IO protocol
- * @return	status code
- */
-static EFI_STATUS EFIAPI reset(
-			struct efi_block_io *this,
-			char extended_verification)
-{
-	return EFI_SUCCESS;
-}
-
-/*
- * Read service of the block IO protocol.
- *
- * @this	block IO protocol
- * @media_id	media id
- * @lba		start of the read in logical blocks
- * @buffer_size	number of bytes to read
- * @buffer	target buffer
- * @return	status code
- */
-static EFI_STATUS EFIAPI read_blocks(
-			struct efi_block_io *this, uint32_t media_id,
-			uint64_t lba,
-			uint buffer_size, void *buffer)
-{
-	uint8_t *start;
-
-	if ((lba << LB_BLOCK_SIZE) + buffer_size > img.length)
-		return EFI_INVALID_PARAMETER;
-	start = image + (lba << LB_BLOCK_SIZE);
-
-	boottime->copy_mem(buffer, start, buffer_size);
-
-	return EFI_SUCCESS;
-}
-
-/*
- * Write service of the block IO protocol.
- *
- * @this	block IO protocol
- * @media_id	media id
- * @lba		start of the write in logical blocks
- * @buffer_size	number of bytes to read
- * @buffer	source buffer
- * @return	status code
- */
-static EFI_STATUS EFIAPI write_blocks(
-			struct efi_block_io *this, uint32_t media_id,
-			uint64_t lba,
-			uint buffer_size, void *buffer)
-{
-	uint8_t *start;
-
-	if ((lba << LB_BLOCK_SIZE) + buffer_size > img.length)
-		return EFI_INVALID_PARAMETER;
-	start = image + (lba << LB_BLOCK_SIZE);
-
-	boottime->copy_mem(start, buffer, buffer_size);
-
-	return EFI_SUCCESS;
-}
-
-/*
- * Flush service of the block IO protocol.
- *
- * @this	block IO protocol
- * @return	status code
- */
-static EFI_STATUS EFIAPI flush_blocks(struct efi_block_io *this)
-{
-	return EFI_SUCCESS;
-}
-
-/*
- * Decompress the disk image.
- *
- * @image	decompressed disk image
- * @return	status code
- */
-static EFI_STATUS decompress(uint8_t **image)
-{
-	uint8_t *buf;
-	size_t i;
-	size_t addr;
-	size_t len;
-	EFI_STATUS ret;
-
-	ret = boottime->allocate_pool(EFI_LOADER_DATA, img.length,
-				      (void **)&buf);
-	if (ret != EFI_SUCCESS) {
-		efi_st_error("Out of memory\n");
-		return ret;
-	}
-	boottime->set_mem(buf, img.length, 0);
-
-	for (i = 0; ; ++i) {
-		if (!img.lines[i].line)
-			break;
-		addr = img.lines[i].addr;
-		len = COMPRESSED_DISK_IMAGE_BLOCK_SIZE;
-		if (addr + len > img.length)
-			len = img.length - addr;
-		boottime->copy_mem(buf + addr, img.lines[i].line, len);
-	}
-	*image = buf;
-	return ret;
-}
-
-static struct efi_block_io_media media;
-
-static struct efi_block_io block_io = {
-	.media = &media,
-	.reset = reset,
-	.read_blocks = read_blocks,
-	.write_blocks = write_blocks,
-	.flush_blocks = flush_blocks,
-};
-
+#endif
 /* Handle for the block IO device */
 static EFI_HANDLE disk_handle;
 
@@ -183,58 +37,9 @@ static EFI_HANDLE disk_handle;
  * @systable:	system table
  * @return:	EFI_ST_SUCCESS for success
  */
-static int setup(const EFI_HANDLE handle,
-		 const EFI_SYSTEM_TABLE *systable)
+static int setup(const efi_handle_t handle,
+		 const struct efi_system_table *systable)
 {
-	EFI_STATUS ret;
-	struct efi_device_path_vendor vendor_node;
-	struct efi_device_path end_node;
-
-	boottime = systable->boottime;
-
-	decompress(&image);
-
-	block_io.media->block_size = 1 << LB_BLOCK_SIZE;
-	block_io.media->last_block = img.length >> LB_BLOCK_SIZE;
-
-	ret = boottime->install_protocol_interface(
-				&disk_handle, &block_io_protocol_guid,
-				EFI_NATIVE_INTERFACE, &block_io);
-	if (ret != EFI_SUCCESS) {
-		efi_st_error("Failed to install block I/O protocol\n");
-		return EFI_ST_FAILURE;
-	}
-
-	ret = boottime->allocate_pool(EFI_LOADER_DATA,
-				      sizeof(struct efi_device_path_vendor) +
-				      sizeof(struct efi_device_path),
-				      (void **)&dp);
-	if (ret != EFI_SUCCESS) {
-		efi_st_error("Out of memory\n");
-		return EFI_ST_FAILURE;
-	}
-	vendor_node.dp.type = DEVICE_PATH_TYPE_HARDWARE_DEVICE;
-	vendor_node.dp.sub_type = DEVICE_PATH_SUB_TYPE_VENDOR;
-	vendor_node.dp.length = sizeof(struct efi_device_path_vendor);
-
-	boottime->copy_mem(&vendor_node.guid, &guid_vendor,
-			   sizeof(efi_guid_t));
-	boottime->copy_mem(dp, &vendor_node,
-			   sizeof(struct efi_device_path_vendor));
-	end_node.type = DEVICE_PATH_TYPE_END;
-	end_node.sub_type = DEVICE_PATH_SUB_TYPE_END;
-	end_node.length = sizeof(struct efi_device_path);
-
-	boottime->copy_mem((char *)dp + sizeof(struct efi_device_path_vendor),
-			   &end_node, sizeof(struct efi_device_path));
-	ret = boottime->install_protocol_interface(&disk_handle,
-						   &guid_device_path,
-						   EFI_NATIVE_INTERFACE,
-						   dp);
-	if (ret != EFI_SUCCESS) {
-		efi_st_error("InstallProtocolInterface failed\n");
-		return EFI_ST_FAILURE;
-	}
 	return EFI_ST_SUCCESS;
 }
 
@@ -246,32 +51,6 @@ static int setup(const EFI_HANDLE handle,
 static int teardown(void)
 {
 	EFI_STATUS r = EFI_ST_SUCCESS;
-
-	if (disk_handle) {
-		r = boottime->uninstall_protocol_interface(disk_handle,
-							   &guid_device_path,
-							   dp);
-		if (r != EFI_SUCCESS) {
-			efi_st_error("Uninstall device path failed\n");
-			return EFI_ST_FAILURE;
-		}
-		r = boottime->uninstall_protocol_interface(
-				disk_handle, &block_io_protocol_guid,
-				&block_io);
-		if (r != EFI_SUCCESS) {
-			efi_st_todo(
-				"Failed to uninstall block I/O protocol\n");
-			return EFI_ST_SUCCESS;
-		}
-	}
-
-	if (image) {
-		r = efi_free_pool(image);
-		if (r != EFI_SUCCESS) {
-			efi_st_error("Failed to free image\n");
-			return EFI_ST_FAILURE;
-		}
-	}
 	return r;
 }
 
@@ -298,7 +77,8 @@ static uint dp_size(struct efi_device_path *dp)
 static int execute(void)
 {
 	EFI_STATUS ret;
-	uint no_handles, i, len;
+	size_t no_handles;
+	uint i, len;
 	EFI_HANDLE *handles;
 	EFI_HANDLE handle_partition = NULL;
 	struct efi_device_path *dp_partition;
@@ -308,8 +88,8 @@ static int execute(void)
 		struct efi_file_system_info info;
 		uint16_t label[12];
 	} system_info;
-	uint buf_size;
-	char buf[16] __aligned(ARCH_DMA_MINALIGN);
+	size_t buf_size;
+	static char buf[16] __aligned(4096);
 
 	/* Connect controller to virtual disk */
 	ret = boottime->connect_controller(disk_handle, NULL, NULL, 1);
@@ -388,7 +168,7 @@ static int execute(void)
 	}
 
 	/* Read file */
-	ret = root->open(root, &file, (s16 *)L"hello.txt", EFI_FILE_MODE_READ,
+	ret = root->open(root, &file, (int16_t *)L"hello.txt", EFI_FILE_MODE_READ,
 			 0);
 	if (ret != EFI_SUCCESS) {
 		efi_st_error("Failed to open file\n");

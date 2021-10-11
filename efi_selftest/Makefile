@@ -138,7 +138,6 @@ $(GNUEFI_DIR)/$(GNUEFI_ARCH)/lib/libefi.a:
 
 NOOBJ=\
 	efi_selftest_bitblt.o \
-	efi_selftest_block_device.o \
 	efi_selftest_config_table.o \
 	efi_selftest_controllers.o \
 	efi_selftest_crc32.o \
@@ -168,6 +167,7 @@ NOOBJ=\
 OBJ=\
 	main.o \
 	efi_selftest.o \
+	efi_selftest_block_device.o \
 	efi_selftest_console.o \
 	efi_selftest_rtc.o \
 	efi_selftest_util.o \
@@ -178,9 +178,11 @@ main.efi: $(OBJ)
 	@echo  [LD]  $(notdir $@)
 	$(CC) $(LDFLAGS) $(OBJ) -o $@ $(LIBS)
 
+# until we get rid of the bullshit u-boot UEFI_GUID macro ... -Wno-overflow
 %.o: %.c
 	@echo  [CC]  $(notdir $@)
-	@$(CC) -I. $(CFLAGS) -ffreestanding -Wno-unused-function -Wno-shadow -Wno-unused-variable -c $<
+	@$(CC) -E -I. $(CFLAGS) -ffreestanding -Wno-unused-function -Wno-shadow -Wno-unused-variable -o $<.cpp $<
+	@$(CC) -I. $(CFLAGS) -ffreestanding -Wno-overflow -Wno-unused-function -Wno-shadow -Wno-unused-variable -c $<
 
 qemu: CFLAGS += -D_DEBUG
 qemu: all $(FW_BASE)_$(FW_ARCH).fd image/efi/boot/boot$(ARCH).efi
