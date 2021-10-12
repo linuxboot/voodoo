@@ -26,7 +26,7 @@ func (t *Tracee) Inst() (*x86asm.Inst, *syscall.PtraceRegs, string, error) {
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("Inst:Getregs:%v", err)
 	}
-	pc := r.Pc
+	pc := r.Rip
 	insn := make([]byte, 16)
 	if err := t.Read(uintptr(pc), insn); err != nil {
 		return nil, nil, "", fmt.Errorf("Can' read PC at #%x, err %v", pc, err)
