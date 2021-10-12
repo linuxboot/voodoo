@@ -2,3 +2,8 @@ aug 20
 we're finally back to trying to open the DD9E7534-7762-4698-8C14-F58517A625AA
 and getting invalid, not sure why.
 may need to add this to the handle?
+
+oct 12 
+time to start  arm64
+https://gitlab.arm.com/linux-arm/kvmtool/-/blob/master/arm/aarch64/kvm-cpu.c is a good reference
+
