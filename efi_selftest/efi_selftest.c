@@ -143,7 +143,7 @@ extern EFI_UNIT_TEST(rtc);
 EFI_UNIT_TEST(blkdev);
 struct efi_unit_test *tests[] = {
 	&rtc,
-	&blkdev,
+	//&blkdev,
 };
 
 enum {
