@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build (linux && amd64) || (linux && arm64)
 // +build linux,amd64 linux,arm64
 
 package main
@@ -117,7 +118,7 @@ func main() {
 	// bogus params to see if we can manages a segv
 	//r.Rcx = uint64(imageHandle)
 	//r.Rdx = uint64(systemTable)
-	r.Eflags |= 0x100
+	efisp := setupRegs(r)
 
 	if err := v.SetRegs(r); err != nil {
 		log.Fatalf("GetRegs: got %v, want nil", err)
@@ -126,7 +127,6 @@ func main() {
 	// Reserve space for DXE data.
 	services.SetAllocBase(0x40000000)
 
-	efisp := r.Rsp
 	// When it does the final return, it has to halt.
 	// Put a halt on top of stack, and point top of stack to it.
 	if err := trace.WriteWord(v, uintptr(efisp), 0xf4f4f4f4f4f4f4f4); err != nil {

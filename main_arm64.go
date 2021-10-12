@@ -45,3 +45,10 @@ func checkConsole(i *armasm.Inst, r *syscall.PtraceRegs, asm string) {
 	}
 
 }
+
+// this is not great, but will have to do for now.
+// Never anticipated multi-architecture.
+func setupRegs(r *syscall.PtraceRegs) uintptr {
+	log.Panicf("setupregs: %#x", r)
+	return 0
+}
