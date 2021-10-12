@@ -618,15 +618,6 @@ func (t *Tracee) GetRegs() (*syscall.PtraceRegs, error) {
 	return pr, nil
 }
 
-// GetIPtr reads the instruction pointer from the inferior and returns it.
-func (t *Tracee) GetIPtr() (uintptr, error) {
-	var regs syscall.PtraceRegs
-	if err := syscall.PtraceGetRegs(int(t.dev.Fd()), &regs); err != nil {
-		return 0, err
-	}
-	return uintptr(regs.Pc), nil
-}
-
 // SetRegs sets regs for a Tracee.
 // The ability to set sregs is limited by what can be set in ptraceregs.
 func (t *Tracee) SetRegs(pr *syscall.PtraceRegs) error {
@@ -1057,38 +1048,38 @@ func (t *Tracee) readInfo() error {
 
 // PC implements PC
 func (t *Tracee) PC() (uintptr, error) {
-	var regs syscall.PtraceRegs
-	if err := syscall.PtraceGetRegs(int(t.dev.Fd()), &regs); err != nil {
+	r, err := t.GetRegs()
+	if err != nil {
 		return 0, err
 	}
-	return uintptr(regs.Pc), nil
+	return uintptr(r.Rip), nil
 }
 
 // Stack implements Stack
 func (t *Tracee) Stack() (uintptr, error) {
-	var regs syscall.PtraceRegs
-	if err := syscall.PtraceGetRegs(int(t.dev.Fd()), &regs); err != nil {
+	r, err := t.GetRegs()
+	if err != nil {
 		return 0, err
 	}
-	return uintptr(regs.Sp), nil
+	return uintptr(r.Pc), nil
 }
 
 // PC implements PC
 func (t *Tracee) SetPC(pc uintptr) error {
-	var regs syscall.PtraceRegs
-	if err := syscall.PtraceGetRegs(int(t.dev.Fd()), &regs); err != nil {
-		return err
+	r, err := t.GetRegs()
+	if err != nil {
+		return 0, err
 	}
-	regs.Pc = uint64(pc)
-	return t.SetRegs(&regs)
+	r.Pc = uint64(pc)
+	return t.SetRegs(r)
 }
 
 // SetStack implements SetStack
 func (t *Tracee) SetStack(sp uintptr) error {
-	var regs syscall.PtraceRegs
-	if err := syscall.PtraceGetRegs(int(t.dev.Fd()), &regs); err != nil {
-		return err
+	r, err := t.GetRegs()
+	if err != nil {
+		return 0, err
 	}
-	regs.Sp = uint64(sp)
-	return t.SetRegs(&regs)
+	r.Sp = uint64(sp)
+	return t.SetRegs(r)
 }
