@@ -5,17 +5,17 @@ import (
 	"syscall"
 
 	"github.com/linuxboot/voodoo/trace"
-	"golang.org/x/arch/x86/x86asm"
+	"golang.org/x/arch/arm/armasm"
 	"golang.org/x/sys/unix"
 )
 
-type Register = x86asm.Reg
+type Register = armasm.Reg
 
 // Fault defines all we need to know on a fault and how to do it.
 type Fault struct {
 	Proc trace.Trace
 	Info *unix.SignalfdSiginfo
-	Inst *x86asm.Inst
+	Inst *armasm.Inst
 	Regs *syscall.PtraceRegs
 	// We use Asm to figure out instruction type.
 	Asm  string
@@ -24,21 +24,22 @@ type Fault struct {
 }
 
 func retval(f *Fault, val uintptr) error {
+	panic("retval")
 	var err error
-	v := uint64(val)
+	//v := uint64(val)
 	switch f.Inst.Args[0] {
-	case x86asm.RSI:
-		f.Regs.Rsi = v
-	case x86asm.RCX:
-		f.Regs.Rcx = v
-	case x86asm.RDX:
-		f.Regs.Rdx = v
-	case x86asm.EDX:
-		f.Regs.Rdx = v
-	case x86asm.RAX:
-		f.Regs.Rax = v
-	case x86asm.R8:
-		f.Regs.R8 = v
+	// case x86asm.RSI:
+	// 	f.Regs.Rsi = v
+	// case x86asm.RCX:
+	// 	f.Regs.Rcx = v
+	// case x86asm.RDX:
+	// 	f.Regs.Rdx = v
+	// case x86asm.EDX:
+	// 	f.Regs.Rdx = v
+	// case x86asm.RAX:
+	// 	f.Regs.Rax = v
+	// case x86asm.R8:
+	// 	f.Regs.R8 = v
 	default:
 		err = fmt.Errorf("Can't handle dest %v", f.Inst.Args[0])
 	}
@@ -47,10 +48,10 @@ func retval(f *Fault, val uintptr) error {
 
 // SetEFIRetval sets the EFI return value
 func (f *Fault) SetEFIRetval(val uintptr) {
-	f.Regs.Rax = uint64(val)
+	f.Regs.Regs[0] = uint64(val)
 }
 
 // GetEFIRetval sets the EFI return value
 func (f *Fault) GetEFIRetval() uintptr {
-	return uintptr(f.Regs.Rax)
+	return uintptr(f.Regs.Regs[0])
 }

@@ -130,7 +130,7 @@ func (t *BlockIO) Ptr() ServPtr {
 func (t *BlockIO) Call(f *Fault) error {
 	op := f.Op
 	Debug("BlockIO services: %v(%#x), arg type %T, args %v", table.BlockIOServiceNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
-	f.Regs.Rax = uefi.EFI_SUCCESS
+	f.SetEFIRetval(uefi.EFI_SUCCESS)
 	switch op {
 	case table.BlockIORevision:
 	case table.BlockIOMedia:
@@ -140,7 +140,7 @@ func (t *BlockIO) Call(f *Fault) error {
 	case table.BlockIOFlushBlocks:
 	}
 	log.Panicf("unsupported BlockIO Call: %#x", op)
-	f.Regs.Rax = uefi.EFI_UNSUPPORTED
+	f.SetEFIRetval(uefi.EFI_UNSUPPORTED)
 	return nil
 }
 

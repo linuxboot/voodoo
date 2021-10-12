@@ -61,7 +61,7 @@ func (b *Boot) Ptr() ServPtr {
 // Call implements service.Call
 func (r *Boot) Call(f *Fault) error {
 	op := f.Op
-	f.Regs.Rax = uefi.EFI_SUCCESS
+	f.SetEFIRetval(uefi.EFI_SUCCESS)
 	Debug("Boot services: %s(%#x), arg type %T, args %v", table.BootServicesNames[int(op)], op, f.Inst.Args, f.Inst.Args)
 	switch op {
 	case table.GetMemoryMap:
@@ -160,7 +160,7 @@ func (r *Boot) Call(f *Fault) error {
 		d, ok := dispatches[ServBase(g.String())]
 		Debug("HandleProtocol: GUID %s %v ok? %v", g, d, ok)
 		if !ok {
-			f.Regs.Rax = uefi.EFI_NOT_FOUND
+			f.SetEFIRetval(uefi.EFI_NOT_FOUND)
 			return nil
 		}
 		var bb [8]byte
@@ -181,7 +181,7 @@ func (r *Boot) Call(f *Fault) error {
 			return fmt.Errorf("Can't read guid at #%x, err %v", f.Args[1], err)
 		}
 		Debug("table.LocateDevicePath: GUID %s", g)
-		f.Regs.Rax = uefi.EFI_NOT_FOUND
+		f.SetEFIRetval(uefi.EFI_NOT_FOUND)
 		return nil
 
 	case table.PCHandleProtocol:
@@ -226,7 +226,7 @@ func (r *Boot) Call(f *Fault) error {
 		h, err := getHandle(hd(f.Args[0]))
 		if err != nil {
 			Debug("OpenProtocol: No Handle for %#x", f.Args[0])
-			f.Regs.Rax = uefi.EFI_NOT_FOUND
+			f.SetEFIRetval(uefi.EFI_NOT_FOUND)
 			return nil
 		}
 		var g guid.GUID
@@ -237,13 +237,13 @@ func (r *Boot) Call(f *Fault) error {
 		ah, err := getHandle(hd(f.Args[3]))
 		if err != nil {
 			Debug("OpenProtocol: No Agent Handle for %#x", f.Args[3])
-			f.Regs.Rax = uefi.EFI_NOT_FOUND
+			f.SetEFIRetval(uefi.EFI_NOT_FOUND)
 			return nil
 		}
 		ch, err := getHandle(hd(f.Args[4]))
 		if err != nil {
 			Debug("OpenProtocol: No Controller Handle for %#x", f.Args[4])
-			//f.Regs.Rax = uefi.EFI_NOT_FOUND
+			//f.SetEFIRetval(uefi.EFI_NOT_FOUND)
 			//return nil
 		}
 		attr := f.Args[5]
@@ -254,7 +254,7 @@ func (r *Boot) Call(f *Fault) error {
 			return err
 		}
 		Debug("Gets dispatch %v", e)
-		f.Regs.Rax = uefi.EFI_NOT_FOUND
+		f.SetEFIRetval(uefi.EFI_NOT_FOUND)
 		return nil
 		// }
 		// var bb [8]byte
@@ -278,7 +278,7 @@ func (r *Boot) Call(f *Fault) error {
 		d, ok := dispatches[ServBase(g.String())]
 		Debug("HandleProtocol: GUID %s %v ok? %v", g, d, ok)
 		if !ok {
-			f.Regs.Rax = uefi.EFI_NOT_FOUND
+			f.SetEFIRetval(uefi.EFI_NOT_FOUND)
 			return nil
 		}
 		var bb [8]byte
@@ -306,7 +306,7 @@ func (r *Boot) Call(f *Fault) error {
 
 	default:
 		log.Panicf("unsupported boot service %#x %q", op, table.BootServicesNames[int(op)])
-		f.Regs.Rax = uefi.EFI_UNSUPPORTED
+		f.SetEFIRetval(uefi.EFI_UNSUPPORTED)
 	}
 	return nil
 }

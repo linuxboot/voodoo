@@ -54,11 +54,11 @@ func (c *Collate) Ptr() ServPtr {
 func (t *Collate) Call(f *Fault) error {
 	op := f.Op
 	Debug("Collate services: %v(%#x), arg type %T, args %v", table.CollateServicesNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
-	f.Regs.Rax = uefi.EFI_SUCCESS
+	f.SetEFIRetval(uefi.EFI_SUCCESS)
 	switch op {
 	default:
 		log.Panicf("unsup collate Call: %#x", op)
-		f.Regs.Rax = uefi.EFI_UNSUPPORTED
+		f.SetEFIRetval(uefi.EFI_UNSUPPORTED)
 	}
 	return nil
 }

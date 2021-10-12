@@ -75,17 +75,17 @@ func (r *Runtime) Call(f *Fault) error {
 			return fmt.Errorf("Can't read guid at #%x, err %v", args[1], err)
 		}
 		Debug("PCHandleProtocol: find %s %s", n, g)
-		f.Regs.Rax = uefi.EFI_SUCCESS
+		f.SetEFIRetval(uefi.EFI_SUCCESS)
 		v, err := uefi.ReadVariable(n, g)
 		if err != nil {
-			f.Regs.Rax = uefi.EFI_NOT_FOUND
+			f.SetEFIRetval(uefi.EFI_NOT_FOUND)
 			if err := f.Proc.SetRegs(f.Regs); err != nil {
 				return err
 			}
 		}
 		Debug("%s:%s: v is %v", n, g, v)
 	case table.RTSetVariable:
-		f.Regs.Rax = uefi.EFI_SUCCESS
+		f.SetEFIRetval(uefi.EFI_SUCCESS)
 		// whatever.
 	case table.RTGetTime:
 		args := trace.Args(f.Proc, f.Regs, 2)
@@ -127,11 +127,11 @@ func (r *Runtime) Call(f *Fault) error {
 				return fmt.Errorf("Can't write %d bytes to %#x: %v", b.Len(), dat, err)
 			}
 		}
-		f.Regs.Rax = uefi.EFI_SUCCESS
+		f.SetEFIRetval(uefi.EFI_SUCCESS)
 
 	default:
 		log.Panicf("fix me: %s(%#x): %s", table.RuntimeServicesNames[uint64(op)], op, string(debug.Stack()))
-		f.Regs.Rax = uefi.EFI_UNSUPPORTED
+		f.SetEFIRetval(uefi.EFI_UNSUPPORTED)
 	}
 	return nil
 }

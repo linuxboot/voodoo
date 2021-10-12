@@ -111,7 +111,7 @@ func (l *LoadedImage) Call(f *Fault) error {
 	case table.LIParentHandle:
 	case table.LIRevision:
 	default:
-		f.Regs.Rax = uefi.EFI_UNSUPPORTED
+		f.SetEFIRetval(uefi.EFI_UNSUPPORTED)
 	}
 	return nil
 }

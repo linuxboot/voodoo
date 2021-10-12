@@ -58,7 +58,7 @@ func (t *TextIn) Ptr() ServPtr {
 func (t *TextIn) Call(f *Fault) error {
 	op := f.Op
 	Debug("TextIn services: %v(%#x), arg type %T, args %v", table.SimpleTextInServicesNames[uint64(op)], op, f.Inst.Args, f.Inst.Args)
-	f.Regs.Rax = uefi.EFI_SUCCESS
+	f.SetEFIRetval(uefi.EFI_SUCCESS)
 	switch op {
 	case table.STInReset:
 	case table.STInReadKeyStroke:
@@ -73,7 +73,7 @@ func (t *TextIn) Call(f *Fault) error {
 		}
 	default:
 		log.Panicf("unsup textout Call: %#x", op)
-		f.Regs.Rax = uefi.EFI_UNSUPPORTED
+		f.SetEFIRetval(uefi.EFI_UNSUPPORTED)
 	}
 	return nil
 }
