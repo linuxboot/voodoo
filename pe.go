@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build linux,amd64
+//go:build (linux && amd64) || (linux && arm64)
+// +build linux,amd64 linux,arm64
 
 package main
 
@@ -15,15 +16,15 @@ import (
 	"github.com/linuxboot/voodoo/trace"
 )
 
-func loadPE(t trace.Trace, n string, r *syscall.PtraceRegs, log func(string, ...interface{})) error {
+func loadPE(t trace.Trace, n string, r *syscall.PtraceRegs, flog func(string, ...interface{})) (uintptr, uintptr, error) {
 	f, err := pe.Open(flag.Args()[0])
 	if err != nil {
-		return err
+		return 0, 0, err
 	}
 	defer f.Close()
 	h, ok := f.OptionalHeader.(*pe.OptionalHeader64)
 	if !ok {
-		return fmt.Errorf("File type is %T, but has to be %T", f.OptionalHeader, pe.OptionalHeader64{})
+		return 0, 0, fmt.Errorf("File type is %T, but has to be %T", f.OptionalHeader, pe.OptionalHeader64{})
 	}
 	// We need to relocate to start at *offset.
 	// UEFI runs in page zero. I can't believe it.
@@ -34,21 +35,21 @@ func loadPE(t trace.Trace, n string, r *syscall.PtraceRegs, log func(string, ...
 	// Stack goes at top of reserved stack area.
 	sp := heap + uintptr(h.SizeOfHeapReserve+h.SizeOfStackReserve)
 	totalsize := int(h.SizeOfImage) + int(h.SizeOfHeapReserve+h.SizeOfStackReserve)
-	log("Write %d bytes to %#x", totalsize, base)
+	flog("Write %d bytes to %#x", totalsize, base)
 	if err := t.Write(base, make([]byte, totalsize)); err != nil {
-		return fmt.Errorf("Can't write %d bytes of zero @ %#x for this section to process:%v", totalsize, base, err)
+		return 0, 0, fmt.Errorf("Can't write %d bytes of zero @ %#x for this section to process:%v", totalsize, base, err)
 	}
 
 	for i, s := range f.Sections {
-		log("Section %d", i)
-		log(show("\t", &s.SectionHeader))
+		flog("Section %d", i)
+		flog(show("\t", &s.SectionHeader))
 		addr := base + uintptr(s.VirtualAddress)
 		dat, err := s.Data()
 		if err != nil {
-			return fmt.Errorf("Can't get data for this section: %v", err)
+			return 0, 0, fmt.Errorf("Can't get data for this section: %v", err)
 		}
 		// Zero it out.
-		log("Copy section to %#x:%#x", addr, s.VirtualSize)
+		flog("Copy section to %#x:%#x", addr, s.VirtualSize)
 		bb := make([]byte, s.VirtualSize)
 		if false {
 			for i := range bb {
@@ -56,13 +57,12 @@ func loadPE(t trace.Trace, n string, r *syscall.PtraceRegs, log func(string, ...
 			}
 		}
 		if err := t.Write(addr, bb); err != nil {
-			return fmt.Errorf("Can't write %d bytes of zero @ %#x for this section to process:%v", len(bb), addr, err)
+			return 0, 0, fmt.Errorf("Can't write %d bytes of zero @ %#x for this section to process:%v", len(bb), addr, err)
 		}
 		if err := t.Write(addr, dat); err != nil {
-			return fmt.Errorf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err)
+			return 0, 0, fmt.Errorf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err)
 		}
 	}
-	r.Rsp = uint64(sp)
-	r.Rip = uint64(eip)
-	return nil
+
+	return eip, sp, nil
 }

@@ -1050,3 +1050,45 @@ func (t *Tracee) readInfo() error {
 	t.info = sig
 	return nil
 }
+
+// This is all kindy nasty, and looks high overhead, I suppose, but
+// it's rare
+// you want to make sure it worked.
+
+// PC implements PC
+func (t *Tracee) PC() (uintptr, error) {
+	var regs syscall.PtraceRegs
+	if err := syscall.PtraceGetRegs(int(t.dev.Fd()), &regs); err != nil {
+		return 0, err
+	}
+	return uintptr(regs.Pc), nil
+}
+
+// Stack implements Stack
+func (t *Tracee) Stack() (uintptr, error) {
+	var regs syscall.PtraceRegs
+	if err := syscall.PtraceGetRegs(int(t.dev.Fd()), &regs); err != nil {
+		return 0, err
+	}
+	return uintptr(regs.Sp), nil
+}
+
+// PC implements PC
+func (t *Tracee) SetPC(pc uintptr) error {
+	var regs syscall.PtraceRegs
+	if err := syscall.PtraceGetRegs(int(t.dev.Fd()), &regs); err != nil {
+		return err
+	}
+	regs.Pc = uint64(pc)
+	return t.SetRegs(&regs)
+}
+
+// SetStack implements SetStack
+func (t *Tracee) SetStack(sp uintptr) error {
+	var regs syscall.PtraceRegs
+	if err := syscall.PtraceGetRegs(int(t.dev.Fd()), &regs); err != nil {
+		return err
+	}
+	regs.Sp = uint64(sp)
+	return t.SetRegs(&regs)
+}

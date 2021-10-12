@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build (linux && amd64) || (linux && arm64)
 // +build linux,amd64 linux,arm64
 
 package main
@@ -103,7 +104,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("GetRegs: got %v, want nil", err)
 	}
-	if err := loadPE(v, a, r, Debug); err != nil {
+	newpc, newsp, err := loadPE(v, a, r, Debug)
+	if err != nil {
 		log.Fatal(err)
 	}
 
@@ -117,25 +119,38 @@ func main() {
 	// bogus params to see if we can manages a segv
 	//r.Rcx = uint64(imageHandle)
 	//r.Rdx = uint64(systemTable)
-	r.Eflags |= 0x100
+	// r.Eflags |= 0x100
 
-	if err := v.SetRegs(r); err != nil {
-		log.Fatalf("GetRegs: got %v, want nil", err)
+	if err := v.SetStack(newsp); err != nil {
+		log.Fatalf("Setting stack to %#x: %v", newsp, err)
+	}
+	if err := v.SetPC(newpc); err != nil {
+		log.Fatalf("Setting pc to %#x: %v", newpc, err)
 	}
 
 	// Reserve space for DXE data.
 	services.SetAllocBase(0x40000000)
 
-	efisp := r.Rsp
+	// Things learned the hard way: just check every little thing you do with
+	// registers etc. Yes it means a system call round trip to kvm. So what?
+	// You're doing this just a few times. It pays.
+	efisp, err := v.Stack()
+	if err != nil {
+		log.Fatal(err)
+	}
 	// When it does the final return, it has to halt.
 	// Put a halt on top of stack, and point top of stack to it.
 	if err := trace.WriteWord(v, uintptr(efisp), 0xf4f4f4f4f4f4f4f4); err != nil {
 		log.Fatalf("Writing halts at %#x: got %v, want nil", efisp, err)
 	}
 
-	sp := uint64(r.Rsp)
+	sp, err := v.Stack()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	efisp -= 8
-	if err := trace.WriteWord(v, uintptr(efisp), sp); err != nil {
+	if err := trace.WriteWord(v, uintptr(efisp), uint64(sp)); err != nil {
 		log.Fatalf("Writing stack %#x at %#x: got %v, want nil", efisp, efisp-8, err)
 	}
 	if *dryrun {
@@ -173,7 +188,11 @@ func main() {
 					log.Fatal(err)
 				}
 			}
-			haltasm := trace.Asm(insn, r.Rip)
+			pc, err := v.Stack()
+			if err != nil {
+				log.Fatal(err)
+			}
+			haltasm := trace.Asm(insn, uint64(pc))
 			if err := halt(v, &ev, insn, r, haltasm); err != nil {
 				if err == io.EOF {
 					fmt.Println("\n===:DXE Exits!")
@@ -230,5 +249,9 @@ func main() {
 		}
 		Debug("Inst returns %v, %v, %q, %v", i, r, g, err)
 	}
-	log.Printf("Exit: Rsp is %#x", r.Rsp)
+
+	if sp, err = v.Stack(); err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Exit: Rsp is %#x", sp)
 }

@@ -15,11 +15,17 @@ type Trace interface {
 	ReadWord(address uintptr) (uint64, error)
 	Read(address uintptr, data []byte) error
 	Write(address uintptr, data []byte) error
+	// TODO: now that we are multiarchitecture, create a regs
+	// that has Args(), Results(), etc. and doesn't return PtraceRegs.
 	GetRegs() (*syscall.PtraceRegs, error)
 	SetRegs(pr *syscall.PtraceRegs) error
 	SingleStep(onoff bool) error
 	Run() error
 	Tab() []byte
+	Stack() (uintptr, error)
+	PC() (uintptr, error)
+	SetStack(uintptr) error
+	SetPC(uintptr) error
 }
 
 var Debug = func(string, ...interface{}) {}
