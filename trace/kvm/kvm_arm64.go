@@ -1052,7 +1052,7 @@ func (t *Tracee) PC() (uintptr, error) {
 	if err != nil {
 		return 0, err
 	}
-	return uintptr(r.Rip), nil
+	return uintptr(r.Pc), nil
 }
 
 // Stack implements Stack
@@ -1061,14 +1061,14 @@ func (t *Tracee) Stack() (uintptr, error) {
 	if err != nil {
 		return 0, err
 	}
-	return uintptr(r.Pc), nil
+	return uintptr(r.Sp), nil
 }
 
 // PC implements PC
 func (t *Tracee) SetPC(pc uintptr) error {
 	r, err := t.GetRegs()
 	if err != nil {
-		return 0, err
+		return err
 	}
 	r.Pc = uint64(pc)
 	return t.SetRegs(r)
@@ -1078,7 +1078,7 @@ func (t *Tracee) SetPC(pc uintptr) error {
 func (t *Tracee) SetStack(sp uintptr) error {
 	r, err := t.GetRegs()
 	if err != nil {
-		return 0, err
+		return err
 	}
 	r.Sp = uint64(sp)
 	return t.SetRegs(r)
