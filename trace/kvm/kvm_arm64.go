@@ -674,14 +674,10 @@ func readonly(b []byte) error {
 // We are going for broke here, setting up a 64-bit machine.
 // We also set up the BIOS areas, at 0xe0000 and 0xff000000.
 func (t *Tracee) archInit() error {
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), setTSSAddr, 0xfffbd000)
-	if errno != 0 {
-		return errno
-	}
 	// This is exactly following the TestHalt failing test, if that matters to you.
 	vcpufd, err := tioctl(int(t.vm), createCPU, 0)
 	if err != nil {
-		return err
+		return fmt.Errorf("CreateCPU: %v", err)
 	}
 
 	vcpu_mmap_size, err := tioctl(int(t.dev.Fd()), vcpuMmapSize, 0)
@@ -779,19 +775,21 @@ func (t *Tracee) archInit() error {
 	}
 	t.tab = regions[2].dat
 	// Now for CPUID. What a pain.
-	var i = &CPUIDInfo{
-		nent: uint32(len(CPUIDInfo{}.ents)),
-	}
-	Debug("Check CPUID entries")
-	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.dev.Fd()), getCPUID, uintptr(unsafe.Pointer(i))); errno != 0 {
-		Debug("Check CPUID entries err %v", errno)
-		return fmt.Errorf("Getting CPUID entries: %v", errno)
-	}
-	Debug("%v", i)
-	t.cpu.idInfo = i
+	if false {
+		var i = &CPUIDInfo{
+			nent: uint32(len(CPUIDInfo{}.ents)),
+		}
+		Debug("Check CPUID entries")
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.dev.Fd()), getCPUID, uintptr(unsafe.Pointer(i))); errno != 0 {
+			Debug("Check CPUID entries err %v", errno)
+			return fmt.Errorf("Getting CPUID entries: %v", errno)
+		}
+		Debug("%v", i)
+		t.cpu.idInfo = i
 
-	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(vcpufd), setCPUID, uintptr(unsafe.Pointer(i))); errno != 0 {
-		return fmt.Errorf("Set  CPUID entries err %v", errno)
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(vcpufd), setCPUID, uintptr(unsafe.Pointer(i))); errno != 0 {
+			return fmt.Errorf("Set  CPUID entries err %v", errno)
+		}
 	}
 
 	// We learned the hard way: for portability, you MUST read all the processor state, e.g. segment stuff,
@@ -805,54 +803,32 @@ func (t *Tracee) archInit() error {
 	//s := &sregs{}
 
 	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getRegs, uintptr(unsafe.Pointer(&rdata[0]))); errno != 0 {
-		return errno
+		return fmt.Errorf("getRegs: %v", errno)
 	}
 	if err := binary.Read(bytes.NewReader(rdata[:]), binary.LittleEndian, r); err != nil {
 		return err
 	}
 
-	//if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getSregs, uintptr(unsafe.Pointer(&sdata[0]))); errno != 0 {
-	//			return errno
-	//		}
-	//		if err := binary.Read(bytes.NewReader(sdata[:]), binary.LittleEndian, s); err != nil {
-	//			return err
-	//		}
+	if false {
+		/* Clear all FLAGS bits, except bit 1 which is always set. */
+		//r.Rflags = 2
+		r.Rip = 0x100000
+		/* Create stack at top of 2 MB page and grow down. */
+		r.Sp = 2 << 20
 
-	//s.Root = uint64(0xffff_0000)
-
-	/* Clear all FLAGS bits, except bit 1 which is always set. */
-	//r.Rflags = 2
-	r.Rip = 0x100000
-	/* Create stack at top of 2 MB page and grow down. */
-	r.Sp = 2 << 20
-
-	if err := binary.Write(bytes.NewBuffer(rdata[:]), binary.LittleEndian, r); err != nil {
-		return err
+		if err := binary.Write(bytes.NewBuffer(rdata[:]), binary.LittleEndian, r); err != nil {
+			return err
+		}
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setRegs, uintptr(unsafe.Pointer(&rdata[0]))); errno != 0 {
+			return errno
+		}
 	}
-	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setRegs, uintptr(unsafe.Pointer(&rdata[0]))); errno != 0 {
-		return errno
-	}
-
-	// var sw = &bytes.Buffer{}
-	// if err := binary.Write(sw, binary.LittleEndian, s); err != nil {
-	// 	return err
-	// }
-	// if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setSregs, uintptr(unsafe.Pointer(&sw.Bytes()[0]))); errno != 0 {
-	// 	return errno
-	// }
 
 	return nil
 }
 
 func (t *Tracee) archNewProc() error {
 	return nil
-	// Debug("Set CPUID entries in %v", t)
-	// if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setCPUID, uintptr(unsafe.Pointer(t.cpu.idInfo))); errno != 0 {
-	// 	Debug("Set  CPUID entries err %v", errno)
-	// 	return fmt.Errorf("Setting CPUID entries: %v", errno)
-	// }
-
-	// return nil
 }
 
 var bit64 = &sregs{

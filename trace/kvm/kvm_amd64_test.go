@@ -41,15 +41,15 @@ func (t *Tracee) Inst() (*x86asm.Inst, *syscall.PtraceRegs, string, error) {
 func TestNew(t *testing.T) {
 	v, err := New()
 	if err != nil {
-		t.Fatalf("Open: got %v, want nil", err)
+		t.Fatalf("New: got %v, want nil", err)
 	}
 	t.Logf("%v", v)
 }
 
-func TestOpenDetach(t *testing.T) {
+func TestNewDetach(t *testing.T) {
 	v, err := New()
 	if err != nil {
-		t.Fatalf("Open: got %v, want nil", err)
+		t.Fatalf("New: got %v, want nil", err)
 	}
 	t.Logf("%v", v)
 
@@ -61,7 +61,7 @@ func TestOpenDetach(t *testing.T) {
 func TestCreateRegion(t *testing.T) {
 	v, err := New()
 	if err != nil {
-		t.Fatalf("Open: got %v, want nil", err)
+		t.Fatalf("New: got %v, want nil", err)
 	}
 	defer v.Detach()
 	type page [2 * 1048576]byte
@@ -74,7 +74,7 @@ func TestCreateRegion(t *testing.T) {
 func TestReadWrite(t *testing.T) {
 	v, err := New()
 	if err != nil {
-		t.Fatalf("Open: got %v, want nil", err)
+		t.Fatalf("New: got %v, want nil", err)
 	}
 	defer v.Detach()
 	const addr = uintptr(0x6000)
@@ -107,7 +107,7 @@ func TestReadWrite(t *testing.T) {
 func TestCreateCpu(t *testing.T) {
 	v, err := New()
 	if err != nil {
-		t.Fatalf("Open: got %v, want nil", err)
+		t.Fatalf("New: got %v, want nil", err)
 	}
 	defer v.Detach()
 	if err := v.NewProc(0); err != nil {
@@ -118,7 +118,7 @@ func TestCreateCpu(t *testing.T) {
 func TestGetRegs(t *testing.T) {
 	v, err := New()
 	if err != nil {
-		t.Fatalf("Open: got %v, want nil", err)
+		t.Fatalf("New: got %v, want nil", err)
 	}
 	defer v.Detach()
 	t.Logf("%v", v)
@@ -158,7 +158,7 @@ func TestGetRegs(t *testing.T) {
 func TestSetRegs(t *testing.T) {
 	v, err := New()
 	if err != nil {
-		t.Fatalf("Open: got %v, want nil", err)
+		t.Fatalf("New: got %v, want nil", err)
 	}
 	defer v.Detach()
 	t.Logf("%v", v)
@@ -232,7 +232,7 @@ func diff(f func(string, ...interface{}), a, b uint64, n string) bool {
 func testRunUD2(t *testing.T) {
 	v, err := New()
 	if err != nil {
-		t.Fatalf("Open: got %v, want nil", err)
+		t.Fatalf("New: got %v, want nil", err)
 	}
 	defer v.Detach()
 	t.Logf("%v", v)
@@ -263,7 +263,7 @@ func TestHalt(t *testing.T) {
 	Debug = t.Logf
 	v, err := New()
 	if err != nil {
-		t.Fatalf("Open: got %v, want nil", err)
+		t.Fatalf("New: got %v, want nil", err)
 	}
 	if err := v.NewProc(0); err != nil {
 		t.Fatalf("NewProc: got %v, want nil", err)
@@ -315,7 +315,7 @@ func TestDecode(t *testing.T) {
 	Debug = t.Logf
 	v, err := New()
 	if err != nil {
-		t.Fatalf("Open: got %v, want nil", err)
+		t.Fatalf("New: got %v, want nil", err)
 	}
 	defer v.Detach()
 	if err := v.NewProc(0); err != nil {
@@ -362,7 +362,7 @@ func testSegv(t *testing.T) {
 	Debug = t.Logf
 	v, err := New()
 	if err != nil {
-		t.Fatalf("Open: got %v, want nil", err)
+		t.Fatalf("New: got %v, want nil", err)
 	}
 	defer v.Detach()
 	if err := v.NewProc(0); err != nil {
@@ -412,7 +412,7 @@ func TestCall(t *testing.T) {
 	Debug = t.Logf
 	v, err := New()
 	if err != nil {
-		t.Fatalf("Open: got %v, want nil", err)
+		t.Fatalf("New: got %v, want nil", err)
 	}
 	defer v.Detach()
 	if err := v.NewProc(0); err != nil {
@@ -515,7 +515,7 @@ func TestPush(t *testing.T) {
 	Debug = t.Logf
 	v, err := New()
 	if err != nil {
-		t.Fatalf("Open: got %v, want nil", err)
+		t.Fatalf("New: got %v, want nil", err)
 	}
 	defer v.Detach()
 	if err := v.NewProc(0); err != nil {
@@ -596,7 +596,7 @@ func TestCallEFI(t *testing.T) {
 	call := []byte{0x48, 0xb8, 0x00, 0x00, 0x00, 0xef, 0x00, 0x00, 0x00, 0x00, 0xff, 0x10, 0xf4}
 	v, err := New()
 	if err != nil {
-		t.Fatalf("Open: got %v, want nil", err)
+		t.Fatalf("New: got %v, want nil", err)
 	}
 	defer v.Detach()
 	if err := v.NewProc(0); err != nil {
@@ -653,7 +653,7 @@ func TestWriteWord(t *testing.T) {
 	Debug = t.Logf
 	v, err := New()
 	if err != nil {
-		t.Fatalf("Open: got %v, want nil", err)
+		t.Fatalf("New: got %v, want nil", err)
 	}
 	defer v.Detach()
 	if err := v.NewProc(0); err != nil {
@@ -683,7 +683,7 @@ func TestTSC(t *testing.T) {
 
 	v, err := New()
 	if err != nil {
-		t.Fatalf("Open: got %v, want nil", err)
+		t.Fatalf("New: got %v, want nil", err)
 	}
 	defer v.Detach()
 	if err := v.NewProc(0); err != nil {

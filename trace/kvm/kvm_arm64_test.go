@@ -33,7 +33,7 @@ func (t *Tracee) Inst() (*armasm.Inst, *syscall.PtraceRegs, string, error) {
 func TestNew(t *testing.T) {
 	v, err := New()
 	if err != nil {
-		t.Fatalf("Open: got %v, want nil", err)
+		t.Fatalf("New: got %v, want nil", err)
 	}
 	t.Logf("%v", v)
 }
