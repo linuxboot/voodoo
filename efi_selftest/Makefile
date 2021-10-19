@@ -1,4 +1,5 @@
-ARCH            = x64
+ARCH            ?= x64
+# other choices: aa64, ia32, arm
 # You can alter the subsystem according to your EFI binary target:
 # 10 = EFI application
 # 11 = EFI boot service driver
@@ -6,28 +7,29 @@ ARCH            = x64
 SUBSYSTEM       = 10
 
 # Try to auto-detect the target ARCH
-ifeq ($(shell uname -o),Msys)
-  IS_MINGW32    = $(findstring MINGW32,$(shell uname -s))
-  IS_MINGW64    = $(findstring MINGW64,$(shell uname -s))
-  ifeq ($(IS_MINGW32),MINGW32)
-    ARCH        = ia32
-  endif
-  ifeq ($(IS_MINGW64),MINGW64)
-    ARCH        = x64
-  endif
-else
-  ifeq ($(shell uname -m),x86_64)
-    ARCH        = x64
-  else ifeq ($(shell uname -m),arm)
-    ARCH        = arm
-    CROSS_COMPILE =
-  else ifeq ($(shell uname -m),aarch64)
-    ARCH        = aa64
-    CROSS_COMPILE =
-  else
-    ARCH        = ia32
-  endif
-endif
+# fuck this. It's stupid.
+#ifeq ($(shell uname -o),Msys)
+#  IS_MINGW32    = $(findstring MINGW32,$(shell uname -s))
+#  IS_MINGW64    = $(findstring MINGW64,$(shell uname -s))
+#  ifeq ($(IS_MINGW32),MINGW32)
+#    ARCH        = ia32
+#  endif
+#  ifeq ($(IS_MINGW64),MINGW64)
+#    ARCH        = x64
+#  endif
+#else
+#  ifeq ($(shell uname -m),x86_64)
+#    ARCH        = x64
+#  else ifeq ($(shell uname -m),arm)
+#    ARCH        = arm
+#    CROSS_COMPILE =
+#  else ifeq ($(shell uname -m),aarch64)
+#    ARCH        = aa64
+#    CROSS_COMPILE =
+#  else
+#    ARCH        = ia32
+#  endif
+#endif
 
 # Auto-detect the host arch for MinGW
 ifeq ($(shell uname -m),x86_64)
