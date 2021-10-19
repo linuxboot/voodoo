@@ -6,7 +6,7 @@ import (
 	"log"
 	"syscall"
 
-	"golang.org/x/arch/x86/x86asm"
+	"golang.org/x/arch/arm/armasm"
 	"golang.org/x/sys/unix"
 )
 
@@ -19,7 +19,7 @@ func Args(t Trace, r *syscall.PtraceRegs, nargs int) []uintptr {
 }
 
 // Pointer returns the data pointed to by args[arg]
-func Pointer(t Trace, inst *x86asm.Inst, r *syscall.PtraceRegs, arg int) (uintptr, error) {
+func Pointer(t Trace, inst *armasm.Inst, r *syscall.PtraceRegs, arg int) (uintptr, error) {
 	return 0, nil
 }
 
@@ -52,11 +52,11 @@ var (
 )
 
 // Inst retrieves an instruction from the traced process.
-// It returns an x86asm.Inst, Ptraceregs, a string in GNU syntax, and
+// It returns an armasm.Inst, Ptraceregs, a string in GNU syntax, and
 // and error
 // It gets messy if the Rip is in unaddressable space; that means we
 // must fetch the saved Rip from [Rsp].
-func Inst(t Trace) (*x86asm.Inst, *syscall.PtraceRegs, string, error) {
+func Inst(t Trace) (*armasm.Inst, *syscall.PtraceRegs, string, error) {
 	r, err := t.GetRegs()
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("Inst:Getregs:%v", err)
@@ -70,12 +70,12 @@ func Inst(t Trace) (*x86asm.Inst, *syscall.PtraceRegs, string, error) {
 }
 
 // Asm returns a string for the given instruction at the given pc
-func Asm(d *x86asm.Inst, pc uint64) string {
-	return "\"" + x86asm.GNUSyntax(*d, pc, nil) + "\""
+func Asm(d *armasm.Inst, pc uint64) string {
+	return "\"" + armasm.GNUSyntax(*d) + "\""
 }
 
 // CallInfo provides calling info for a function.
-func CallInfo(_ *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.PtraceRegs) string {
+func CallInfo(_ *unix.SignalfdSiginfo, inst *armasm.Inst, r *syscall.PtraceRegs) string {
 	l := fmt.Sprintf("%s[", show("", r))
 	for _, a := range inst.Args {
 		l += fmt.Sprintf("%v,", a)

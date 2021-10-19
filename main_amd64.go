@@ -56,3 +56,12 @@ func setupRegs(r *syscall.PtraceRegs) uintptr {
 	r.Eflags |= 0x100
 	return uintptr(r.Rsp)
 }
+func setStack(r *syscall.PtraceRegs, sp uintptr) {
+	r.Rsp = uint64(sp)
+}
+func getStack(r *syscall.PtraceRegs) uintptr {
+	return uintptr(r.Rsp)
+}
+func setPC(r *syscall.PtraceRegs, pc uintptr) {
+	r.Rip = uint64(pc)
+}

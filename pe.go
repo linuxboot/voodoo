@@ -2,8 +2,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build linux && amd64
-// +build linux,amd64
+//go:build linux && (amd64 || arm64)
+// +build linux
+// +build amd64 arm64
 
 package main
 
@@ -63,7 +64,7 @@ func loadPE(t trace.Trace, n string, r *syscall.PtraceRegs, log func(string, ...
 			return fmt.Errorf("Can't write %d bytes of data @ %#x for this section to process: %v", len(dat), addr, err)
 		}
 	}
-	r.Rsp = uint64(sp)
-	r.Rip = uint64(eip)
+	setStack(r, sp)
+	setPC(r, eip)
 	return nil
 }

@@ -133,9 +133,12 @@ func main() {
 		log.Fatalf("Writing halts at %#x: got %v, want nil", efisp, err)
 	}
 
-	sp := uint64(r.Rsp)
+	sp, err := v.Stack()
+	if err != nil {
+		log.Fatalf("Reading stack from guest: %v", err)
+	}
 	efisp -= 8
-	if err := trace.WriteWord(v, uintptr(efisp), sp); err != nil {
+	if err := trace.WriteWord(v, uintptr(efisp), uint64(sp)); err != nil {
 		log.Fatalf("Writing stack %#x at %#x: got %v, want nil", efisp, efisp-8, err)
 	}
 	if *dryrun {
@@ -173,7 +176,11 @@ func main() {
 					log.Fatal(err)
 				}
 			}
-			haltasm := trace.Asm(insn, r.Rip)
+			pc, err := v.PC()
+			if err != nil {
+				log.Fatalf("Getting PC after a halt: %v", err)
+			}
+			haltasm := trace.Asm(insn, uint64(pc))
 			if err := halt(v, &ev, insn, r, haltasm); err != nil {
 				if err == io.EOF {
 					fmt.Println("\n===:DXE Exits!")
@@ -230,5 +237,5 @@ func main() {
 		}
 		Debug("Inst returns %v, %v, %q, %v", i, r, g, err)
 	}
-	log.Printf("Exit: Rsp is %#x", r.Rsp)
+	log.Printf("Exit: Rsp is %#x", getStack(r))
 }

@@ -38,6 +38,7 @@ func halt(p trace.Trace, i *unix.SignalfdSiginfo, inst *armasm.Inst, r *syscall.
 }
 
 func checkConsole(i *armasm.Inst, r *syscall.PtraceRegs, asm string) {
+	c := '#'
 	if *debug {
 		Debug("CONSOUT: %c", c)
 	} else if *handleConsoleIO {
@@ -51,4 +52,13 @@ func checkConsole(i *armasm.Inst, r *syscall.PtraceRegs, asm string) {
 func setupRegs(r *syscall.PtraceRegs) uintptr {
 	log.Panicf("setupregs: %#x", r)
 	return 0
+}
+func setStack(r *syscall.PtraceRegs, sp uintptr) {
+	r.Sp = uint64(sp)
+}
+func getStack(r *syscall.PtraceRegs) uintptr {
+	return uintptr(r.Sp)
+}
+func setPC(r *syscall.PtraceRegs, pc uintptr) {
+	r.Pc = uint64(pc)
 }
