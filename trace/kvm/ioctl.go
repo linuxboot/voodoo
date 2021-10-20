@@ -1,7 +1,5 @@
 package kvm
 
-import "unsafe"
-
 const (
 	nrbits   = 8
 	typebits = 8

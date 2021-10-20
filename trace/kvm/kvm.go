@@ -47,6 +47,11 @@ type Region struct {
 	data []byte
 }
 
+type OneRegister struct {
+	id   uint64
+	addr uint64
+}
+
 // A Tracee is a process that is being traced.
 type Tracee struct {
 	dev     *os.File
@@ -212,13 +217,6 @@ func (t *Tracee) NewProc(id int) error {
 	if err := t.archNewProc(); err != nil {
 		return err
 	}
-	// Now for the real fun. Long mode.
-	sdata := &bytes.Buffer{}
-	binary.Write(sdata, binary.LittleEndian, bit64)
-	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setSregs, uintptr(unsafe.Pointer(&sdata.Bytes()[0]))); errno != 0 {
-		return fmt.Errorf("can not set sregs: %v", errno)
-	}
-
 	return nil
 
 }

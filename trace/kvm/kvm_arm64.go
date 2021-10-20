@@ -51,6 +51,10 @@ type regs struct {
 	Pstate uint64
 }
 
+// This is the catchall for "things not regs"
+type sregs struct {
+}
+
 // CPUIDEntry is one cpuid entry returned by
 // KVM.
 type CPUIDEntry struct {
@@ -93,10 +97,6 @@ type dtable struct {
 	Base  uint64
 	Limit uint16
 	_     [3]uint16
-}
-
-/* for KVM_GET_SREGS and KVM_SET_SREGS */
-type sregs struct {
 }
 
 func kvmRegstoPtraceRegs(pr *syscall.PtraceRegs, r *regs, s *sregs) {
@@ -583,28 +583,19 @@ func (t Tracee) getRegs() (*regs, *sregs, error) {
 	// This model can get kludgy.
 	type all struct {
 		err error
-		s   *sregs
 		r   *regs
 	}
-	var rdata [unsafe.Sizeof(regs{})]byte
-	//var sdata [unsafe.Sizeof(sregs{})]byte
 	r := &regs{}
-	s := &sregs{}
 
-	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getRegs, uintptr(unsafe.Pointer(&rdata[0]))); errno != 0 {
-		return nil, nil, errno
-	}
-	if err := binary.Read(bytes.NewReader(rdata[:]), binary.LittleEndian, r); err != nil {
-		return nil, nil, err
+	for i := range r.Regs {
+		rr := &OneRegister{id: uint64(i)}
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getOneReg, uintptr(unsafe.Pointer(rr))); errno != 0 {
+			return nil, nil, errno
+		}
+		r.Regs[i] = rr.addr
 	}
 
-	//if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getSregs, uintptr(unsafe.Pointer(&sdata[0]))); errno != 0 {
-	//		return nil, nil, errno
-	//}
-	//if err := binary.Read(bytes.NewReader(sdata[:]), binary.LittleEndian, s); err != nil {
-	//		return nil, nil, err
-	//	}
-	return r, s, nil
+	return r, &sregs{}, nil
 }
 
 // GetRegs reads the registers from the inferior.
@@ -621,29 +612,17 @@ func (t *Tracee) GetRegs() (*syscall.PtraceRegs, error) {
 // SetRegs sets regs for a Tracee.
 // The ability to set sregs is limited by what can be set in ptraceregs.
 func (t *Tracee) SetRegs(pr *syscall.PtraceRegs) error {
-	rdata, sdata := &bytes.Buffer{}, &bytes.Buffer{}
 	r := &regs{}
 	s := &sregs{}
 	ptraceRegsToKVMRegs(pr, r, s)
-	if err := binary.Write(rdata, binary.LittleEndian, r); err != nil {
-		return err
-	}
-	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setRegs, uintptr(unsafe.Pointer(&rdata.Bytes()[0]))); errno != 0 {
-		return errno
-	}
 
-	// We will not allow setting Sregs. It's too dangerous.
-	// ptraceregs don't have enough useful bits.
-	// At some point we might filter the settings and allow
-	// *some* to be set but that's for later.
-	if false {
-		if err := binary.Write(sdata, binary.LittleEndian, s); err != nil {
-			return err
-		}
-		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setSregs, uintptr(unsafe.Pointer(&sdata.Bytes()[0]))); errno != 0 {
+	for i := range r.Regs {
+		rr := &OneRegister{id: uint64(i), addr: r.Regs[i]}
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setOneReg, uintptr(unsafe.Pointer(rr))); errno != 0 {
 			return errno
 		}
 	}
+
 	return nil
 }
 
@@ -774,56 +753,11 @@ func (t *Tracee) archInit() error {
 		}
 	}
 	t.tab = regions[2].dat
-	// Now for CPUID. What a pain.
-	if false {
-		var i = &CPUIDInfo{
-			nent: uint32(len(CPUIDInfo{}.ents)),
-		}
-		Debug("Check CPUID entries")
-		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.dev.Fd()), getCPUID, uintptr(unsafe.Pointer(i))); errno != 0 {
-			Debug("Check CPUID entries err %v", errno)
-			return fmt.Errorf("Getting CPUID entries: %v", errno)
-		}
-		Debug("%v", i)
-		t.cpu.idInfo = i
-
-		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(vcpufd), setCPUID, uintptr(unsafe.Pointer(i))); errno != 0 {
-			return fmt.Errorf("Set  CPUID entries err %v", errno)
-		}
-	}
-
 	// We learned the hard way: for portability, you MUST read all the processor state, e.g. segment stuff,
 	// modify it to taste, and write it back. You can NOT simply cons up what you think are correct values
 	// and write them.
 	// This worked for a long time on AMD, then failed on Intel, and this was the reason.
 	Debug("Testing 64-bit mode\n")
-	var rdata [unsafe.Sizeof(regs{})]byte
-	//var sdata [unsafe.Sizeof(sregs{})]byte
-	r := &regs{}
-	//s := &sregs{}
-
-	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getRegs, uintptr(unsafe.Pointer(&rdata[0]))); errno != 0 {
-		return fmt.Errorf("getRegs: %v", errno)
-	}
-	if err := binary.Read(bytes.NewReader(rdata[:]), binary.LittleEndian, r); err != nil {
-		return err
-	}
-
-	if false {
-		/* Clear all FLAGS bits, except bit 1 which is always set. */
-		//r.Rflags = 2
-		r.Rip = 0x100000
-		/* Create stack at top of 2 MB page and grow down. */
-		r.Sp = 2 << 20
-
-		if err := binary.Write(bytes.NewBuffer(rdata[:]), binary.LittleEndian, r); err != nil {
-			return err
-		}
-		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setRegs, uintptr(unsafe.Pointer(&rdata[0]))); errno != 0 {
-			return errno
-		}
-	}
-
 	return nil
 }
 
