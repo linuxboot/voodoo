@@ -116,7 +116,6 @@ func diff(f func(string, ...interface{}), a, b uint64, n string) bool {
 }
 
 func TestGetRegs(t *testing.T) {
-	Debug = t.Logf
 	v, err := New()
 	if err != nil {
 		t.Fatalf("New: got %v, want nil", err)
@@ -134,6 +133,40 @@ func TestGetRegs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("2nd GetRegs: got %v, want nil", err)
 	}
+	for i := range r.Regs {
+		diff(t.Errorf, pr.Regs[i], r.Regs[i], fmt.Sprintf("R%d", i))
+	}
+}
+
+func TestSetRegs(t *testing.T) {
+	v, err := New()
+	if err != nil {
+		t.Fatalf("New: got %v, want nil", err)
+	}
+	defer v.Detach()
+	t.Logf("%v", v)
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
+	}
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	t.Logf(show("Read:\t", r))
+	pr := &syscall.PtraceRegs{}
+	for i := range r.Regs {
+		pr.Regs[i] = ^r.Regs[i]
+	}
+
+	if err := v.SetRegs(pr); err != nil {
+		t.Fatalf("setregs: got %v, want nil", err)
+	}
+	t.Logf(show("Set:\t", pr))
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	t.Logf("%s", show("After:\t", r))
 	for i := range r.Regs {
 		diff(t.Errorf, pr.Regs[i], r.Regs[i], fmt.Sprintf("R%d", i))
 	}
