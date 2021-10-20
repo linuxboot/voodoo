@@ -24,3 +24,79 @@ var (
 	getOneReg = iIOW(0xab, unsafe.Sizeof(OneRegister{}))
 	setOneReg = iIOW(0xac, unsafe.Sizeof(OneRegister{}))
 )
+
+var (
+	// ARM specific?
+	iVCPUInit = iIOW(0xae, unsafe.Sizeof(VCPUInit{}))
+)
+
+const (
+	AEM          = 0
+	Foundation   = 1
+	Cortex57     = 2
+	XgenePotenza = 3
+	CortexA53    = 4
+	GenericV8    = 5
+)
+
+var cpuTypes = map[int]string{
+	0: "KVM_ARM_TARGET_AEM_V8",
+	1: "KVM_ARM_TARGET_FOUNDATION_V8",
+	2: "KVM_ARM_TARGET_CORTEX_A57",
+	3: "KVM_ARM_TARGET_XGENE_POTENZA",
+	4: "KVM_ARM_TARGET_CORTEX_A53",
+	// Generic ARM v8 target
+	5: "KVM_ARM_TARGET_GENERIC_V8",
+}
+
+var (
+	iPreferredTarget = iIOR(0xaf, unsafe.Sizeof(VCPUInit{}))
+)
+
+const (
+	regARM64          = 0x6000000000000000
+	regu64            = 0x0030000000000000
+	regARMCoprocMask  = 0x000000000FFF0000
+	regARMCoprocShift = 16
+	// Normal registers are mapped as coprocessor 16.
+	regARMCore = (0x0010 << regARMCoprocShift)
+)
+
+// Pstate stuff
+const (
+	PSRModeEL1h = 0x00000005
+	PSRFBit     = 0x00000040
+	PSRIBit     = 0x00000080
+	PSRInit     = PSRModeEL1h | PSRFBit | PSRIBit
+)
+
+// This is kinda bullshit.
+// #define KVM_REG_ARM_CORE_REG(name)	(offsetof(struct kvm_regs, name) / sizeof(__u32))
+// But it seems they want it, sigh.
+// so what we do. Just define constants and go with it. They're never going to change
+// ptrace anyway. Can't.
+// struct kvm_regs {
+// 	struct user_pt_regs regs;	/* sp = sp_el0 */
+
+// 	__u64	sp_el1;
+// 	__u64	elr_el1;
+
+// 	__u64	spsr[KVM_NR_SPSR];
+
+// 	struct user_fpsimd_state fp_regs;
+// };
+// struct user_pt_regs {
+// 	__u64		regs[31];
+// 	__u64		sp;
+// 	__u64		pc;
+// 	__u64		pstate;
+// };
+const (
+	SP     = 32
+	PC     = 33
+	PState = 34
+)
+
+func coreReg(x int) uint64 {
+	return regARM64 | regu64 | regARMCore | uint64(x)
+}

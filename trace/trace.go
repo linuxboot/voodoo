@@ -22,10 +22,13 @@ type Trace interface {
 	SingleStep(onoff bool) error
 	Run() error
 	Tab() []byte
+	// These three things are just special, machine to machine.
 	Stack() (uintptr, error)
 	PC() (uintptr, error)
+	Flags() (uintptr, error)
 	SetStack(uintptr) error
 	SetPC(uintptr) error
+	SetFlags() (uintptr, error)
 }
 
 var Debug = func(string, ...interface{}) {}

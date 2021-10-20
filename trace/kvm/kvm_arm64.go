@@ -43,9 +43,10 @@ const APIVersion = 12
 // EFI apps should not go near this.
 const PageTableBase = 0xffff0000
 
-// Just save the Rip name.
+// There are really 35 regs, so keep it simple
 type regs struct {
-	Regs   [31]uint64
+	Regs [34]uint64
+	// These are copies.
 	Sp     uint64
 	Rip    uint64
 	Pstate uint64
@@ -100,14 +101,15 @@ type dtable struct {
 }
 
 func kvmRegstoPtraceRegs(pr *syscall.PtraceRegs, r *regs, s *sregs) {
-	pr.Regs = r.Regs
+	copy(pr.Regs[:], r.Regs[:])
 	pr.Sp = r.Sp
 	pr.Pc = r.Rip
 	pr.Pstate = r.Pstate
 }
 
 func ptraceRegsToKVMRegs(pr *syscall.PtraceRegs, r *regs, s *sregs) {
-	r.Regs = pr.Regs
+	copy(r.Regs[:31], pr.Regs[:])
+	r.Regs[31], r.Regs[32], r.Regs[33] = pr.Sp, pr.Pc, pr.Pstate
 	r.Sp = pr.Sp
 	r.Rip = pr.Pc
 	r.Pstate = pr.Pstate
@@ -590,10 +592,13 @@ func (t Tracee) getRegs() (*regs, *sregs, error) {
 	for i := range r.Regs {
 		rr := &OneRegister{id: uint64(i)}
 		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getOneReg, uintptr(unsafe.Pointer(rr))); errno != 0 {
-			return nil, nil, errno
+			return nil, nil, fmt.Errorf("Getting reg %d on fd %d: %v", i, t.cpu.fd, errno)
 		}
 		r.Regs[i] = rr.addr
 	}
+	r.Sp = r.Regs[31]
+	r.Rip = r.Regs[32]
+	r.Pstate = r.Regs[33]
 
 	return r, &sregs{}, nil
 }
@@ -615,6 +620,9 @@ func (t *Tracee) SetRegs(pr *syscall.PtraceRegs) error {
 	r := &regs{}
 	s := &sregs{}
 	ptraceRegsToKVMRegs(pr, r, s)
+	r.Regs[31] = r.Sp
+	r.Regs[32] = r.Rip
+	r.Regs[33] = r.Pstate
 
 	for i := range r.Regs {
 		rr := &OneRegister{id: uint64(i), addr: r.Regs[i]}
@@ -678,8 +686,8 @@ func (t *Tracee) archInit() error {
 		dat  []byte
 	}{
 		{base: 0, size: 0x8000_0000},
-		{base: 0xffff0000, size: 0x10000},
-		{base: 0xff000000, size: 0x800000},
+		{base: 0xffff0000, size: 0x10000},  // we might scarf page tables here still?
+		{base: 0xff000000, size: 0x800000}, // Where the protocols etc. go
 	}
 	for i, s := range regions {
 		mem, err := mmap(s.base, s.size, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_PRIVATE|unix.MAP_ANONYMOUS|unix.MAP_NORESERVE, -1, 0)
@@ -708,31 +716,33 @@ func (t *Tracee) archInit() error {
 
 	// slot 0 is low memory, to 2g for now.
 
-	// slot 1 is high bios, 64k at top of 4g.
+	// slot 1 is high bios, 64k at top of 4g. Not yet used.
 	high64k := regions[1].dat
-	// Set up page tables for long mode.
-	// take the first six pages of an area it should not touch -- PageTableBase
-	// present, read/write, page table at 0xffff0000
-	// ptes[0] = PageTableBase + 0x1000 | 0x3
-	// 3 in lowest 2 bits means present and read/write
-	// 0x60 means accessed/dirty
-	// 0x80 means the page size bit -- 0x80 | 0x60 = 0xe0
-	// 0x10 here is making it point at the next page.
-	copy(high64k[:], []byte{0x03, 0x10 | uint8((PageTableBase>>8)&0xff), uint8((PageTableBase >> 16) & 0xff), uint8((PageTableBase >> 24) & 0xff), 0, 0, 0, 0})
-	// need four pointers to 2M page tables -- PHYSICAL addresses:
-	// 0x2000, 0x3000, 0x4000, 0x5000
-	for i := uint64(0); i < 4; i++ {
-		ptb := PageTableBase + (i+2)*0x1000
-		copy(high64k[int(i*8)+0x1000:], []byte{0x63, uint8((ptb >> 8) & 0xff), uint8((ptb >> 16) & 0xff), uint8((ptb >> 24) & 0xff), 0, 0, 0, 0})
-	}
-	// Now the 2M pages.
-	for i := uint64(0); i < 0x1_0000_0000; i += 0x2_00_000 {
-		ptb := i | 0xe3
-		ix := int((i/0x2_00_000)*8 + 0x2000)
-		copy(high64k[ix:], []byte{uint8(ptb), uint8((ptb >> 8) & 0xff), uint8((ptb >> 16) & 0xff), uint8((ptb >> 24) & 0xff), 0, 0, 0, 0})
-	}
-	if true {
-		Debug("Page tables: %s", hex.Dump(high64k[:0x6000]))
+	if false {
+		// Set up page tables for long mode.
+		// take the first six pages of an area it should not touch -- PageTableBase
+		// present, read/write, page table at 0xffff0000
+		// ptes[0] = PageTableBase + 0x1000 | 0x3
+		// 3 in lowest 2 bits means present and read/write
+		// 0x60 means accessed/dirty
+		// 0x80 means the page size bit -- 0x80 | 0x60 = 0xe0
+		// 0x10 here is making it point at the next page.
+		copy(high64k[:], []byte{0x03, 0x10 | uint8((PageTableBase>>8)&0xff), uint8((PageTableBase >> 16) & 0xff), uint8((PageTableBase >> 24) & 0xff), 0, 0, 0, 0})
+		// need four pointers to 2M page tables -- PHYSICAL addresses:
+		// 0x2000, 0x3000, 0x4000, 0x5000
+		for i := uint64(0); i < 4; i++ {
+			ptb := PageTableBase + (i+2)*0x1000
+			copy(high64k[int(i*8)+0x1000:], []byte{0x63, uint8((ptb >> 8) & 0xff), uint8((ptb >> 16) & 0xff), uint8((ptb >> 24) & 0xff), 0, 0, 0, 0})
+		}
+		// Now the 2M pages.
+		for i := uint64(0); i < 0x1_0000_0000; i += 0x2_00_000 {
+			ptb := i | 0xe3
+			ix := int((i/0x2_00_000)*8 + 0x2000)
+			copy(high64k[ix:], []byte{uint8(ptb), uint8((ptb >> 8) & 0xff), uint8((ptb >> 16) & 0xff), uint8((ptb >> 24) & 0xff), 0, 0, 0, 0})
+		}
+		if true {
+			Debug("Page tables: %s", hex.Dump(high64k[:0x6000]))
+		}
 	}
 	// Set up 8M of image table data at 0xff000000
 	// UEFI mixes function pointers and data in the protocol structs.
@@ -757,6 +767,13 @@ func (t *Tracee) archInit() error {
 	// modify it to taste, and write it back. You can NOT simply cons up what you think are correct values
 	// and write them.
 	// This worked for a long time on AMD, then failed on Intel, and this was the reason.
+	if r1, r2, err := t.cpuioctl(iVCPUInit, VCPUInit{target: GenericV8}); err != nil {
+		return fmt.Errorf("VCPUInit(%#x, %#x) failed: (%v, %v, %v)", iVCPUInit, GenericV8, r1, r2, err)
+	}
+
+	if err := t.SetFlags(PSRInit); err != nil {
+		return fmt.Errorf("Setting flags to %#x: %v", PSRInit, err)
+	}
 	Debug("Testing 64-bit mode\n")
 	return nil
 }
@@ -974,6 +991,15 @@ func (t *Tracee) Stack() (uintptr, error) {
 	return uintptr(r.Sp), nil
 }
 
+// Flags implements Flags
+func (t *Tracee) Flags() (uintptr, error) {
+	r, err := t.GetRegs()
+	if err != nil {
+		return 0, err
+	}
+	return uintptr(r.Pstate), nil
+}
+
 // PC implements PC
 func (t *Tracee) SetPC(pc uintptr) error {
 	r, err := t.GetRegs()
@@ -991,5 +1017,15 @@ func (t *Tracee) SetStack(sp uintptr) error {
 		return err
 	}
 	r.Sp = uint64(sp)
+	return t.SetRegs(r)
+}
+
+// SetFlags implements SetFlags
+func (t *Tracee) SetFlags(flags uintptr) error {
+	r, err := t.GetRegs()
+	if err != nil {
+		return err
+	}
+	r.Pstate = uint64(flags)
 	return t.SetRegs(r)
 }

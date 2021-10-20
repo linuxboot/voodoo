@@ -38,7 +38,7 @@ type DebugControl struct {
 	debugreg [8]uint64
 }
 
-// A Region defines a memory region.
+// Region defines a memory region.
 // This is likely overkill; we likely don't want
 // anything more than a single 2G region starting at 0.
 type Region struct {
@@ -47,9 +47,17 @@ type Region struct {
 	data []byte
 }
 
+// OneRegister is the struct for getting or setting one register.
 type OneRegister struct {
 	id   uint64
 	addr uint64
+}
+
+// VCPUInit is referenced but not defined in many kernels, it is a grab-bag
+// for KVM startup on ARM.
+type VCPUInit struct {
+	target   uint32
+	features [7]uint32
 }
 
 // A Tracee is a process that is being traced.
@@ -88,7 +96,11 @@ func (t *Tracee) vmioctl(option uintptr, data interface{}) (r1, r2 uintptr, err 
 	var errno syscall.Errno
 	switch option {
 	default:
-		r1, r2, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), uintptr(option), uintptr(unsafe.Pointer(&data)))
+		p := &bytes.Buffer{}
+		if err := binary.Write(p, binary.LittleEndian, data); err != nil {
+			return 0, 0, err
+		}
+		r1, r2, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), uintptr(option), uintptr(unsafe.Pointer(&p.Bytes()[0])))
 	}
 	if errno != 0 {
 		err = errno
@@ -100,7 +112,11 @@ func (t *Tracee) cpuioctl(option uintptr, data interface{}) (r1, r2 uintptr, err
 	var errno syscall.Errno
 	switch option {
 	default:
-		r1, r2, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), uintptr(option), uintptr(unsafe.Pointer(&data)))
+		p := &bytes.Buffer{}
+		if err := binary.Write(p, binary.LittleEndian, data); err != nil {
+			return 0, 0, err
+		}
+		r1, r2, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), uintptr(option), uintptr(unsafe.Pointer(&p.Bytes()[0])))
 	}
 	if errno != 0 {
 		err = errno

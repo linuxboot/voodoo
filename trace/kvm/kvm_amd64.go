@@ -1242,6 +1242,15 @@ func (t *Tracee) Stack() (uintptr, error) {
 	return uintptr(r.Rsp), nil
 }
 
+// Flags implements Flags
+func (t *Tracee) Flags() (uintptr, error) {
+	r, err := t.GetRegs()
+	if err != nil {
+		return 0, err
+	}
+	return uintptr(r.Eflags), nil
+}
+
 // PC implements PC
 func (t *Tracee) SetPC(pc uintptr) error {
 	r, err := t.GetRegs()
@@ -1259,5 +1268,15 @@ func (t *Tracee) SetStack(sp uintptr) error {
 		return err
 	}
 	r.Rsp = uint64(sp)
+	return t.SetRegs(r)
+}
+
+// SetFlags implements SetFlags
+func (t *Tracee) SetFlags(flags uintptr) error {
+	r, err := t.GetRegs()
+	if err != nil {
+		return err
+	}
+	r.Eflags = uint64(flags)
 	return t.SetRegs(r)
 }
