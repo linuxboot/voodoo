@@ -101,6 +101,7 @@ func (t *Tracee) vmioctl(option uintptr, data interface{}) (r1, r2 uintptr, err 
 			return 0, 0, err
 		}
 		r1, r2, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), uintptr(option), uintptr(unsafe.Pointer(&p.Bytes()[0])))
+		Debug("cpuioctl: %#x, %#x, %v = syscall.Syscall(%#x, %d, %#x, %#x[%#x])", r1, r2, errno, syscall.SYS_IOCTL, uintptr(t.vm), uintptr(option), uintptr(unsafe.Pointer(&p.Bytes()[0])), p.Bytes())
 	}
 	if errno != 0 {
 		err = errno
@@ -116,7 +117,9 @@ func (t *Tracee) cpuioctl(option uintptr, data interface{}) (r1, r2 uintptr, err
 		if err := binary.Write(p, binary.LittleEndian, data); err != nil {
 			return 0, 0, err
 		}
+
 		r1, r2, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), uintptr(option), uintptr(unsafe.Pointer(&p.Bytes()[0])))
+		Debug("cpuioctl: %#x, %#x, %v = syscall.Syscall(%#x, %d, %#x, %#x[%#x])", r1, r2, errno, syscall.SYS_IOCTL, uintptr(t.cpu.fd), uintptr(option), uintptr(unsafe.Pointer(&p.Bytes()[0])), p.Bytes())
 	}
 	if errno != 0 {
 		err = errno

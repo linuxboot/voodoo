@@ -590,11 +590,13 @@ func (t Tracee) getRegs() (*regs, *sregs, error) {
 	r := &regs{}
 
 	for i := range r.Regs {
-		rr := &OneRegister{id: uint64(i)}
-		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), getOneReg, uintptr(unsafe.Pointer(rr))); errno != 0 {
-			return nil, nil, fmt.Errorf("Getting reg %d on fd %d: %v", i, t.cpu.fd, errno)
+		var res uint64
+		rr := OneRegister{id: coreReg(i), addr: uint64(uintptr(unsafe.Pointer(&res)))}
+		Debug("Getregs %d: %#x", i, rr)
+		if _, _, err := t.cpuioctl(getOneReg, rr); err != nil {
+			return nil, nil, fmt.Errorf("Getting reg %d on fd %d: %v", i, t.cpu.fd, err)
 		}
-		r.Regs[i] = rr.addr
+		r.Regs[i] = res
 	}
 	r.Sp = r.Regs[31]
 	r.Rip = r.Regs[32]

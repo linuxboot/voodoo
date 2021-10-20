@@ -116,6 +116,7 @@ func diff(f func(string, ...interface{}), a, b uint64, n string) bool {
 }
 
 func TestGetRegs(t *testing.T) {
+	Debug = t.Logf
 	v, err := New()
 	if err != nil {
 		t.Fatalf("New: got %v, want nil", err)
