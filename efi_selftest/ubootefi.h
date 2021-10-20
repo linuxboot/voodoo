@@ -32,7 +32,8 @@
 #define efi_va_arg __builtin_va_arg
 #define efi_va_end __builtin_ms_va_end
 #else
-#define EFIAPI asmlinkage
+// fucked up mess. 
+// #define EFIAPI asmlinkage
 #define efi_va_list va_list
 #define efi_va_start va_start
 #define efi_va_arg va_arg
