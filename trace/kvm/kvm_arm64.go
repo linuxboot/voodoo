@@ -756,10 +756,12 @@ func (t *Tracee) archInit() error {
 	// or via call.
 	// poison it with hlt.
 	if true {
+		for i := 0; i < len(regions[0].dat); i += 8 {
+			bogus := uint64(0xf7f0a000)<<32 | uint64(0xf7f0a000)
+			binary.LittleEndian.PutUint64(regions[0].dat[i:], bogus)
+		}
 		for i := 0; i < len(regions[2].dat); i += 8 {
-			// bogus pointer but the low 16 bits are hlt; retq
-			bogus := uint64(0x10000c3f4)
-			bogus = uint64(0xc3f4) | uint64(0xdeadbe<<36) | uint64(i<<16)
+			bogus := uint64(0xf7f0a000)<<32 | uint64(0xf7f0a000)
 			binary.LittleEndian.PutUint64(regions[2].dat[i:], bogus)
 		}
 		if err := readonly(regions[2].dat[0x400000:]); err != nil {
