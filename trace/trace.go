@@ -28,7 +28,7 @@ type Trace interface {
 	Flags() (uintptr, error)
 	SetStack(uintptr) error
 	SetPC(uintptr) error
-	SetFlags() (uintptr, error)
+	SetFlags(uintptr) error
 }
 
 var Debug = func(string, ...interface{}) {}
