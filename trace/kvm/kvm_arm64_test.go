@@ -172,7 +172,7 @@ func TestSetRegs(t *testing.T) {
 	}
 }
 
-func TestRunUD2(t *testing.T) {
+func TestRunLoop(t *testing.T) {
 	v, err := New()
 	if err != nil {
 		t.Fatalf("New: got %v, want nil", err)
@@ -186,13 +186,42 @@ func TestRunUD2(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
-	t.Logf("IP is %#x", r.Pc)
-	if err := v.Run(); err != nil {
+	if err := v.SingleStep(true); err != nil {
 		t.Fatalf("SingleStep: got %v, want nil", err)
+	}
+	t.Logf("IP is %#x", r.Pc)
+	r.Pc = 0x100000
+	if err := v.SetRegs(r); err != nil {
+		t.Fatalf("SetRegs: got %v, want nil", err)
 	}
 	r, err = v.GetRegs()
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
-	t.Logf("IP is %#x", r.Pc)
+	if r.Pc != 0x100000 {
+		t.Fatalf("PC: got %#x, want %#x", r.Pc, 0x100000)
+	}
+	// 0000000000000000 <loop-0x8>:
+	// 0:	d503201f 	nop
+	// 4:	d503201f 	nop
+
+	// 0000000000000008 <loop>:
+	// 8:	14000000 	b	8 <loop>
+	nopnopbrdot := []byte{0x1f, 0x20, 0x03, 0xd5, 0x1f, 0x20, 0x03, 0xd5, 0x00, 0x00, 0x00, 0x14}
+	if err := v.Write(0x100000, nopnopbrdot); err != nil {
+		t.Fatalf("Writing br . instruction: got %v, want nil", err)
+	}
+
+	for i, pc := range []uint64{0x100004, 0x100008, 0x100008} {
+		if err := v.Run(); err != nil {
+			t.Fatalf("Run: got %v, want nil", err)
+		}
+		r, err = v.GetRegs()
+		if err != nil {
+			t.Fatalf("GetRegs: got %v, want nil", err)
+		}
+		if r.Pc != pc {
+			t.Fatalf("iteration %d: got %#x, want %#x", i, pc, r.Pc)
+		}
+	}
 }

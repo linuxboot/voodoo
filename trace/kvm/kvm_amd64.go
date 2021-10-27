@@ -13,6 +13,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// Constants from Linux.
 const (
 	/* CR0 bits */
 	CR0_PE = 1
@@ -63,7 +64,7 @@ const (
 	PDE64_G        = (1 << 8)
 )
 
-// Exit= is the VM exit value returned by KVM.
+// Exit is the VM exit value returned by KVM.
 type Exit uint32
 
 type cpu struct {
@@ -1003,20 +1004,20 @@ func (t *Tracee) archInit() error {
 }
 
 func (t *Tracee) archNewProc() error {
-	return nil
-	Debug("Set CPUID entries in %v", t)
-	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setCPUID, uintptr(unsafe.Pointer(t.cpu.idInfo))); errno != 0 {
-		Debug("Set  CPUID entries err %v", errno)
-		return fmt.Errorf("Setting CPUID entries: %v", errno)
-	}
+	if false {
+		Debug("Set CPUID entries in %v", t)
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setCPUID, uintptr(unsafe.Pointer(t.cpu.idInfo))); errno != 0 {
+			Debug("Set  CPUID entries err %v", errno)
+			return fmt.Errorf("Setting CPUID entries: %v", errno)
+		}
 
-	// Now for the real fun. Long mode.
-	sdata := &bytes.Buffer{}
-	binary.Write(sdata, binary.LittleEndian, bit64)
-	if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setSregs, uintptr(unsafe.Pointer(&sdata.Bytes()[0]))); errno != 0 {
-		return fmt.Errorf("can not set sregs: %v", errno)
+		// Now for the real fun. Long mode.
+		sdata := &bytes.Buffer{}
+		binary.Write(sdata, binary.LittleEndian, bit64)
+		if _, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.cpu.fd), setSregs, uintptr(unsafe.Pointer(&sdata.Bytes()[0]))); errno != 0 {
+			return fmt.Errorf("can not set sregs: %v", errno)
+		}
 	}
-
 	return nil
 }
 

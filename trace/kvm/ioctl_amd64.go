@@ -29,3 +29,11 @@ var (
 	// amd64
 	setTSSAddr = iIO(0x47)
 )
+
+// DebugControl controls guest debug.
+// varies with architecture. barf.
+type DebugControl struct {
+	Control  uint32
+	_        uint32
+	debugreg [8]uint64
+}

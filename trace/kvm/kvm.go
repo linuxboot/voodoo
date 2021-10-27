@@ -31,13 +31,6 @@ var (
 	deviceName = flag.String("kvmdevice", "/dev/kvm", "kvm device to use")
 )
 
-// DebugControl controls guest debug.
-type DebugControl struct {
-	Control  uint32
-	_        uint32
-	debugreg [8]uint64
-}
-
 // Region defines a memory region.
 // This is likely overkill; we likely don't want
 // anything more than a single 2G region starting at 0.
@@ -80,14 +73,17 @@ type Tracee struct {
 	tab []byte
 }
 
+// String is a string for a Tracee
 func (t *Tracee) String() string {
 	return fmt.Sprintf("%s(kvmfd %d, vmfd %d, vcpufd %d)", t.dev.Name(), t.dev.Fd(), t.vm, t.cpu.fd)
 }
 
+// Event returns event information.
 func (t *Tracee) Event() unix.SignalfdSiginfo {
 	return t.info
 }
 
+// Tab returns the []byte for protocols.
 func (t *Tracee) Tab() []byte {
 	return t.tab
 }
@@ -135,15 +131,13 @@ func ioctl(fd uintptr, op uintptr, arg uintptr) (err error) {
 	return
 }
 
-// EnableSingleStep enables single stepping the guest
+// SingleStep enables single stepping the guest
 func (t *Tracee) SingleStep(onoff bool) error {
+	// The only use we make of the struct, for now, is the size :-)
 	var debug [unsafe.Sizeof(DebugControl{})]byte
 	if onoff {
 		debug[0] = Enable | SingleStep
-		debug[2] = 0x0002 // 0000
-		//for i := range debug {
-		//debug[i] = 0xff
-		//}
+		debug[2] = 0x0002
 	}
 	// this is not very nice, but it is easy.
 	// And TBH, the tricks the Linux kernel people
@@ -151,7 +145,7 @@ func (t *Tracee) SingleStep(onoff bool) error {
 	return ioctl(t.cpu.fd, setGuestDebug, uintptr(unsafe.Pointer(&debug[0])))
 }
 
-// SingleStep continues the tracee for one instruction.
+// Run runs the guest.
 // Todo: see if we are in single step mode, if not, set, etc.
 func (t *Tracee) Run() error {
 	if err := ioctl(uintptr(t.cpu.fd), run, 0); err != nil {
@@ -212,29 +206,30 @@ func New() (*Tracee, error) {
 // NewProc creates a CPU, given an id.
 // TODO :we're getting sloppy about the t.do stuff, fix.
 func (t *Tracee) NewProc(id int) error {
-	return nil
-	r1, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), uintptr(createCPU), 0)
-	if errno != 0 {
-		return errno
-	}
-	fd := r1
-	r1, _, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.dev.Fd()), vcpuMmapSize, 0)
-	if errno != 0 {
-		return errno
-	}
-	if r1 <= 0 {
-		return fmt.Errorf("mmap size is <= 0")
-	}
-	msize := uint64(r1)
-	b, err := unix.Mmap(int(fd), 0, int(msize), unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED)
-	if err != nil {
-		return fmt.Errorf("cpu shared mmap(%#x, %#x, %#x, %#x, %#x): %v", fd, 0, msize, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED, err)
-	}
-	t.cpu.id = id
-	t.cpu.fd = fd
-	t.cpu.m = b
-	if err := t.archNewProc(); err != nil {
-		return err
+	if false {
+		r1, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.vm), uintptr(createCPU), 0)
+		if errno != 0 {
+			return errno
+		}
+		fd := r1
+		r1, _, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(t.dev.Fd()), vcpuMmapSize, 0)
+		if errno != 0 {
+			return errno
+		}
+		if r1 <= 0 {
+			return fmt.Errorf("mmap size is <= 0")
+		}
+		msize := uint64(r1)
+		b, err := unix.Mmap(int(fd), 0, int(msize), unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED)
+		if err != nil {
+			return fmt.Errorf("cpu shared mmap(%#x, %#x, %#x, %#x, %#x): %v", fd, 0, msize, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED, err)
+		}
+		t.cpu.id = id
+		t.cpu.fd = fd
+		t.cpu.m = b
+		if err := t.archNewProc(); err != nil {
+			return err
+		}
 	}
 	return nil
 
