@@ -140,7 +140,7 @@ static int teardown(struct efi_unit_test *test, unsigned int *failures)
 }
 
 extern EFI_UNIT_TEST(rtc);
-EFI_UNIT_TEST(blkdev);
+extern EFI_UNIT_TEST(blkdev);
 struct efi_unit_test *tests[] = {
 	&rtc,
 	//&blkdev,

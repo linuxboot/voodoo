@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"golang.org/x/arch/arm/armasm"
+	"golang.org/x/sys/unix"
 )
 
 // this is a simple decoder to get around a circular dependency.
@@ -204,11 +205,9 @@ func TestRunLoop(t *testing.T) {
 	// 0000000000000000 <loop-0x8>:
 	// 0:	d503201f 	nop
 	// 4:	d503201f 	nop
-
-	// 0000000000000008 <loop>:
-	// 8:	14000000 	b	8 <loop>
-	nopnopbrdot := []byte{0x1f, 0x20, 0x03, 0xd5, 0x1f, 0x20, 0x03, 0xd5, 0x00, 0x00, 0x00, 0x14}
-	if err := v.Write(0x100000, nopnopbrdot); err != nil {
+	// 8:	d42006e0 	brk	#0x37
+	nopnophlt := []byte{0x1f, 0x20, 0x03, 0xd5, 0x1f, 0x20, 0x03, 0xd5, 0xe0, 0x06, 0x20, 0xd4}
+	if err := v.Write(0x100000, nopnophlt); err != nil {
 		t.Fatalf("Writing br . instruction: got %v, want nil", err)
 	}
 
@@ -216,12 +215,17 @@ func TestRunLoop(t *testing.T) {
 		if err := v.Run(); err != nil {
 			t.Fatalf("Run: got %v, want nil", err)
 		}
+		ev := v.Event()
+		s := unix.Signal(ev.Signo)
+		t.Logf("%d: Event %#x, trap %d, %v", i, ev, ev.Trapno, s)
+
 		r, err = v.GetRegs()
 		if err != nil {
 			t.Fatalf("GetRegs: got %v, want nil", err)
 		}
+		t.Logf("Registers %#x", r)
 		if r.Pc != pc {
-			t.Fatalf("iteration %d: got %#x, want %#x", i, pc, r.Pc)
+			t.Fatalf("iteration %d: got %#x, want %#x", i, r.Pc, pc)
 		}
 	}
 }

@@ -352,7 +352,7 @@ struct efi_device_path_memory {
 	uint32_t memory_type;
 	uint64_t start_address;
 	uint64_t end_address;
-} f__packed;
+} __packed;
 
 struct efi_device_path_vendor {
 	struct efi_device_path dp;
