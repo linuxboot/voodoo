@@ -229,3 +229,62 @@ func TestRunLoop(t *testing.T) {
 		}
 	}
 }
+
+// Test whether we can run in low memory.
+func TestRunLoop1038(t *testing.T) {
+	v, err := New()
+	if err != nil {
+		t.Fatalf("New: got %v, want nil", err)
+	}
+	defer v.Detach()
+	t.Logf("%v", v)
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
+	}
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if err := v.SingleStep(true); err != nil {
+		t.Fatalf("SingleStep: got %v, want nil", err)
+	}
+	pc := uint64(0x1038)
+	t.Logf("IP is %#x", r.Pc)
+	r.Pc = pc
+	if err := v.SetRegs(r); err != nil {
+		t.Fatalf("SetRegs: got %v, want nil", err)
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if r.Pc != pc {
+		t.Fatalf("PC: got %#x, want %#x", r.Pc, pc)
+	}
+	// 0000000000000000 <loop-0x8>:
+	// 0:	d503201f 	nop
+	// 4:	d503201f 	nop
+	// 8:	d42006e0 	brk	#0x37
+	nopnophlt := []byte{0x1f, 0x20, 0x03, 0xd5, 0x1f, 0x20, 0x03, 0xd5, 0xe0, 0x06, 0x20, 0xd4}
+	if err := v.Write(uintptr(pc), nopnophlt); err != nil {
+		t.Fatalf("Writing br . instruction: got %v, want nil", err)
+	}
+
+	for i, pc := range []uint64{pc + 4, pc + 8, pc + 8} {
+		if err := v.Run(); err != nil {
+			t.Fatalf("Run: got %v, want nil", err)
+		}
+		ev := v.Event()
+		s := unix.Signal(ev.Signo)
+		t.Logf("%d: Event %#x, trap %d, %v", i, ev, ev.Trapno, s)
+
+		r, err = v.GetRegs()
+		if err != nil {
+			t.Fatalf("GetRegs: got %v, want nil", err)
+		}
+		t.Logf("Registers %#x", r)
+		if r.Pc != pc {
+			t.Fatalf("iteration %d: got %#x, want %#x", i, r.Pc, pc)
+		}
+	}
+}
