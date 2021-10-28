@@ -29,7 +29,7 @@ func loadELF(t trace.Trace, n string, r *syscall.PtraceRegs, log func(string, ..
 		if s.Type != elf.PT_LOAD {
 			log("Skipping, not PT_LOAD")
 		}
-		addr := uintptr(s.Paddr + s.Off)
+		addr := uintptr(s.Paddr)
 		mem := make([]byte, s.Memsz)
 		// TODO: poison?
 		if false {
@@ -45,7 +45,9 @@ func loadELF(t trace.Trace, n string, r *syscall.PtraceRegs, log func(string, ..
 			return fmt.Errorf("Can't write %d bytes @ %#x for this Prog to process:%v", len(mem), addr, err)
 		}
 	}
-	setStack(r, 0x200000)
+	esp := uintptr(0x200000)
+	setStack(r, esp)
 	setPC(r, eip)
+	log("ELF is loaded: eip is %#x, sp is %#x", eip, esp)
 	return nil
 }
