@@ -15,6 +15,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// d42006e0 	brk	#0x37
+const tosSentinal = 0xd42006e0d42006e0
+
 // halt handles the halt case. Things differ a bit from segv.
 // First off, the pc will be one off, having been incrementd. Other issues apply as well.
 func halt(p trace.Trace, i *unix.SignalfdSiginfo, inst *armasm.Inst, r *syscall.PtraceRegs, asm string) error {
@@ -50,8 +53,7 @@ func checkConsole(i *armasm.Inst, r *syscall.PtraceRegs, asm string) {
 // this is not great, but will have to do for now.
 // Never anticipated multi-architecture.
 func setupRegs(r *syscall.PtraceRegs) uintptr {
-	log.Panicf("setupregs: %#x", r)
-	return 0
+	return uintptr(r.Sp)
 }
 func setStack(r *syscall.PtraceRegs, sp uintptr) {
 	r.Sp = uint64(sp)

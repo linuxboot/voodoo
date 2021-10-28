@@ -105,7 +105,9 @@ func main() {
 		log.Fatalf("GetRegs: got %v, want nil", err)
 	}
 	if err := loadPE(v, a, r, Debug); err != nil {
-		log.Fatal(err)
+		if e := loadELF(v, a, r, Debug); e != nil {
+			log.Fatalf("Loading PE: %v; loading ELF: %v, no other type supported", err, e)
+		}
 	}
 
 	st, h, err := services.NewSystemtable(v.Tab())
@@ -129,7 +131,7 @@ func main() {
 
 	// When it does the final return, it has to halt.
 	// Put a halt on top of stack, and point top of stack to it.
-	if err := trace.WriteWord(v, uintptr(efisp), 0xf4f4f4f4f4f4f4f4); err != nil {
+	if err := trace.WriteWord(v, uintptr(efisp), tosSentinal); err != nil {
 		log.Fatalf("Writing halts at %#x: got %v, want nil", efisp, err)
 	}
 

@@ -64,6 +64,36 @@ func Inst(t Trace) (*armasm.Inst, *syscall.PtraceRegs, string, error) {
 	pc := r.Pc
 	sp := r.Sp
 	Debug("Inst: pc %#x, sp %#x", pc, sp)
+	cpc, err := t.ReadWord(uintptr(sp))
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("Inst:ReadWord at %#x::%v", sp, err)
+	}
+	Debug("cpc is %#x from sp", cpc)
+	cpc, err = t.ReadWord(uintptr(sp + 8))
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("Inst:ReadWord at %#x::%v", sp+8, err)
+	}
+	Debug("cpc is %#x from sp+8", cpc)
+	// We maintain all the function pointers in non-addressable space for now.
+	// It is in the classic BIOS space.
+	if r.Pc > 0xff000000 {
+		cpc, err := t.ReadWord(uintptr(sp))
+		if err != nil {
+			return nil, nil, "", fmt.Errorf("Inst:ReadWord at %#x::%v", sp, err)
+		}
+		Debug("cpc is %#x from sp", cpc)
+		pc = cpc
+	}
+	// We know the PC; grab a bunch of bytes there, then decode and print
+	insn := make([]byte, 4)
+	if err := t.Read(uintptr(pc), insn); err != nil {
+		return nil, nil, "", fmt.Errorf("Can' read PC at #%x, err %v", pc, err)
+	}
+	d, err := armasm.Decode(insn, 64)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("Can't decode %#02x: %v", insn, err)
+	}
+	return &d, r, armasm.GNUSyntax(d), nil
 	log.Panicf("Inst: pc %#x, sp %#x", pc, sp)
 
 	return nil, r, "", nil
