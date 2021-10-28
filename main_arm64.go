@@ -11,7 +11,7 @@ import (
 
 	"github.com/linuxboot/voodoo/services"
 	"github.com/linuxboot/voodoo/trace"
-	"golang.org/x/arch/arm/armasm"
+	"golang.org/x/arch/arm64/arm64asm"
 	"golang.org/x/sys/unix"
 )
 
@@ -20,7 +20,7 @@ const tosSentinal = 0xd42006e0d42006e0
 
 // halt handles the halt case. Things differ a bit from segv.
 // First off, the pc will be one off, having been incrementd. Other issues apply as well.
-func halt(p trace.Trace, i *unix.SignalfdSiginfo, inst *armasm.Inst, r *syscall.PtraceRegs, asm string) error {
+func halt(p trace.Trace, i *unix.SignalfdSiginfo, inst *arm64asm.Inst, r *syscall.PtraceRegs, asm string) error {
 	addr := uintptr(i.Addr)
 	nextpc := r.Pc
 	pc := r.Pc - 1
@@ -40,7 +40,7 @@ func halt(p trace.Trace, i *unix.SignalfdSiginfo, inst *armasm.Inst, r *syscall.
 	return nil
 }
 
-func checkConsole(i *armasm.Inst, r *syscall.PtraceRegs, asm string) {
+func checkConsole(i *arm64asm.Inst, r *syscall.PtraceRegs, asm string) {
 	c := '#'
 	if *debug {
 		Debug("CONSOUT: %c", c)

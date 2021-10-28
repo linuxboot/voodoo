@@ -5,7 +5,7 @@ import (
 	"syscall"
 	"testing"
 
-	"golang.org/x/arch/arm/armasm"
+	"golang.org/x/arch/arm/arm64asm"
 	"golang.org/x/sys/unix"
 )
 
@@ -14,7 +14,7 @@ import (
 // Inst retrieves an instruction from the traced process.
 // It gets messy if the Rip is in unaddressable space; that means we
 // must fetch the saved Rip from [Rsp].
-func (t *Tracee) Inst() (*armasm.Inst, *syscall.PtraceRegs, string, error) {
+func (t *Tracee) Inst() (*arm64asm.Inst, *syscall.PtraceRegs, string, error) {
 	r, err := t.GetRegs()
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("Inst:Getregs:%v", err)
@@ -24,11 +24,11 @@ func (t *Tracee) Inst() (*armasm.Inst, *syscall.PtraceRegs, string, error) {
 	if err := t.Read(uintptr(pc), insn); err != nil {
 		return nil, nil, "", fmt.Errorf("Can' read PC at #%x, err %v", pc, err)
 	}
-	d, err := armasm.Decode(insn, 64)
+	d, err := arm64asm.Decode(insn, 64)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("Can't decode %#02x: %v", insn, err)
 	}
-	return &d, r, armasm.GNUSyntax(d), nil
+	return &d, r, arm64asm.GNUSyntax(d), nil
 }
 
 func TestNew(t *testing.T) {

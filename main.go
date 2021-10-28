@@ -29,7 +29,7 @@ type msg func()
 
 var (
 	optional        = flag.Bool("optional", false, "Print optional registers")
-	singlestep      = flag.Bool("singlestep", false, "single step instructions")
+	singlestep      = flag.Bool("singlestep", true, "single step instructions")
 	debug           = flag.Bool("debug", false, "Enable debug prints")
 	dryrun          = flag.Bool("dryrun", false, "set up but don't run")
 	regpath         = flag.String("registerfile", "", "file to log registers to, in .csv format")
@@ -97,7 +97,7 @@ func main() {
 	if err := v.NewProc(0); err != nil {
 		log.Fatalf("NewProc: got %v, want nil", err)
 	}
-	if err := v.SingleStep(true); err != nil {
+	if err := v.SingleStep(*singlestep); err != nil {
 		log.Fatalf("Run: got %v, want nil", err)
 	}
 	r, err := v.GetRegs()
@@ -121,7 +121,7 @@ func main() {
 	//r.Rcx = uint64(imageHandle)
 	//r.Rdx = uint64(systemTable)
 	efisp := setupRegs(r)
-
+	Debug("%s", showone("Initial regs:", r))
 	if err := v.SetRegs(r); err != nil {
 		log.Fatalf("GetRegs: got %v, want nil", err)
 	}
@@ -146,11 +146,16 @@ func main() {
 	if *dryrun {
 		log.Panic("dry run")
 	}
+	w, err := trace.ReadWord(v, uintptr(r.Pc))
+	if err != nil {
+		log.Fatalf("Reading first instruction word at %#x: %v", r.Pc, err)
+	}
+	Debug("Word at %#x is %#x", r.Pc, w)
 
 	p := r
 	for {
+		Debug("---------------- Instruction #  ----------------------------------->> %d: ", line)
 		line++
-		Debug("------------------------------------------------------------------->> %d: ", line)
 		// DOUBLE CHECK that run fails to produce an event!
 		for err := v.Run(); err != nil; err = v.Run() {
 			log.Printf("Run: got %v, want nil", err)

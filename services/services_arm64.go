@@ -5,17 +5,17 @@ import (
 	"syscall"
 
 	"github.com/linuxboot/voodoo/trace"
-	"golang.org/x/arch/arm/armasm"
+	"golang.org/x/arch/arm64/arm64asm"
 	"golang.org/x/sys/unix"
 )
 
-type Register = armasm.Reg
+type Register = arm64asm.Reg
 
 // Fault defines all we need to know on a fault and how to do it.
 type Fault struct {
 	Proc trace.Trace
 	Info *unix.SignalfdSiginfo
-	Inst *armasm.Inst
+	Inst *arm64asm.Inst
 	Regs *syscall.PtraceRegs
 	// We use Asm to figure out instruction type.
 	Asm  string

@@ -6,7 +6,7 @@ import (
 	"log"
 	"syscall"
 
-	"golang.org/x/arch/arm/armasm"
+	"golang.org/x/arch/arm64/arm64asm"
 	"golang.org/x/sys/unix"
 )
 
@@ -19,7 +19,7 @@ func Args(t Trace, r *syscall.PtraceRegs, nargs int) []uintptr {
 }
 
 // Pointer returns the data pointed to by args[arg]
-func Pointer(t Trace, inst *armasm.Inst, r *syscall.PtraceRegs, arg int) (uintptr, error) {
+func Pointer(t Trace, inst *arm64asm.Inst, r *syscall.PtraceRegs, arg int) (uintptr, error) {
 	return 0, nil
 }
 
@@ -52,11 +52,11 @@ var (
 )
 
 // Inst retrieves an instruction from the traced process.
-// It returns an armasm.Inst, Ptraceregs, a string in GNU syntax, and
+// It returns an arm64asm.Inst, Ptraceregs, a string in GNU syntax, and
 // and error
 // It gets messy if the Rip is in unaddressable space; that means we
 // must fetch the saved Rip from [Rsp].
-func Inst(t Trace) (*armasm.Inst, *syscall.PtraceRegs, string, error) {
+func Inst(t Trace) (*arm64asm.Inst, *syscall.PtraceRegs, string, error) {
 	r, err := t.GetRegs()
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("Inst:Getregs:%v", err)
@@ -89,23 +89,25 @@ func Inst(t Trace) (*armasm.Inst, *syscall.PtraceRegs, string, error) {
 	if err := t.Read(uintptr(pc), insn); err != nil {
 		return nil, nil, "", fmt.Errorf("Can' read PC at #%x, err %v", pc, err)
 	}
-	d, err := armasm.Decode(insn, 64)
+	Debug("Insn @ %#x is %#x", pc, insn)
+	d, err := arm64asm.Decode(insn)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("Can't decode %#02x: %v", insn, err)
 	}
-	return &d, r, armasm.GNUSyntax(d), nil
+	Debug("decode is %v", d)
+	return &d, r, arm64asm.GNUSyntax(d), nil
 	log.Panicf("Inst: pc %#x, sp %#x", pc, sp)
 
 	return nil, r, "", nil
 }
 
 // Asm returns a string for the given instruction at the given pc
-func Asm(d *armasm.Inst, pc uint64) string {
-	return "\"" + armasm.GNUSyntax(*d) + "\""
+func Asm(d *arm64asm.Inst, pc uint64) string {
+	return "\"" + arm64asm.GNUSyntax(*d) + "\""
 }
 
 // CallInfo provides calling info for a function.
-func CallInfo(_ *unix.SignalfdSiginfo, inst *armasm.Inst, r *syscall.PtraceRegs) string {
+func CallInfo(_ *unix.SignalfdSiginfo, inst *arm64asm.Inst, r *syscall.PtraceRegs) string {
 	l := fmt.Sprintf("%s[", show("", r))
 	for _, a := range inst.Args {
 		l += fmt.Sprintf("%v,", a)
