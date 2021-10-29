@@ -595,7 +595,9 @@ func (t Tracee) getRegs() (*regs, *sregs, error) {
 		if _, _, err := t.cpuioctl(getOneReg, rr); err != nil {
 			return nil, nil, fmt.Errorf("Getting reg %d(%#x) on fd %d: %v", i, rr, t.cpu.fd, err)
 		}
-		Debug("Getregs %d: %#x: %#x", i, rr, res)
+		if false {
+			Debug("Getregs %d: %#x: %#x", i, rr, res)
+		}
 		r.Regs[i] = res
 	}
 	r.Sp = r.Regs[31]
@@ -629,7 +631,9 @@ func (t *Tracee) SetRegs(pr *syscall.PtraceRegs) error {
 	for i := range r.Regs {
 		var res uint64 = r.Regs[i]
 		rr := OneRegister{id: coreReg(i * 2), addr: uint64(uintptr(unsafe.Pointer(&res)))}
-		Debug("Setregs %d: %#x", i, res)
+		if false {
+			Debug("Setregs %d: %#x", i, res)
+		}
 		if _, _, err := t.cpuioctl(setOneReg, rr); err != nil {
 			return fmt.Errorf("Setting reg %d to %#x on fd %d: %v", i, res, t.cpu.fd, err)
 		}

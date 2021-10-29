@@ -151,6 +151,10 @@ func main() {
 		log.Fatalf("Reading first instruction word at %#x: %v", r.Pc, err)
 	}
 	Debug("Word at %#x is %#x", r.Pc, w)
+	{
+		insn, r, g, err := trace.Inst(v)
+		log.Printf("%v, %v, %v, %v", insn, r, g, err)
+	}
 
 	p := r
 	for {
@@ -160,6 +164,10 @@ func main() {
 		for err := v.Run(); err != nil; err = v.Run() {
 			log.Printf("Run: got %v, want nil", err)
 		}
+	{
+		insn, r, g, err := trace.Inst(v)
+		log.Printf("%v, %v, %v, %v", insn, r, g, err)
+	}
 		ev := v.Event()
 		s := unix.Signal(ev.Signo)
 		Debug("\t %d: Event %#x, trap %d", line, ev, ev.Trapno)

@@ -49,9 +49,12 @@ func loadELF(t trace.Trace, n string, r *syscall.PtraceRegs, log func(string, ..
 	setStack(r, esp)
 	setPC(r, eip)
 	log("ELF is loaded: eip is %#x, sp is %#x", eip, esp)
-	nopnophlt := []byte{0x1f, 0x20, 0x03, 0xd5, 0x1f, 0x20, 0x03, 0xd5, 0xe0, 0x06, 0x20, 0xd4}
-	if err := t.Write(uintptr(eip), nopnophlt); err != nil {
-		return fmt.Errorf("Writing br . instruction: got %v, want nil", err)
+	// If you get really desperate, enable this.
+	if false {
+		nopnophlt := []byte{0x1f, 0x20, 0x03, 0xd5, 0x1f, 0x20, 0x03, 0xd5, 0xe0, 0x06, 0x20, 0xd4}
+		if err := t.Write(uintptr(eip), nopnophlt); err != nil {
+			return fmt.Errorf("Writing br . instruction: got %v, want nil", err)
+		}
 	}
 
 	return nil
