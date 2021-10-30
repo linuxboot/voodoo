@@ -109,7 +109,7 @@ func kvmRegstoPtraceRegs(pr *syscall.PtraceRegs, r *regs, s *sregs) {
 
 func ptraceRegsToKVMRegs(pr *syscall.PtraceRegs, r *regs, s *sregs) {
 	copy(r.Regs[:31], pr.Regs[:])
-	r.Regs[31], r.Regs[32], r.Regs[33] = pr.Sp, pr.Pc, pr.Pstate
+	r.Regs[Sp], r.Regs[Pc], r.Regs[Pstate] = pr.Sp, pr.Pc, pr.Pstate
 	r.Sp = pr.Sp
 	r.Rip = pr.Pc
 	r.Pstate = pr.Pstate
@@ -600,9 +600,9 @@ func (t Tracee) getRegs() (*regs, *sregs, error) {
 		}
 		r.Regs[i] = res
 	}
-	r.Sp = r.Regs[31]
-	r.Rip = r.Regs[32]
-	r.Pstate = r.Regs[33]
+	r.Sp = r.Regs[Sp]
+	r.Rip = r.Regs[Pc]
+	r.Pstate = r.Regs[Pstate]
 
 	return r, &sregs{}, nil
 }
@@ -624,9 +624,9 @@ func (t *Tracee) SetRegs(pr *syscall.PtraceRegs) error {
 	r := &regs{}
 	s := &sregs{}
 	ptraceRegsToKVMRegs(pr, r, s)
-	r.Regs[31] = r.Sp
-	r.Regs[32] = r.Rip
-	r.Regs[33] = r.Pstate
+	r.Regs[Sp] = r.Sp
+	r.Regs[Pc] = r.Rip
+	r.Regs[Pstate] = r.Pstate
 
 	for i := range r.Regs {
 		var res uint64 = r.Regs[i]

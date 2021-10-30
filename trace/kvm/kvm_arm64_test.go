@@ -310,7 +310,7 @@ func TestRunLoop1038stack(t *testing.T) {
 	pc := uint64(0x1038)
 	t.Logf("IP is %#x", r.Pc)
 	r.Pc = pc
-	r.Sp = 0x20000
+	r.Sp = 0x1034
 	if err := v.SetRegs(r); err != nil {
 		t.Fatalf("SetRegs: got %v, want nil", err)
 	}
@@ -365,5 +365,88 @@ func TestRunLoop1038stack(t *testing.T) {
 		if r.Pc != pc {
 			t.Fatalf("iteration %d: got %#x, want %#x", i, r.Pc, pc)
 		}
+	}
+}
+
+// Test whether we can run in low memory, and put things on the stack, setting the
+// stack as the first instruction.
+func TestRunLoop1038setstack(t *testing.T) {
+	v, err := New()
+	if err != nil {
+		t.Fatalf("New: got %v, want nil", err)
+	}
+	defer v.Detach()
+	t.Logf("%v", v)
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
+	}
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if err := v.SingleStep(true); err != nil {
+		t.Fatalf("SingleStep: got %v, want nil", err)
+	}
+	pc := uint64(0x101028)
+	t.Logf("IP is %#x", r.Pc)
+	r.Pc = pc
+	r.Sp = 0x100020
+	if err := v.SetRegs(r); err != nil {
+		t.Fatalf("SetRegs: got %v, want nil", err)
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if r.Pc != pc {
+		t.Fatalf("PC: got %#x, want %#x", r.Pc, pc)
+	}
+	// 0000000000000000 <loop-0x2c>:
+	//    0:	58000000 	ldr	x0, 0 <$0x1000>
+	//    4:	9100001f 	mov	sp, x0
+	//    8:	a9bd7bfd 	stp	x29, x30, [sp, #-48]!
+	//    c:	910003fd 	mov	x29, sp
+	//   10:	f9000fe0 	str	x0, [sp, #24]
+	//   14:	f9000be1 	str	x1, [sp, #16]
+	//   18:	f9400be1 	ldr	x1, [sp, #16]
+	//   1c:	f9400fe0 	ldr	x0, [sp, #24]
+	//   20:	d503201f 	nop
+	//   24:	d503201f 	nop
+	//   28:	d42006e0 	brk	#0x37
+
+	// 000000000000002c <loop>:
+	//   2c:	14000000 	b	2c <loop>
+	nopnophlt := []byte{
+		0xc0, 0x01, 0x00, 0x58, 0x1f, 0x00, 0x00, 0x91, 0xfd, 0x7b, 0xbd, 0xa9,
+		0xfd, 0x03, 0x00, 0x91, 0xe0, 0x0f, 0x00, 0xf9, 0xe1, 0x0b, 0x00, 0xf9,
+		0xe1, 0x0b, 0x40, 0xf9, 0xe0, 0x0f, 0x40, 0xf9, 0x1f, 0x20, 0x03, 0xd5,
+		0x1f, 0x20, 0x03, 0xd5, 0xe0, 0x06, 0x20, 0xd4, 0x00, 0x00, 0x00, 0x14,
+	}
+	if err := v.Write(uintptr(pc), nopnophlt); err != nil {
+		t.Fatalf("Writing br . instruction: got %v, want nil", err)
+	}
+	for i, pc := range []uint64{pc + 4, pc + 8, pc + 8} {
+		_, r, g, err := v.Inst()
+		if err != nil {
+			t.Fatalf("Inst: got %v, want nil", err)
+		}
+		t.Logf("--------------------> RUN instruction %d, %q @ %#x", i, g, r.Pc)
+		if err := v.Run(); err != nil {
+			t.Fatalf("Run: got %v, want nil", err)
+		}
+		_, r, _, err = v.Inst()
+		if err != nil {
+			t.Fatalf("Inst: got %v, want nil", err)
+		}
+		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x ", i, g, r.Pc, r.Sp, r.Pstate)
+		ev := v.Event()
+		s := unix.Signal(ev.Signo)
+		t.Logf("%d: Event %#x, trap %d, %v", i, ev, ev.Trapno, s)
+
+		t.Logf(show(fmt.Sprintf("Instruction %d\t", i), r))
+		if r.Pc != pc {
+			t.Fatalf("iteration %d: got %#x, want %#x", i, r.Pc, pc)
+		}
+
 	}
 }

@@ -74,8 +74,9 @@ else ifeq ($(ARCH),aa64)
   FW_BASE       = QEMU_EFI
   CROSS_COMPILE = $(GCC_ARCH)-linux-gnu-
   EP_PREFIX     =
-  CFLAGS        = -fpic -fshort-wchar
+  CFLAGS        = -fpic -fshort-wchar -march=armv8-a
   LDFLAGS       = -Wl,--no-wchar-size-warning -Wl,--defsym=EFI_SUBSYSTEM=$(SUBSYSTEM)
+  LDFLAGS       += -Tgcc.ld -Wl,--gc-sections,-Map=$(APP).map $(LDFLAGS_EXTRA) -static
   CRT0_LIBS     = -lgnuefi
   QEMU_OPTS     = -M virt -cpu cortex-a57
 endif
@@ -183,8 +184,8 @@ main.efi: $(OBJ)
 # until we get rid of the bullshit u-boot UEFI_GUID macro ... -Wno-overflow
 %.o: %.c
 	@echo  [CC]  $(notdir $@)
-	@$(CC) -E -I. $(CFLAGS) -ffreestanding -Wno-unused-function -Wno-shadow -Wno-unused-variable -o $<.cpp $<
-	@$(CC) -I. $(CFLAGS) -ffreestanding -Wno-overflow -Wno-unused-function -Wno-shadow -Wno-unused-variable -c $<
+	$(CC) -E -I. $(CFLAGS) -ffreestanding -Wno-unused-function -Wno-shadow -Wno-unused-variable -o $<.cpp $<
+	$(CC) -I. $(CFLAGS) -ffreestanding -Wno-overflow -Wno-unused-function -Wno-shadow -Wno-unused-variable -c $<
 
 qemu: CFLAGS += -D_DEBUG
 qemu: all $(FW_BASE)_$(FW_ARCH).fd image/efi/boot/boot$(ARCH).efi
