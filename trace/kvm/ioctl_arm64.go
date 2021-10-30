@@ -92,9 +92,13 @@ const (
 // 	__u64		pstate;
 // };
 const (
-	Sp     = 31
-	Pc     = 32
-	Pstate = 33
+	Sp      = 31
+	Pc      = 32
+	Pstate  = 33
+	SpEL1   = 34
+	ELREL   = 35
+	SPSR    = 36
+	NumRegs = 37
 )
 
 func coreReg(x int) uint64 {

@@ -41,15 +41,22 @@ const APIVersion = 12
 
 // PageTableBase is where our initial page tables go.
 // EFI apps should not go near this.
-const PageTableBase = 0xffff0000
+const (
+	PageTableBase = 0xffff0000
+	NumSPSR       = 5
+)
 
 // There are really 35 regs, so keep it simple
 type regs struct {
-	Regs [34]uint64
+	Regs [NumRegs]uint64
 	// These are copies.
 	Sp     uint64
 	Rip    uint64
 	Pstate uint64
+	SpEL1  uint64
+	ELREL  uint64
+
+	SPSR [NumSPSR]uint64
 }
 
 // This is the catchall for "things not regs"
@@ -102,7 +109,7 @@ type dtable struct {
 
 func kvmRegstoPtraceRegs(pr *syscall.PtraceRegs, r *regs, s *sregs) {
 	copy(pr.Regs[:], r.Regs[:])
-	pr.Sp = r.Sp
+	pr.Sp = r.SpEL1
 	pr.Pc = r.Rip
 	pr.Pstate = r.Pstate
 }
@@ -603,6 +610,9 @@ func (t Tracee) getRegs() (*regs, *sregs, error) {
 	r.Sp = r.Regs[Sp]
 	r.Rip = r.Regs[Pc]
 	r.Pstate = r.Regs[Pstate]
+	r.SpEL1 = r.Regs[SpEL1]
+	r.ELREL = r.Regs[ELREL]
+	copy(r.SPSR[:], r.Regs[SPSR:])
 
 	return r, &sregs{}, nil
 }
@@ -627,6 +637,9 @@ func (t *Tracee) SetRegs(pr *syscall.PtraceRegs) error {
 	r.Regs[Sp] = r.Sp
 	r.Regs[Pc] = r.Rip
 	r.Regs[Pstate] = r.Pstate
+	r.Regs[SpEL1] = r.SpEL1
+	r.Regs[ELREL] = r.ELREL
+	copy(r.Regs[SPSR:], r.SPSR[:])
 
 	for i := range r.Regs {
 		var res uint64 = r.Regs[i]

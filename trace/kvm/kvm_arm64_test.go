@@ -311,6 +311,7 @@ func TestRunLoop1038stack(t *testing.T) {
 	t.Logf("IP is %#x", r.Pc)
 	r.Pc = pc
 	r.Sp = 0x1034
+	r.Regs[0] = 0x100000
 	if err := v.SetRegs(r); err != nil {
 		t.Fatalf("SetRegs: got %v, want nil", err)
 	}
@@ -321,6 +322,7 @@ func TestRunLoop1038stack(t *testing.T) {
 	if r.Pc != pc {
 		t.Fatalf("PC: got %#x, want %#x", r.Pc, pc)
 	}
+	//add tth stack move
 	// a.out:     file format elf64-littleaarch64
 	// Disassembly of section .text:
 	// 0000000000000000 <loop-0x24>:
@@ -341,6 +343,8 @@ func TestRunLoop1038stack(t *testing.T) {
 	// rminnich@a300:~/go/src/github.com/linuxboot/voodoo/trace/kvm$ xxd -i aaa
 
 	nopnophlt := []byte{
+		//9100001f
+		0x1f, 0x00, 0x00, 0x91, 
 		0xfd, 0x7b, 0xbd, 0xa9, 0xfd, 0x03, 0x00, 0x91, 0xe0, 0x0f, 0x00, 0xf9,
 		0xe1, 0x0b, 0x00, 0xf9, 0xe1, 0x0b, 0x40, 0xf9, 0xe0, 0x0f, 0x40, 0xf9,
 		0x1f, 0x20, 0x03, 0xd5, 0x1f, 0x20, 0x03, 0xd5, 0xe0, 0x06, 0x20, 0xd4,
@@ -349,7 +353,7 @@ func TestRunLoop1038stack(t *testing.T) {
 		t.Fatalf("Writing br . instruction: got %v, want nil", err)
 	}
 
-	for i, pc := range []uint64{pc + 4, pc + 8, pc + 8} {
+	for i, pc := range []uint64{pc + 4, pc + 8, pc + 12, pc + 16, pc + 20} {
 		if err := v.Run(); err != nil {
 			t.Fatalf("Run: got %v, want nil", err)
 		}
