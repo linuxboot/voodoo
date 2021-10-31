@@ -117,7 +117,9 @@ func kvmRegstoPtraceRegs(pr *syscall.PtraceRegs, r *regs, s *sregs) {
 func ptraceRegsToKVMRegs(pr *syscall.PtraceRegs, r *regs, s *sregs) {
 	copy(r.Regs[:31], pr.Regs[:])
 	r.Regs[Sp], r.Regs[Pc], r.Regs[Pstate] = pr.Sp, pr.Pc, pr.Pstate
+	r.Regs[SpEL1] = pr.Sp
 	r.Sp = pr.Sp
+	r.SpEL1 = pr.Sp
 	r.Rip = pr.Pc
 	r.Pstate = pr.Pstate
 }
