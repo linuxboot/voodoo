@@ -718,8 +718,12 @@ func (t *Tracee) archInit() error {
 			return err
 		}
 
+		// invalid instruction. 0xf7f0a000
+		// POISON.
+		// This debug print is here mainly so I don't forget we're doing it!
+		Debug("Poisoning %d byte slice with 0xf7f0a000 for memory range %#x-%#x", len(mem), s.base, s.base+s.size-1)
 		for i := 0; i < len(mem); i += 4 {
-			// invalid instruction. 0xf7f0a000
+
 			copy(mem[i:i+4], []byte{0x00, 0xa0, 0xf0, 0xf7})
 		}
 
