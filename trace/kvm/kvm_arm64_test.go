@@ -419,17 +419,17 @@ func TestRunLoop1038setstack(t *testing.T) {
 	// 000000000000002c <loop>:
 	//   2c:	14000000 	b	2c <loop>
 	nopnophlt := []byte{
-		0x1f, 0x20, 0x03, 0xd5, 
-		0x1f, 0x00, 0x00, 0x91, 
-		0xfd, 0x7b, 0xbd, 0xa9,
-		0xfd, 0x03, 0x00, 0x91, 
-		0xe0, 0x0f, 0x00, 0xf9, 
-		0xe1, 0x0b, 0x00, 0xf9,
-		0xe1, 0x0b, 0x40, 0xf9, 
-		0xe0, 0x0f, 0x40, 0xf9, 
 		0x1f, 0x20, 0x03, 0xd5,
-		0x1f, 0x20, 0x03, 0xd5, 
-		0xe0, 0x06, 0x20, 0xd4, 
+		0x1f, 0x00, 0x00, 0x91,
+		0xfd, 0x7b, 0xbd, 0xa9,
+		0xfd, 0x03, 0x00, 0x91,
+		0xe0, 0x0f, 0x00, 0xf9,
+		0xe1, 0x0b, 0x00, 0xf9,
+		0xe1, 0x0b, 0x40, 0xf9,
+		0xe0, 0x0f, 0x40, 0xf9,
+		0x1f, 0x20, 0x03, 0xd5,
+		0x1f, 0x20, 0x03, 0xd5,
+		0xe0, 0x06, 0x20, 0xd4,
 		0x00, 0x00, 0x00, 0x14,
 	}
 	if err := v.Write(uintptr(pc), nopnophlt); err != nil {
@@ -458,5 +458,123 @@ func TestRunLoop1038setstack(t *testing.T) {
 			t.Fatalf("iteration %d: got %#x, want %#x", i, r.Pc, pc)
 		}
 
+	}
+}
+
+// Test whether we can call the brk42, ret, call it again
+func TestBrk42RetBrk42(t *testing.T) {
+	v, err := New()
+	if err != nil {
+		t.Fatalf("New: got %v, want nil", err)
+	}
+	defer v.Detach()
+	t.Logf("%v", v)
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
+	}
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if err := v.SingleStep(true); err != nil {
+		t.Fatalf("SingleStep: got %v, want nil", err)
+	}
+	pc := uint64(0x200000)
+	base := pc
+	t.Logf("IP is %#x", r.Pc)
+	r.Pc = pc
+	r.Sp = 0x100020
+	if err := v.SetRegs(r); err != nil {
+		t.Fatalf("SetRegs: got %v, want nil", err)
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if r.Pc != pc {
+		t.Fatalf("PC: got %#x, want %#x", r.Pc, pc)
+	}
+	// 0000000000100000 <x-0x100008>:
+	// 	...
+	//   200000:	580000de 	ldr	x30, 200018 <x+0x10>
+	//   200004:	d63f03c0 	blr	x30
+	//   200008:	d63f03c0 	blr	x30
+
+	// 000000000020000c <x>:
+	//   200008:	d4200840 	brk	#0x42
+	//   20000c:	d65f03c0 	ret
+	//   200010:	d4200840 	brk	#0x42
+	//   200014:	00200008 	.word	0x0020000c
+	//   200018:	00000000 	.word	0x00000000
+	brk42RetBrk42 := []byte{
+		0xde, 0x00, 0x00, 0x58,
+		0xc0, 0x03, 0x3f, 0xd6,
+		0xc0, 0x03, 0x3f, 0xd6,
+		0x40, 0x08, 0x20, 0xd4,
+		0xc0, 0x03, 0x5f, 0xd6,
+		0x40, 0x08, 0x20, 0xd4,
+		0x0c, 0x00, 0x20, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+	}
+	if err := v.Write(uintptr(pc), brk42RetBrk42); err != nil {
+		t.Fatalf("Writing br . instruction: got %v, want nil", err)
+	}
+	for i, pc := range []uint64{pc + 4, pc + 0xc} {
+		_, r, g, err := v.Inst()
+		if err != nil {
+			t.Fatalf("Inst: got %v, want nil", err)
+		}
+		t.Logf("--------------------> RUN instruction %d, %q @ %#x", i, g, r.Pc)
+		if err := v.Run(); err != nil {
+			t.Fatalf("Run: got %v, want nil", err)
+		}
+		_, r, _, err = v.Inst()
+		if err != nil {
+			t.Fatalf("Inst: got %v, want nil", err)
+		}
+		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x ", i, g, r.Pc, r.Sp, r.Pstate)
+		ev := v.Event()
+		s := unix.Signal(ev.Signo)
+		t.Logf("%d: Event %#x, trap %d, %v", i, ev, ev.Trapno, s)
+
+		t.Logf(show(fmt.Sprintf("Instruction %d\t", i), r))
+		if r.Pc != pc {
+			t.Fatalf("iteration %d: got %#x, want %#x", i, r.Pc, pc)
+		}
+	}
+	// Now we need to adjust the pc to return to the ret instruction.
+	if r, err = v.GetRegs(); err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	// 32-bit instructions
+	r.Pc += 4
+	t.Logf("IP is %#x", r.Pc)
+	if err := v.SetRegs(r); err != nil {
+		t.Fatalf("SetRegs: got %v, want nil", err)
+	}
+
+	// x30 now contains 0x20008, so we see it twice, that's fine.
+	for i, pc := range []uint64{base + 8, base + 8} {
+		_, r, g, err := v.Inst()
+		if err != nil {
+			t.Fatalf("Inst: got %v, want nil", err)
+		}
+		t.Logf("--------------------> RUN instruction %d, %q @ %#x", i, g, r.Pc)
+		if err := v.Run(); err != nil {
+			t.Fatalf("Run: got %v, want nil", err)
+		}
+		_, r, _, err = v.Inst()
+		if err != nil {
+			t.Fatalf("Inst: got %v, want nil", err)
+		}
+		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x ", i, g, r.Pc, r.Sp, r.Pstate)
+		ev := v.Event()
+		s := unix.Signal(ev.Signo)
+		t.Logf("%d: Event %#x, trap %d, %v", i, ev, ev.Trapno, s)
+
+		t.Logf(show(fmt.Sprintf("Instruction %d\t", i), r))
+		if r.Pc != pc {
+			t.Fatalf("iteration %d: got %#x, want %#x", i, r.Pc, pc)
+		}
 	}
 }

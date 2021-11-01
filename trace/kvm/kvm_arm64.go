@@ -785,6 +785,11 @@ func (t *Tracee) archInit() error {
 			binary.LittleEndian.PutUint64(regions[2].dat[i:], bogus)
 		}
 	}
+	for i := 0; i < len(regions[2].dat[0x400000:]); i += 8 {
+		// d4200840 	brk	#0x42
+		// d65f03c0 	ret
+		binary.LittleEndian.PutUint64(regions[2].dat[i:], uint64(0xd65f03c0)<<32|uint64(0xd4200840))
+	}
 	if err := readonly(regions[2].dat[0x400000:]); err != nil {
 		log.Panicf("Marking ffun readonly: %v", err)
 	}
