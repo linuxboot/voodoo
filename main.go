@@ -29,7 +29,7 @@ type msg func()
 
 var (
 	optional        = flag.Bool("optional", false, "Print optional registers")
-	singlestep      = flag.Bool("singlestep", true, "single step instructions")
+	singlestep      = flag.Bool("singlestep", false, "single step instructions")
 	debug           = flag.Bool("debug", false, "Enable debug prints")
 	dryrun          = flag.Bool("dryrun", false, "set up but don't run")
 	regpath         = flag.String("registerfile", "", "file to log registers to, in .csv format")

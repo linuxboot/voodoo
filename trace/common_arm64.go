@@ -64,24 +64,20 @@ func Inst(t Trace) (*arm64asm.Inst, *syscall.PtraceRegs, string, error) {
 	pc := r.Pc
 	sp := r.Sp
 	Debug("Inst: pc %#x, sp %#x", pc, sp)
-	cpc, err := t.ReadWord(uintptr(sp))
-	if err != nil {
-		return nil, nil, "", fmt.Errorf("Inst:ReadWord at %#x::%v", sp, err)
-	}
+	cpc := r.Regs[30]
 	Debug("cpc is %#x from sp", cpc)
-	cpc, err = t.ReadWord(uintptr(sp + 8))
-	if err != nil {
-		return nil, nil, "", fmt.Errorf("Inst:ReadWord at %#x::%v", sp+8, err)
+	if false {
+		ccpc, err := t.ReadWord(uintptr(sp + 8))
+		if err != nil {
+			return nil, nil, "", fmt.Errorf("Inst:ReadWord at %#x::%v", sp+8, err)
+		}
+		Debug("cpc is %#x from sp+8", ccpc)
 	}
-	Debug("cpc is %#x from sp+8", cpc)
 	// We maintain all the function pointers in non-addressable space for now.
 	// It is in the classic BIOS space.
 	if r.Pc > 0xff000000 {
-		cpc, err := t.ReadWord(uintptr(sp))
-		if err != nil {
-			return nil, nil, "", fmt.Errorf("Inst:ReadWord at %#x::%v", sp, err)
-		}
-		Debug("cpc is %#x from sp", cpc)
+		cpc := r.Regs[30]
+		Debug("cpc is %#x from LR", cpc)
 		pc = cpc
 	}
 	// We know the PC; grab a bunch of bytes there, then decode and print
