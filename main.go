@@ -146,12 +146,12 @@ func main() {
 	if *dryrun {
 		log.Panic("dry run")
 	}
-	w, err := trace.ReadWord(v, uintptr(r.Pc))
+	w, err := trace.ReadWord(v, uintptr(r.PC()))
 	if err != nil {
-		log.Fatalf("Reading first instruction word at %#x: %v", r.Pc, err)
+		log.Fatalf("Reading first instruction word at %#x: %v", r.PC(), err)
 	}
-	Debug("Word at %#x is %#x", r.Pc, w)
-	{
+	Debug("Word at %#x is %#x", r.PC(), w)
+	if *debug {
 		insn, r, g, err := trace.Inst(v)
 		log.Printf("%v, %v, %v, %v", insn, r, g, err)
 	}
@@ -164,10 +164,14 @@ func main() {
 		for err := v.Run(); err != nil; err = v.Run() {
 			log.Printf("Run: got %v, want nil", err)
 		}
-	{
-		insn, r, g, err := trace.Inst(v)
-		log.Printf("%v, %v, %v, %v", insn, r, g, err)
-	}
+		Debug("\treturns:")
+		if *debug {
+			insn, r, g, err := trace.Inst(v)
+			log.Printf("%v, %v, %v, %v", insn, r, g, err)
+			if err != nil {
+				log.Fatalf("Error on tracing: can't happen: %v", err)
+			}
+		}
 		ev := v.Event()
 		s := unix.Signal(ev.Signo)
 		Debug("\t %d: Event %#x, trap %d", line, ev, ev.Trapno)
