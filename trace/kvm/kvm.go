@@ -274,7 +274,6 @@ func (t *Tracee) Detach() error {
 }
 
 // ReadWord reads the given word from the inferior's address space.
-// Only allowed to read from Region 0 for now.
 func (t *Tracee) ReadWord(address uintptr) (uint64, error) {
 	var word [8]byte
 	if err := t.Read(address, word[:]); err != nil {
@@ -286,13 +285,19 @@ func (t *Tracee) ReadWord(address uintptr) (uint64, error) {
 
 // Read grabs memory starting at the given address, for len(data) bytes.
 func (t *Tracee) Read(address uintptr, data []byte) error {
-	r := t.regions[0]
-	last := r.gpa + uint64(len(r.data))
-	if address > uintptr(last) {
-		return fmt.Errorf("Address %#x is out of range", address)
+	for _, r := range t.regions {
+		if address < uintptr(r.gpa) {
+			continue
+		}
+		last := r.gpa + uint64(len(r.data))
+		if address > uintptr(last) {
+			continue
+		}
+		a := address - uintptr(r.gpa)
+		copy(data, r.data[a:])
+		return nil
 	}
-	copy(data, r.data[address:])
-	return nil
+	return fmt.Errorf("Address %#x is out of range", address)
 }
 
 // WriteWord writes the given word into the inferior's address space.

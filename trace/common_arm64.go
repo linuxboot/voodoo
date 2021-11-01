@@ -84,10 +84,11 @@ func Inst(t Trace) (*arm64asm.Inst, *syscall.PtraceRegs, string, error) {
 		pc = cpc
 	}
 	// debug. Is what is at the indirection page what should be?
-	if true {
-		insn := make([]byte, 8)
+	if true && r.Pc > 0xff000000 {
+		pc := r.Pc
+		insn := make([]byte, 4)
 		if err := t.Read(uintptr(pc), insn); err != nil {
-			return nil, nil, "", fmt.Errorf("Can' read PC at #%x, err %v", pc, err)
+			return nil, nil, "", fmt.Errorf("Can' read PC at %#x, err %v", pc, err)
 		}
 		Debug("Insn @ %#x is %#x", pc, insn)
 		d, err := arm64asm.Decode(insn)
@@ -98,7 +99,7 @@ func Inst(t Trace) (*arm64asm.Inst, *syscall.PtraceRegs, string, error) {
 		// Now check what should be at the brk and ret site.
 		pc += 0x400000
 		if err := t.Read(uintptr(pc), insn); err != nil {
-			return nil, nil, "", fmt.Errorf("Can' read PC at #%x, err %v", pc, err)
+			return nil, nil, "", fmt.Errorf("Can' read PC at %#x, err %v", pc, err)
 		}
 		Debug("Insn @ %#x is %#x", pc, insn)
 		d, err = arm64asm.Decode(insn)
