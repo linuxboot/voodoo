@@ -62,6 +62,9 @@ func Inst(t Trace) (*arm64asm.Inst, *syscall.PtraceRegs, string, error) {
 		return nil, nil, "", fmt.Errorf("Inst:Getregs:%v", err)
 	}
 	pc := r.Pc
+	if r.Pc <= 0x200 {
+		return nil, nil, "PC is at reset trap vector", fmt.Errorf("RESET!")
+	}
 	sp := r.Sp
 	Debug("Inst: pc %#x, sp %#x", pc, sp)
 	cpc := r.Regs[30]
@@ -80,6 +83,31 @@ func Inst(t Trace) (*arm64asm.Inst, *syscall.PtraceRegs, string, error) {
 		Debug("cpc is %#x from LR", cpc)
 		pc = cpc
 	}
+	// debug. Is what is at the indirection page what should be?
+	if true {
+		insn := make([]byte, 8)
+		if err := t.Read(uintptr(pc), insn); err != nil {
+			return nil, nil, "", fmt.Errorf("Can' read PC at #%x, err %v", pc, err)
+		}
+		Debug("Insn @ %#x is %#x", pc, insn)
+		d, err := arm64asm.Decode(insn)
+		if err != nil {
+			return nil, nil, "", fmt.Errorf("Can't decode %#02x: %v", insn, err)
+		}
+		Debug("decode is %v", d)
+		// Now check what should be at the brk and ret site.
+		pc += 0x400000
+		if err := t.Read(uintptr(pc), insn); err != nil {
+			return nil, nil, "", fmt.Errorf("Can' read PC at #%x, err %v", pc, err)
+		}
+		Debug("Insn @ %#x is %#x", pc, insn)
+		d, err = arm64asm.Decode(insn)
+		if err != nil {
+			return nil, nil, "", fmt.Errorf("Can't decode %#02x: %v", insn, err)
+		}
+		Debug("decode is %v", d)
+	}
+
 	// We know the PC; grab a bunch of bytes there, then decode and print
 	insn := make([]byte, 4)
 	if err := t.Read(uintptr(pc), insn); err != nil {
