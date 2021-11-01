@@ -578,3 +578,85 @@ func TestBrk42RetBrk42(t *testing.T) {
 		}
 	}
 }
+
+// Test whether the ELREL has what we expect.
+func TestELREL(t *testing.T) {
+	v, err := New()
+	if err != nil {
+		t.Fatalf("New: got %v, want nil", err)
+	}
+	defer v.Detach()
+	t.Logf("%v", v)
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
+	}
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if err := v.SingleStep(true); err != nil {
+		t.Fatalf("SingleStep: got %v, want nil", err)
+	}
+	pc := uint64(0x200000)
+	t.Logf("IP is %#x", r.Pc)
+	r.Pc = pc
+	r.Sp = 0x100020
+	//r.ELREL = 0x200000 // convenience only, does not matter
+	if err := v.SetRegs(r); err != nil {
+		t.Fatalf("SetRegs: got %v, want nil", err)
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if r.Pc != pc {
+		t.Fatalf("PC: got %#x, want %#x", r.Pc, pc)
+	}
+	// 0000000000100000 <x-0x100008>:
+	// 	...
+	//   200000:	580000de 	ldr	x30, 200018 <x+0x10>
+	//   200004:	d63f03c0 	blr	x30
+	//   200008:	d63f03c0 	blr	x30
+
+	// 000000000020000c <x>:
+	//   200008:	d4200840 	brk	#0x42
+	//   20000c:	d65f03c0 	ret
+	//   200010:	d4200840 	brk	#0x42
+	//   200014:	00200008 	.word	0x0020000c
+	//   200018:	00000000 	.word	0x00000000
+	brk42RetBrk42 := []byte{
+		0xde, 0x00, 0x00, 0x58,
+		0xc0, 0x03, 0x3f, 0xd6,
+		0xc0, 0x03, 0x3f, 0xd6,
+		0x40, 0x08, 0x20, 0xd4,
+		0xc0, 0x03, 0x5f, 0xd6,
+		0x40, 0x08, 0x20, 0xd4,
+		0x0c, 0x00, 0x20, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+	}
+	if err := v.Write(uintptr(pc), brk42RetBrk42); err != nil {
+		t.Fatalf("Writing br . instruction: got %v, want nil", err)
+	}
+	for i, elr := range []uint64{0x20000c, pc + 8} {
+		_, r, g, err := v.Inst()
+		if err != nil {
+			t.Fatalf("Inst: got %v, want nil", err)
+		}
+		t.Logf("--------------------> RUN instruction %d, %q @ %#x", i, g, r.Pc)
+		if err := v.Run(); err != nil {
+			t.Fatalf("Run: got %v, want nil", err)
+		}
+		_, r, _, err = v.Inst()
+		if err != nil {
+			t.Fatalf("Inst: got %v, want nil", err)
+		}
+		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x ", i, g, r.Pc, r.Sp, r.Pstate)
+		ev := v.Event()
+		s := unix.Signal(ev.Signo)
+		t.Logf("%d: Event %#x, trap %d, %v", i, ev, ev.Trapno, s)
+
+		if r.Regs[30] != elr {
+			t.Fatalf("iteration %d: LR got %#x, want %#x", i, r.Regs[30], elr)
+		}
+	}
+}
