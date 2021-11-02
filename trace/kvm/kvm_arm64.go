@@ -13,7 +13,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const ()
+const (
+	lowMemSize = 0x8000_0000
+)
 
 // Exit= is the VM exit value returned by KVM.
 type Exit uint32
@@ -708,7 +710,7 @@ func (t *Tracee) archInit() error {
 		size uintptr
 		dat  []byte
 	}{
-		{base: 0, size: 0x8000_0000},
+		{base: 0, size: lowMemSize},
 		{base: 0xffff0000, size: 0x10000},  // we might scarf page tables here still?
 		{base: 0xff000000, size: 0x800000}, // Where the protocols etc. go
 	}
