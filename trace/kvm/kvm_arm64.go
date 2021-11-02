@@ -14,6 +14,14 @@ import (
 )
 
 const (
+	// LowMemSize is the size of low memory, i.e. 0 to something.
+	// The only constraint: the non-zero parts must fit in 16 bits,
+	// and it must align to a 16, 32, or 48-bit aligned address.
+	// This is so the TestExit can work correctly. That test currently
+	// does an MMIO at 0x80_0000_0000. So you can grow this, but in any
+	// event, don't grow it past 0xff000000; we reserve the top 16M
+	// for "BIOS". Should you ever want to change this, that is the time
+	// to use this constant in TestExit. For now, it's a hack.
 	lowMemSize = 0x8000_0000
 )
 

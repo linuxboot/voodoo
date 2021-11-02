@@ -661,7 +661,12 @@ func TestELREL(t *testing.T) {
 	}
 }
 
-// Test whether we get exits even with singlestep not set.
+// TestExit will determine if we can force a vm exit *somehow*.
+// hypercall and hlt don't do it. But an MMIO seems to.
+// We want to make sure this works even when SingleStep is not
+// set. If Things Go Wrong you can safely enable SingleStep
+// (below) and the test will still run until the proper exit condition
+// is met, or error if it was not.
 func TestExit(t *testing.T) {
 	v, err := New()
 	if err != nil {
@@ -690,23 +695,26 @@ func TestExit(t *testing.T) {
 		t.Fatalf("PC: got %#x, want %#x", r.Pc, pc)
 	}
 
-	// 0000000000100000 <__bss_end__-0x10010>:
-	//   100000:	58000041 	ldr	x1, 100008 <__bss_end__-0x10008>
-	//   100004:	f9400021 	ldr	x1, [x1]
-	//   100008:	80000000 	.word	0x80000000
-	//   10000c:	00000000 	.word	0x00000000
+	// x1 is safe to use; it's understood to be a result register.
+	// This immediate loads 0x80_0000_0000
+	// 100000:	f2c01001 	movk	x1, #0x80, lsl #32
+	// 100004:	f9400021 	ldr	x1, [x1]
 	mmio0x80000000 := []byte{
-		0x41, 0x00, 0x00, 0x58,
+		0x01, 0x10, 0xc0, 0xf2,
 		0x21, 0x00, 0x40, 0xf9,
-		0x00, 0x00, 0x00, 0x80,
-		0x00, 0x00, 0x00, 0x00,
 	}
 	if err := v.Write(uintptr(pc), mmio0x80000000); err != nil {
 		t.Fatalf("Writing br . instruction: got %v, want nil", err)
 	}
+	if false {
+		if err := v.SingleStep(true); err != nil {
+			t.Fatalf("SingleStep: got %v, want nil", err)
+		}
+	}
 	// The MMIO exit is not a call, so the PC will point to the MMIO instruction,
 	// not the one after it.
-	for i, elr := range []uint64{pc + 4} {
+	// Run the loop for 3 instructions, and if we get an mmio, then we're done.
+	for i := 0; i < 3; i++ {
 		_, r, g, err := v.Inst()
 		if err != nil {
 			t.Fatalf("Inst: got %v, want nil", err)
@@ -723,11 +731,14 @@ func TestExit(t *testing.T) {
 		ev := v.Event()
 		s := unix.Signal(ev.Signo)
 		t.Logf("Event %#x, trap %d, %v", ev, ev.Trapno, s)
-		if ev.Trapno != ExitMmio {
-			t.Errorf("Exit: Got %#x, want ExitMmio (%#x)", ev.Trapno, ExitMmio)
+		// If we ever hit an MMIO, then we're done.
+		// This peculiar way of exiting the loop is so that we can
+		// enable single stepping (above) when It All Goes Wrong.
+		// Which it has.
+		if ev.Trapno == ExitMmio {
+			return
 		}
-		if r.Pc != elr {
-			t.Errorf("Exit: got PC %#x, want %#x", r.Pc, elr)
-		}
+		t.Errorf("Exit: Got %#x, want ExitMmio (%#x)", ev.Trapno, ExitMmio)
 	}
+	t.Errorf("After loop: got no ExitMmio, expected one")
 }
