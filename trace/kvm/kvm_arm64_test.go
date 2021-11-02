@@ -676,16 +676,9 @@ func TestExit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
-	if true {
-		if err := v.SingleStep(true); err != nil {
-			t.Fatalf("SingleStep: got %v, want nil", err)
-		}
-	}
-	pc := uint64(0x200000)
-	t.Logf("IP is %#x", r.Pc)
+	pc := uint64(0x100000)
 	r.Pc = pc
 	r.Sp = 0x100020
-	//r.ELREL = 0x200000 // convenience only, does not matter
 	if err := v.SetRegs(r); err != nil {
 		t.Fatalf("SetRegs: got %v, want nil", err)
 	}
@@ -696,24 +689,45 @@ func TestExit(t *testing.T) {
 	if r.Pc != pc {
 		t.Fatalf("PC: got %#x, want %#x", r.Pc, pc)
 	}
-	smc3 := []byte{
-		0x63, 0x00, 0x00, 0xd4, // d4000063 	smc	#0x3
-		0x63, 0x00, 0x00, 0xd4, // d4000063 	smc	#0x3
-		0x63, 0x00, 0x00, 0xd4, // d4000063 	smc	#0x3
+
+	// 0000000000100000 <__bss_end__-0x10010>:
+	//   100000:	58000041 	ldr	x1, 100008 <__bss_end__-0x10008>
+	//   100004:	f9400021 	ldr	x1, [x1]
+	//   100008:	80000000 	.word	0x80000000
+	//   10000c:	00000000 	.word	0x00000000
+	mmio0x80000000 := []byte{
+		0x41, 0x00, 0x00, 0x58,
+		0x21, 0x00, 0x40, 0xf9,
+		0x00, 0x00, 0x00, 0x80,
+		0x00, 0x00, 0x00, 0x00,
 	}
-	if err := v.Write(uintptr(pc), smc3); err != nil {
+	if err := v.Write(uintptr(pc), mmio0x80000000); err != nil {
 		t.Fatalf("Writing br . instruction: got %v, want nil", err)
 	}
-	t.Logf("--------------------> RUN instruction @ %#x", r.Pc)
-	if err := v.Run(); err != nil {
-		t.Fatalf("Run: got %v, want nil", err)
+	// The MMIO exit is not a call, so the PC will point to the MMIO instruction,
+	// not the one after it.
+	for i, elr := range []uint64{pc + 4} {
+		_, r, g, err := v.Inst()
+		if err != nil {
+			t.Fatalf("Inst: got %v, want nil", err)
+		}
+		t.Logf("====================# RUN instruction %d EIP %#x, SP %#x, PSTATE %#x (%v)", i, r.Pc, r.Sp, r.Pstate, g)
+		if err := v.Run(); err != nil {
+			t.Fatalf("Run: got %v, want nil", err)
+		}
+		ins, r, g, err := v.Inst()
+		if err != nil {
+			t.Fatalf("Inst: got %v, want nil", err)
+		}
+		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x x[1] %#x", ins, g, r.Pc, r.Sp, r.Pstate, r.Regs[1])
+		ev := v.Event()
+		s := unix.Signal(ev.Signo)
+		t.Logf("Event %#x, trap %d, %v", ev, ev.Trapno, s)
+		if ev.Trapno != ExitMmio {
+			t.Errorf("Exit: Got %#x, want ExitMmio (%#x)", ev.Trapno, ExitMmio)
+		}
+		if r.Pc != elr {
+			t.Errorf("Exit: got PC %#x, want %#x", r.Pc, elr)
+		}
 	}
-	r, err = v.GetRegs()
-	if err != nil {
-		t.Fatalf("GetRegs: got %v, want nil", err)
-	}
-	t.Logf("====================# DONE instruction EIP %#x, SP %#x, PSTATE %#x ", r.Pc, r.Sp, r.Pstate)
-	ev := v.Event()
-	s := unix.Signal(ev.Signo)
-	t.Logf("Event %#x, trap %d, %v", ev, ev.Trapno, s)
 }
