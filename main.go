@@ -154,15 +154,15 @@ func main() {
 	die := false
 	// Check a few things.
 	if *debug {
-	for _, w := range []uintptr{ 0, 0x400000, 0x800000, 0xf00000, 0xff000000, 0xff400000, 0xffff0000, 0xfff0000} {
-		v, err := trace.ReadWord(v, w)
-		if err != nil {
-			log.Printf("Reading first instruction word at %#x: %v", w, err)
-			die = true
+		for _, w := range []uintptr{0, 0x400000, 0x800000, 0xf00000, 0xff000000, 0xff400000, 0xffff0000, 0xfff0000, 0xff450098, 0xff45009c} {
+			v, err := trace.ReadWord(v, w)
+			if err != nil {
+				log.Printf("Reading first instruction word at %#x: %v", w, err)
+				die = true
+			}
+			Debug("Word at %#x is %#x", w, v)
 		}
-		Debug("Word at %#x is %#x", w, v)
 	}
-}
 	if die {
 		log.Fatal("well, that sucked")
 	}
