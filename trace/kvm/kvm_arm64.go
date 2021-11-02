@@ -28,6 +28,19 @@ const (
 // Exit= is the VM exit value returned by KVM.
 type Exit uint32
 
+var (
+	// VMCALL is used to call out of the VM to the host.
+	// It does an MMIO load from an unmapped address.
+	// x1 is safe to use; it's understood to be a result register.
+	// This immediate loads 0x80_0000_0000
+	// 100000:	f2c01001 	movk	x1, #0x80, lsl #32
+	// 100004:	f9400021 	ldr	x1, [x1]
+	VMCall = []byte{
+		0x01, 0x10, 0xc0, 0xf2,
+		0x21, 0x00, 0x40, 0xf9,
+	}
+)
+
 type cpu struct {
 	id    int
 	fd    uintptr

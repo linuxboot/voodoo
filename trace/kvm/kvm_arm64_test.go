@@ -661,13 +661,12 @@ func TestELREL(t *testing.T) {
 	}
 }
 
-// TestExit will determine if we can force a vm exit *somehow*.
-// hypercall and hlt don't do it. But an MMIO seems to.
+// TestVMCall tests the ARM64 VMCall code. As in x86, we save 64 bits for this function.
 // We want to make sure this works even when SingleStep is not
 // set. If Things Go Wrong you can safely enable SingleStep
 // (below) and the test will still run until the proper exit condition
 // is met, or error if it was not.
-func TestExit(t *testing.T) {
+func TestVMCall(t *testing.T) {
 	v, err := New()
 	if err != nil {
 		t.Fatalf("New: got %v, want nil", err)
@@ -695,15 +694,7 @@ func TestExit(t *testing.T) {
 		t.Fatalf("PC: got %#x, want %#x", r.Pc, pc)
 	}
 
-	// x1 is safe to use; it's understood to be a result register.
-	// This immediate loads 0x80_0000_0000
-	// 100000:	f2c01001 	movk	x1, #0x80, lsl #32
-	// 100004:	f9400021 	ldr	x1, [x1]
-	mmio0x80000000 := []byte{
-		0x01, 0x10, 0xc0, 0xf2,
-		0x21, 0x00, 0x40, 0xf9,
-	}
-	if err := v.Write(uintptr(pc), mmio0x80000000); err != nil {
+	if err := v.Write(uintptr(pc), VMCall); err != nil {
 		t.Fatalf("Writing br . instruction: got %v, want nil", err)
 	}
 	if false {
