@@ -83,8 +83,10 @@ func Inst(t Trace) (*arm64asm.Inst, *syscall.PtraceRegs, string, error) {
 		Debug("cpc is %#x from LR", cpc)
 		pc = cpc
 	}
+	// You never want to turn this on except when things things are 
+	// seriously fux0ord.
 	// debug. Is what is at the indirection page what should be?
-	if true && r.Pc > 0xff000000 {
+	if false && r.Pc > 0xff000000 && r.Pc < 0xff400000 {
 		pc := r.Pc
 		insn := make([]byte, 4)
 		if err := t.Read(uintptr(pc), insn); err != nil {

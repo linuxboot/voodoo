@@ -660,3 +660,60 @@ func TestELREL(t *testing.T) {
 		}
 	}
 }
+
+// Test whether we get exits even with singlestep not set.
+func TestExit(t *testing.T) {
+	v, err := New()
+	if err != nil {
+		t.Fatalf("New: got %v, want nil", err)
+	}
+	defer v.Detach()
+	t.Logf("%v", v)
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
+	}
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if true {
+		if err := v.SingleStep(true); err != nil {
+			t.Fatalf("SingleStep: got %v, want nil", err)
+		}
+	}
+	pc := uint64(0x200000)
+	t.Logf("IP is %#x", r.Pc)
+	r.Pc = pc
+	r.Sp = 0x100020
+	//r.ELREL = 0x200000 // convenience only, does not matter
+	if err := v.SetRegs(r); err != nil {
+		t.Fatalf("SetRegs: got %v, want nil", err)
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if r.Pc != pc {
+		t.Fatalf("PC: got %#x, want %#x", r.Pc, pc)
+	}
+	smc3 := []byte{
+		0x63, 0x00, 0x00, 0xd4, // d4000063 	smc	#0x3
+		0x63, 0x00, 0x00, 0xd4, // d4000063 	smc	#0x3
+		0x63, 0x00, 0x00, 0xd4, // d4000063 	smc	#0x3
+	}
+	if err := v.Write(uintptr(pc), smc3); err != nil {
+		t.Fatalf("Writing br . instruction: got %v, want nil", err)
+	}
+	t.Logf("--------------------> RUN instruction @ %#x", r.Pc)
+	if err := v.Run(); err != nil {
+		t.Fatalf("Run: got %v, want nil", err)
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	t.Logf("====================# DONE instruction EIP %#x, SP %#x, PSTATE %#x ", r.Pc, r.Sp, r.Pstate)
+	ev := v.Event()
+	s := unix.Signal(ev.Signo)
+	t.Logf("Event %#x, trap %d, %v", ev, ev.Trapno, s)
+}
