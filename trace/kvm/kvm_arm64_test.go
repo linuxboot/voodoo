@@ -158,7 +158,6 @@ func TestSetRegs(t *testing.T) {
 	for i := range r.Regs {
 		pr.Regs[i] = ^r.Regs[i]
 	}
-
 	if err := v.SetRegs(pr); err != nil {
 		t.Fatalf("setregs: got %v, want nil", err)
 	}
@@ -683,6 +682,8 @@ func TestVMCall(t *testing.T) {
 	pc := uint64(0x100000)
 	r.Pc = pc
 	r.Sp = 0x100020
+	// Simulate a call from the UEFI world.
+	r.Regs[30] = 0xff450098
 	if err := v.SetRegs(r); err != nil {
 		t.Fatalf("SetRegs: got %v, want nil", err)
 	}
@@ -716,9 +717,14 @@ func TestVMCall(t *testing.T) {
 		}
 		ins, r, g, err := v.Inst()
 		if err != nil {
+			r, err = v.GetRegs()
+			if err != nil {
+				t.Fatalf("GetRegs: got %v, want nil", err)
+			}
+			t.Logf("====================# FAILED instruction %d, EIP %#x, SP %#x, PSTATE %#x x[1] %#x x[ELREL] %#x", ins, r.Pc, r.Sp, r.Pstate, r.Regs[1],r.Regs[ELREL] )
 			t.Fatalf("Inst: got %v, want nil", err)
 		}
-		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x x[1] %#x", ins, g, r.Pc, r.Sp, r.Pstate, r.Regs[1])
+		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x x[1] %#x x[ELREL] %#x", ins, g, r.Pc, r.Sp, r.Pstate, r.Regs[1],r.Regs[ELREL] )
 		ev := v.Event()
 		s := unix.Signal(ev.Signo)
 		t.Logf("Event %#x, trap %d, %v", ev, ev.Trapno, s)
