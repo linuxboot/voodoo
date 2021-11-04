@@ -34,7 +34,7 @@ var (
 	// which is 0x80_0000_0000 | LR.
 	// uint32(lr) is the procedure number, and will also
 	// be the info addr from the vm exit information.
-	// x1 is safe to use; it's understood to be a result register.
+	// x8 is safe to use; it's understood to be a scratch register.
 	// This immediate loads 0x80_0000_0000
 	// 100000:      f2c01001        movk    x1, #0x80, lsl #32
 	// Now the EOR below ought to work, but it's just not reliable, not sure why.
@@ -42,12 +42,15 @@ var (
 	// instruction to stumble upon.
 	// But in the end ... the simpler one is better.
 	// Leaving this here for future smart people to improve open.
-	//100000:	d25903c1 	eor	x1, x30, #0x8000000000
-	//100004:	f9400021 	ldr	x1, [x1]
+	// 100000:	d25903c1 	eor	x1, x30, #0x8000000000
+	// 100004:	f9400021 	ldr	x1, [x1]
+	// Oh and, oops, use x8, not x1 ...
+	// 100000:	f2c01008 	movk	x8, #0x80, lsl #32
+	// 100004:	f9400108 	ldr	x8, [x8]
 	VMCall = []byte{
 		//0xc1, 0x03, 0x59, 0xd2, // eor	x1, x30, #0x8000000000
-		0x01, 0x10, 0xc0, 0xf2, // movk    x1, #0x80, lsl #32
-		0x21, 0x00, 0x40, 0xf9,
+		0x08, 0x10, 0xc0, 0xf2, // movk    x8, #0x80, lsl #32
+		0x08, 0x01, 0x40, 0xf9,
 	}
 )
 

@@ -721,10 +721,10 @@ func TestVMCall(t *testing.T) {
 			if err != nil {
 				t.Fatalf("GetRegs: got %v, want nil", err)
 			}
-			t.Logf("====================# FAILED instruction %d, EIP %#x, SP %#x, PSTATE %#x x[1] %#x x[ELREL] %#x", ins, r.Pc, r.Sp, r.Pstate, r.Regs[1],r.Regs[ELREL] )
+			t.Logf("====================# FAILED instruction %d, EIP %#x, SP %#x, PSTATE %#x x[8] %#x x[ELREL] %#x", ins, r.Pc, r.Sp, r.Pstate, r.Regs[8],r.Regs[ELREL] )
 			t.Fatalf("Inst: got %v, want nil", err)
 		}
-		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x x[1] %#x x[ELREL] %#x", ins, g, r.Pc, r.Sp, r.Pstate, r.Regs[1],r.Regs[ELREL] )
+		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x x[8] %#x x[ELREL] %#x", ins, g, r.Pc, r.Sp, r.Pstate, r.Regs[8],r.Regs[ELREL] )
 		ev := v.Event()
 		s := unix.Signal(ev.Signo)
 		t.Logf("Event %#x, trap %d, %v", ev, ev.Trapno, s)
