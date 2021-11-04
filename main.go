@@ -234,6 +234,38 @@ func main() {
 
 			step("returned from halt, set regs, move along")
 
+		case ev.Trapno == kvm.ExitMmio:
+			// This ONLY happens on an exit OR calling a UEFI function.
+			if *debug {
+				if err := trace.Regs(os.Stdout, r); err != nil {
+					log.Fatal(err)
+				}
+			}
+			pc, err := v.PC()
+			if err != nil {
+				log.Fatalf("Getting PC after ExitMmio: %v", err)
+			}
+			haltasm := trace.Asm(insn, uint64(pc))
+			if err := mmio(v, &ev, insn, r, haltasm); err != nil {
+				if err == io.EOF {
+					fmt.Println("\n===:DXE Exits!")
+					os.Exit(0)
+				}
+				Debug(showone("mmio exit", r))
+				log.Printf("Can't do %#x(%v): %v", ev.Signo, unix.SignalName(s), err)
+				for {
+					any("Waiting for ^C")
+				}
+			}
+			// The handlers will always change, at least, eip, so just blindly set them
+			// back. TODO: see if we need more granularity.
+			if err := v.SetRegs(r); err != nil {
+				log.Fatalf("Can't set stack to %#x: %v", dat, err)
+			}
+
+			panic("fuck")
+			step("returned from halt, set regs, move along")
+
 		case ev.Trapno == kvm.ExitIo:
 			checkConsole(insn, r, g)
 		default:

@@ -17,6 +17,10 @@ import (
 
 const tosSentinal = 0xf4f4f4f4f4f4f4f4
 
+func mmio(p trace.Trace, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.PtraceRegs, asm string) error {
+	panic("mmio")
+}
+
 // halt handles the halt case. Things differ a bit from segv.
 // First off, the pc will be one off, having been incrementd. Other issues apply as well.
 func halt(p trace.Trace, i *unix.SignalfdSiginfo, inst *x86asm.Inst, r *syscall.PtraceRegs, asm string) error {

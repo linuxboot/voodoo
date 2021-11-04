@@ -6,6 +6,7 @@ import (
 	"log"
 	"syscall"
 
+	"github.com/linuxboot/voodoo/trace/kvm"
 	"golang.org/x/arch/arm64/arm64asm"
 	"golang.org/x/sys/unix"
 )
@@ -67,7 +68,7 @@ func Inst(t Trace) (*arm64asm.Inst, *syscall.PtraceRegs, string, error) {
 	}
 	sp := r.Sp
 	Debug("Inst: pc %#x, sp %#x", pc, sp)
-	cpc := r.Regs[30]
+	cpc := r.Regs[kvm.ELREL]
 	Debug("cpc is %#x from sp", cpc)
 	if false {
 		ccpc, err := t.ReadWord(uintptr(sp + 8))
@@ -79,11 +80,11 @@ func Inst(t Trace) (*arm64asm.Inst, *syscall.PtraceRegs, string, error) {
 	// We maintain all the function pointers in non-addressable space for now.
 	// It is in the classic BIOS space.
 	if r.Pc > 0xff000000 {
-		cpc := r.Regs[30]
+		cpc := r.Regs[kvm.ELREL]
 		Debug("cpc is %#x from LR", cpc)
 		pc = cpc
 	}
-	// You never want to turn this on except when things things are 
+	// You never want to turn this on except when things things are
 	// seriously fux0ord.
 	// debug. Is what is at the indirection page what should be?
 	if false && r.Pc > 0xff000000 && r.Pc < 0xff400000 {
