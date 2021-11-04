@@ -11,12 +11,20 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// Args returns the top nargs args, going down the stack if needed. The max is 6.
+// Args returns the first n args, limited to 6 max.
+// If more than 6 are asked for, we panic, it's a pretty fundamental
+// error.
+// Oh, and, thank you arm for a same convention!
 // This is UEFI calling convention.
 func Args(t Trace, r *syscall.PtraceRegs, nargs int) []uintptr {
-	sp := uintptr(r.Sp)
-	log.Panicf("Args sp %#x", sp)
-	return []uintptr{}
+	if nargs > 6 {
+		log.Panicf("Args: can't do more than 6 args, asked for %d", nargs)
+	}
+	var args = make([]uintptr, nargs)
+	for i, v := range r.Regs[:nargs] {
+		args[i] = uintptr(v)
+	}
+	return args
 }
 
 // Pointer returns the data pointed to by args[arg]

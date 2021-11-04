@@ -263,7 +263,6 @@ func main() {
 				log.Fatalf("Can't set stack to %#x: %v", dat, err)
 			}
 
-			panic("fuck")
 			step("returned from halt, set regs, move along")
 
 		case ev.Trapno == kvm.ExitIo:

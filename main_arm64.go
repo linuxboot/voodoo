@@ -26,11 +26,11 @@ func halt(p trace.Trace, i *unix.SignalfdSiginfo, inst *arm64asm.Inst, r *syscal
 // mmiohandles the mmio case.
 // The return PC will be in the LR. We hope.
 func mmio(p trace.Trace, i *unix.SignalfdSiginfo, inst *arm64asm.Inst, r *syscall.PtraceRegs, asm string) error {
-	addr := uintptr(i.Addr)
+	addr := uintptr(r.Pc)
 	nextpc := r.Regs[kvm.ELREL]
 	pc := uint64(uint32(addr))
 	Debug("MMIO@%#x, rip %#x", addr, pc)
-	if pc == 0 || pc == 0x200 {
+	if pc == 0x200 {
 		log.Panicf("HALT: system reset")
 	}
 
