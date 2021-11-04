@@ -655,8 +655,8 @@ func TestELREL(t *testing.T) {
 		s := unix.Signal(ev.Signo)
 		t.Logf("%d: Event %#x, trap %d, %v", i, ev, ev.Trapno, s)
 
-		if r.Regs[30] != elr {
-			t.Fatalf("iteration %d: LR got %#x, want %#x", i, r.Regs[30], elr)
+		if r.Regs[ELREL] != elr {
+			t.Fatalf("iteration %d: LR got %#x, want %#x", i, r.Regs[ELREL], elr)
 		}
 	}
 }

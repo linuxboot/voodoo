@@ -772,10 +772,8 @@ func (t *Tracee) archInit() error {
 	// slot 0 is low memory, to 2g for now.
 	// slot 1 is high bios, 64k at top of 4g. Not yet used.
 	// Set up 8M of image table data at 0xff000000
-	for i := 0; i < len(regions[2].dat[0x400000:]); i += 8 {
-		// d4200840 	brk	#0x42
-		// d65f03c0 	ret
-		copy(regions[2].dat[0x400000+i:], []byte{0x40, 0x08, 0x20, 0xd4, 0xc0, 0x03, 0x5f, 0xd6})
+	for i := 0; i < len(regions[2].dat[0x400000:]); i += len(VMCall) {
+		copy(regions[2].dat[0x400000+i:], VMCall)
 	}
 	if err := readonly(regions[2].dat[0x400000:]); err != nil {
 		log.Panicf("Marking ffun readonly: %v", err)

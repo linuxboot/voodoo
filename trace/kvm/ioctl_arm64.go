@@ -96,7 +96,7 @@ const (
 	Pc      = 32
 	Pstate  = 33
 	SpEL1   = 34
-	ELREL   = 35
+	ELREL   = 30
 	SPSR    = 36
 	NumRegs = 37
 )
