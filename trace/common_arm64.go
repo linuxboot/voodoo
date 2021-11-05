@@ -17,6 +17,7 @@ import (
 // Oh, and, thank you arm for a same convention!
 // This is UEFI calling convention.
 func Args(t Trace, r *syscall.PtraceRegs, nargs int) []uintptr {
+	Debug("Args: first 6 regs are %#x", r.Regs[:6])
 	if nargs > 6 {
 		log.Panicf("Args: can't do more than 6 args, asked for %d", nargs)
 	}

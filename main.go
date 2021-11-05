@@ -245,13 +245,13 @@ func main() {
 			if err != nil {
 				log.Fatalf("Getting PC after ExitMmio: %v", err)
 			}
-			haltasm := trace.Asm(insn, uint64(pc))
-			if err := mmio(v, &ev, insn, r, haltasm); err != nil {
+			asm := trace.Asm(insn, uint64(pc))
+			if err := mmio(v, &ev, insn, r, asm); err != nil {
 				if err == io.EOF {
 					fmt.Println("\n===:DXE Exits!")
 					os.Exit(0)
 				}
-				Debug(showone("mmio exit", r))
+				Debug(showone("we're gonna die: mmio exit", r))
 				log.Printf("Can't do %#x(%v): %v", ev.Signo, unix.SignalName(s), err)
 				for {
 					any("Waiting for ^C")
@@ -260,7 +260,7 @@ func main() {
 			// The handlers will always change, at least, eip, so just blindly set them
 			// back. TODO: see if we need more granularity.
 			if err := v.SetRegs(r); err != nil {
-				log.Fatalf("Can't set stack to %#x: %v", dat, err)
+				log.Fatalf("Can't set regs to %#x: %v", r, err)
 			}
 
 			step("returned from halt, set regs, move along")

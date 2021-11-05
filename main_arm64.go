@@ -43,7 +43,7 @@ func mmio(p trace.Trace, i *unix.SignalfdSiginfo, inst *arm64asm.Inst, r *syscal
 	i.Addr = r.Pc
 	Debug("================={MMIO START FUNCTION @ %#x", i.Addr)
 	if err := services.Dispatch(&services.Fault{Proc: p, Info: i, Inst: inst, Regs: r, Asm: asm}); err != nil {
-		return fmt.Errorf("Don't know what to do with %v: %v", trace.CallInfo(i, inst, r), err)
+		return fmt.Errorf("Dispatch returned an error: %v: CallInfo: %v", err, trace.CallInfo(i, inst, r))
 	}
 	// Advance to the next instruction. This advance should only happen if the dispatch worked?
 	r.Pc = nextpc
