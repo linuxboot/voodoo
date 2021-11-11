@@ -3,4 +3,7 @@
 # commit 7cc4f3a20c1439556703796438f226e572bd5ec1 (HEAD, origin/master, origin/HEAD, master)
 # origin	git://git.code.sf.net/p/gnu-efi/code (fetch)
 export GNUEFIDIR=~/foofi//uefi-simple/
+(cd $GNUEFIDIR && rm -rf gnu-efi/aarch64)
+# fucking fancy makefiles. Enough. 
+rm -f main.efi
 make
