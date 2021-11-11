@@ -90,10 +90,10 @@ func (r *Boot) Call(f *Fault) error {
 		return nil
 	case table.AllocatePool:
 		// Status = gBS->AllocatePool (EfiBootServicesData, sizeof (EXAMPLE_DEVICE), (VOID **)&Device);
-		f.Args = trace.Args(f.Proc, f.Regs, 5)
+		f.Args = trace.Args(f.Proc, f.Regs, 3)
 		// ignore arg 0 for now.
 		d := uint64(UEFIAllocate(uintptr(f.Args[1]), false))
-		Debug("AllocatePool: %d bytes @ %#x", f.Args[1], d)
+		Debug("AllocatePool: %d bytes @ %#x return pointer %#x", f.Args[1], d, f.Args[2])
 		var bb [8]byte
 		binary.LittleEndian.PutUint64(bb[:], d)
 		if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
