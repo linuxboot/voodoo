@@ -59,7 +59,10 @@ func checkConsole(i *x86asm.Inst, r *syscall.PtraceRegs, asm string) {
 // this is not great, but will have to do for now.
 // Never anticipated multi-architecture.
 func setupRegs(r *syscall.PtraceRegs) uintptr {
-	r.Eflags |= 0x100
+	// Things we learned the hard way.
+	// Never set TF. Let kvm do it.
+	// Now if I can figure out how to get x86 tracing back.
+	//r.Eflags |= 0x100
 	return uintptr(r.Rsp)
 }
 func setStack(r *syscall.PtraceRegs, sp uintptr) {

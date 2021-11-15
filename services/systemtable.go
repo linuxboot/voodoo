@@ -30,7 +30,7 @@ func init() {
 // The system table is a kind of "root" of UEFI services, with pointers
 // to boot, runtime, and other core services.
 func NewSystemtable(tab []byte) (uint64, uint64, error) {
-	u := protocolBase
+	u := ProtocolBase
 	st.up, st.u = u, u.Base()
 	x := index(u)
 	Debug("NewSystemTable: %#x", u)

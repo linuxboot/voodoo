@@ -10,7 +10,8 @@ import (
 
 const (
 	allocAmt     = ServPtr(1 << 16)
-	protocolBase = ServPtr(0xff000000)
+	// ProtocolBase is the start of the KVM exit functions.
+	ProtocolBase = ServPtr(0xff000000)
 	servBaseFmt  = "SB%#x"
 )
 
@@ -22,7 +23,7 @@ type ServPtr uint32
 
 var (
 	// memBase is the default allocation base for UEFI structs.
-	memBase = protocolBase
+	memBase = ProtocolBase
 	// AllocBase is the allocation base for DXE structs.
 	allocBase uint32
 	// resource allocation mutex.

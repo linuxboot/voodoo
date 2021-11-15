@@ -49,6 +49,13 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	//UINTN Event;
 	// global EFI_BOOT_SERVICES *BS = SystemTable->BootServices;
 	EFI_LOADED_IMAGE_PROTOCOL *elip;
+#if 0
+	{
+	int cc = *(int *)((uint64_t)SystemTable + 0x1000000000ULL);
+	    if (cc) 
+            	EFIDebugVariable ();
+	}
+#endif
 #if defined(_GNU_EFI)
 	InitializeLib(ImageHandle, SystemTable);
 #endif
@@ -62,7 +69,21 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	 *   %V       Set output attribute to green color
 	 *   %r       Human readable version of a status code
 	 */
+#if 0
+	{
+		int cc = *(int *)0x86753090000;
+	    if (cc) 
+            	EFIDebugVariable ();
+	}
+#endif
 	Print(L"\n%H*** UEFI:SIMPLE ***%N\n\n");
+#if 1
+	{
+		int cc = *(int *)0x86753090333;
+	    if (cc) 
+            	EFIDebugVariable ();
+	}
+#endif
 	status = uefi_call_wrapper(BS->HandleProtocol, 3, ImageHandle, &gEfiLoadedImageProtocolGuid, (VOID *)&elip);
 	if ((uint64_t)elip == 0xFF000000ULL)
 		Print(L"pointer to loaded image protocol value looks GOOD\n");

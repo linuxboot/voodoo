@@ -48,6 +48,7 @@ func retval(f *Fault, val uintptr) error {
 
 // SetEFIRetval sets the EFI return value
 func (f *Fault) SetEFIRetval(val uintptr) {
+	Debug("Set Retval to reg 0: %#x", val)
 	f.Regs.Regs[0] = uint64(val)
 }
 

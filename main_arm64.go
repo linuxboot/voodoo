@@ -27,11 +27,16 @@ func halt(p trace.Trace, i *unix.SignalfdSiginfo, inst *arm64asm.Inst, r *syscal
 // The return PC will be in the LR. We hope.
 func mmio(p trace.Trace, i *unix.SignalfdSiginfo, inst *arm64asm.Inst, r *syscall.PtraceRegs, asm string) error {
 	addr := uintptr(r.Pc)
-	nextpc := r.Regs[kvm.ELREL]
+	// The nextpc has to be the previous instruction.
+	// The kernel will add 4 to it since it was an mmio exit.
+	nextpc := r.Regs[kvm.ELREL] - 4
 	pc := uint64(uint32(addr))
-	Debug("MMIO@%#x, rip %#x", addr, pc)
+	Debug("MMIO@%#x, rip %#x, LR %#x", addr, pc, nextpc)
 	if pc == 0x200 {
 		log.Panicf("HALT: system reset")
+	}
+	if r.Pc < uint64(services.ProtocolBase) {
+		log.Panicf("MMIO outside RPC area: %#x", r.Pc)
 	}
 
 	// The mmio instruction is the one after the one we use for RPC.
@@ -47,7 +52,7 @@ func mmio(p trace.Trace, i *unix.SignalfdSiginfo, inst *arm64asm.Inst, r *syscal
 	}
 	// Advance to the next instruction. This advance should only happen if the dispatch worked?
 	r.Pc = nextpc
-	defer Debug("===========} done MMIO @ %#x, rip was %#x, advance to %#x", addr, pc, r.Pc)
+	defer Debug("===========} done MMIO @ %#x, rip was %#x, resume at %#x", addr, pc, r.Pc)
 	return nil
 }
 

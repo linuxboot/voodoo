@@ -168,7 +168,7 @@ func main() {
 	}
 	if *debug {
 		insn, r, g, err := trace.Inst(v)
-		log.Printf("%v, %v, %v, %v", insn, r, g, err)
+		log.Printf("%v, %#x, %v, %v", insn, r, g, err)
 	}
 
 	p := r
@@ -180,7 +180,7 @@ func main() {
 			log.Printf("Run: got %v, want nil", err)
 		}
 		Debug("\treturns:")
-		if *debug {
+		if *debug && false{
 			insn, r, g, err := trace.Inst(v)
 			log.Printf("%v, %v, %v, %v", insn, r, g, err)
 			if err != nil {
@@ -203,7 +203,10 @@ func main() {
 
 		switch {
 		case ev.Trapno == kvm.ExitDebug:
+			Debug("Trapno: ExitDebug")
+			Debug("Inst returns %v, %#x, %q, %v", insn, r, g, err)
 		case ev.Trapno == kvm.ExitHlt:
+			Debug("Trapno: ExitHlt")
 			// This ONLY happens on an exit OR calling a UEFI function.
 			if *debug {
 				if err := trace.Regs(os.Stdout, r); err != nil {
@@ -235,6 +238,7 @@ func main() {
 			step("returned from halt, set regs, move along")
 
 		case ev.Trapno == kvm.ExitMmio:
+			Debug("Trapno: ExitMmio")
 			// This ONLY happens on an exit OR calling a UEFI function.
 			if *debug {
 				if err := trace.Regs(os.Stdout, r); err != nil {
@@ -262,13 +266,14 @@ func main() {
 			if err := v.SetRegs(r); err != nil {
 				log.Fatalf("Can't set regs to %#x: %v", r, err)
 			}
-
+			Debug("Resuming from MMIO, registers: %#x", r)
 			step("returned from halt, set regs, move along")
 
 		case ev.Trapno == kvm.ExitIo:
+			Debug("Trapno: ExitIo")
 			checkConsole(insn, r, g)
 		default:
-			log.Printf("Trapno: got %#x", ev.Trapno)
+			Debug("Trapno: DEFAULT CASE: got %#x", ev.Trapno)
 			if ev.Trapno == kvm.ExitShutdown {
 				i, r, g, err := trace.Inst(v)
 				if err != nil {
@@ -281,6 +286,7 @@ func main() {
 				}
 				log.Fatalf("Shutdown from %#x! [%v, %v, %q, %v]", cpc, i, showone("", r), g, err)
 			}
+			log.Fatalf("Unhandled default case, exiting")
 		}
 		r, err = v.GetRegs()
 		if err != nil {
@@ -295,12 +301,6 @@ func main() {
 		//log.Printf("REGS: %s", show("", r))
 		//		e := ev.cpu.VMRun.String()
 		//		log.Printf("IP is %#x, exit %s", r.Rip, e)
-
-		i, r, g, err := trace.Inst(v)
-		if err != nil {
-			log.Fatalf("Inst: got %v, want nil", err)
-		}
-		Debug("Inst returns %v, %v, %q, %v", i, r, g, err)
 	}
 	log.Printf("Exit: Rsp is %#x", getStack(r))
 }

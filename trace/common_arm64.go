@@ -78,7 +78,7 @@ func Inst(t Trace) (*arm64asm.Inst, *syscall.PtraceRegs, string, error) {
 	sp := r.Sp
 	Debug("Inst: pc %#x, sp %#x", pc, sp)
 	cpc := r.Regs[kvm.ELREL]
-	Debug("cpc is %#x from sp", cpc)
+	Debug("cpc is %#x from ELREL", cpc)
 	if false {
 		ccpc, err := t.ReadWord(uintptr(sp + 8))
 		if err != nil {
@@ -89,8 +89,6 @@ func Inst(t Trace) (*arm64asm.Inst, *syscall.PtraceRegs, string, error) {
 	// We maintain all the function pointers in non-addressable space for now.
 	// It is in the classic BIOS space.
 	if r.Pc > 0xff000000 {
-		cpc := r.Regs[kvm.ELREL]
-		Debug("cpc is %#x from LR", cpc)
 		pc = cpc
 	}
 	// You never want to turn this on except when things things are
@@ -126,12 +124,12 @@ func Inst(t Trace) (*arm64asm.Inst, *syscall.PtraceRegs, string, error) {
 	if err := t.Read(uintptr(pc), insn); err != nil {
 		return nil, nil, "", fmt.Errorf("Can' read PC at #%x, err %v", pc, err)
 	}
-	Debug("Insn @ %#x is %#x", pc, insn)
+	//Debug("Insn @ %#x is %#x", pc, insn)
 	d, err := arm64asm.Decode(insn)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("Can't decode %#02x: %v", insn, err)
 	}
-	Debug("decode is %v", d)
+	//Debug("decode is %v", d)
 	return &d, r, arm64asm.GNUSyntax(d), nil
 	log.Panicf("Inst: pc %#x, sp %#x", pc, sp)
 

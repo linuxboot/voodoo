@@ -5,5 +5,5 @@
 export GNUEFIDIR=~/foofi//uefi-simple/
 (cd $GNUEFIDIR && rm -rf gnu-efi/aarch64)
 # fucking fancy makefiles. Enough. 
-rm -f main.efi
+make clean
 make
