@@ -29,10 +29,7 @@ func NewRuntime(tab []byte, u ServPtr) (Service, error) {
 	Debug("runtime services table u is %#x", u)
 	base := int(u) & 0xffffff
 	for p := range table.RuntimeServicesNames {
-		x := base + int(p)
-		r := uint64(p) + 0xff400000 + uint64(base)
-		Debug("Install %#x at off %#x", r, x)
-		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
+		InstallUEFICall(tab, base, p)
 	}
 
 	return &Runtime{u: u.Base(), up: u}, nil

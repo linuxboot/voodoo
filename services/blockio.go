@@ -40,7 +40,6 @@ func NewBlockIO(tab []byte, u ServPtr) (Service, error) {
 	media := base + 0x1000
 
 	for p := range table.BlockIOServiceNames {
-		x := base + int(p)
 		r := uint64(p) + 0xff400000 + uint64(base)
 		switch p {
 		// What's the right revision? Can't find it in the wall of data.
@@ -49,8 +48,7 @@ func NewBlockIO(tab []byte, u ServPtr) (Service, error) {
 		case table.BlockIOMedia:
 			r = uint64(media)
 		}
-		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
-		Debug("blockio: Install %#x at off %#x", r, x)
+		InstallProtocolStructValue(tab, base, p, r)
 	}
 
 	var b = &bytes.Buffer{}

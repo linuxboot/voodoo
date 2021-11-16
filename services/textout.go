@@ -1,7 +1,6 @@
 package services
 
 import (
-	"encoding/binary"
 	"fmt"
 	"log"
 
@@ -30,10 +29,7 @@ func NewTextOut(tab []byte, u ServPtr) (Service, error) {
 	Debug("textout services table u is %#x", u)
 	base := int(u) & 0xffffff
 	for p := range table.SimpleTextOutServicesNames {
-		x := base + int(p)
-		r := uint64(p) + 0xff400000 + uint64(base)
-		Debug("Install %#x at off %#x", r, x)
-		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
+		InstallUEFICall(tab, base, p)
 	}
 
 	// We need to get to the TextOutMode.

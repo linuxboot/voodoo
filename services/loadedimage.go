@@ -1,7 +1,6 @@
 package services
 
 import (
-	"encoding/binary"
 	"fmt"
 	"log"
 
@@ -51,7 +50,6 @@ func NewLoadedImage(tab []byte, u ServPtr) (Service, error) {
 	}
 
 	for p := range table.LoadedImageTableNames {
-		x := base + int(p)
 		r := uint64(p) + 0xff400000 + uint64(base)
 		switch p {
 		case table.LIRevision:
@@ -69,8 +67,7 @@ func NewLoadedImage(tab []byte, u ServPtr) (Service, error) {
 		case table.LIImageDataType:
 		case table.LIUnload:
 		}
-		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
-		Debug("LoadedImage: Install %#x at off %#x", r, x)
+		InstallProtocolStructValue(tab, base, p, r)
 	}
 
 	return &LoadedImage{u: u.Base(), up: u}, nil

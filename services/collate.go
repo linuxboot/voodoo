@@ -1,7 +1,6 @@
 package services
 
 import (
-	"encoding/binary"
 	"fmt"
 	"log"
 
@@ -26,10 +25,7 @@ func NewCollate(tab []byte, u ServPtr) (Service, error) {
 	base := int(u) & 0xffffff
 
 	for p := range table.CollateServicesNames {
-		x := base + int(p)
-		r := uint64(p) + 0xff400000 + uint64(base)
-		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
-		Debug("collate: Install %v %#x at off %#x", p, r, x)
+		InstallUEFICall(tab, base, p)
 	}
 
 	return &Collate{u: u.Base(), up: u}, nil

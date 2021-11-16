@@ -28,10 +28,7 @@ func NewBoot(tab []byte, u ServPtr) (Service, error) {
 	Debug("boot services table u is %#x", u)
 	base := int(u) & 0xffffff
 	for p := range table.BootServicesNames {
-		x := base + int(p)
-		r := uint64(p) + 0xff400000 + uint64(base)
-		Debug("Install %#x at off %#x", r, x)
-		binary.LittleEndian.PutUint64(tab[x:], uint64(r))
+		InstallUEFICall(tab, base, p)
 	}
 
 	return &Boot{u: u.Base(), up: u}, nil
@@ -60,9 +57,9 @@ func (b *Boot) Ptr() ServPtr {
 
 // Call implements service.Call
 func (r *Boot) Call(f *Fault) error {
-	op := f.Op
+	op := uint64(f.Op)
 	f.SetEFIRetval(uefi.EFI_SUCCESS)
-	Debug("Boot services: %s(%#x), arg type %T, args %v", table.BootServicesNames[int(op)], op, f.Inst.Args, f.Inst.Args)
+	Debug("Boot services: %s(%#x), arg type %T, args %v", table.BootServicesNames[op], op, f.Inst.Args, f.Inst.Args)
 	switch op {
 	case table.GetMemoryMap:
 		// EFI_STATUS efi_get_memorymap(IN OUT UINTN *MemoryMapSize, IN OUT EFI_MEMORY_DESCRIPTOR *MemoryMap, ...);
@@ -305,7 +302,7 @@ func (r *Boot) Call(f *Fault) error {
 		return nil
 
 	default:
-		log.Panicf("unsupported boot service %#x %q", op, table.BootServicesNames[int(op)])
+		log.Panicf("unsupported boot service %#x %q", op, table.BootServicesNames[op])
 		f.SetEFIRetval(uefi.EFI_UNSUPPORTED)
 	}
 	return nil

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/binary"
 	"fmt"
 	"syscall"
 
@@ -53,4 +54,23 @@ func (f *Fault) SetEFIRetval(val uintptr) {
 // GetEFIRetval sets the EFI return value
 func (f *Fault) GetEFIRetval() uintptr {
 	return uintptr(f.Regs.Rax)
+}
+
+// InstallProtocolStructValue installs a value in a protocol struct.
+// We do not transparently use the protocol structs, since they
+// follow rules set by MSVC and I'm not sure it's good to just
+// blindly use them.
+func InstallProtocolStructValue(tab []byte, base int, index uint64, value uint64) {
+	x := base + int(index)
+	binary.LittleEndian.PutUint64(tab[x:], uint64(value))
+	Debug("Install %#x at off %#x", value, x)
+}
+
+// InstallUEFICall install a pointer from a protocol struct to the
+// code that exits from the virtual machine to RunDXERun.
+// It gets slightly complicated if the call is more than 64 bits,
+// but not overly so.
+func InstallUEFICall(tab []byte, base int, index uint64) {
+	r := index + 0xff400000 + uint64(base)
+	InstallProtocolStructValue(tab, base, index, r)
 }
