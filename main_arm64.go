@@ -27,11 +27,9 @@ func halt(p trace.Trace, i *unix.SignalfdSiginfo, inst *arm64asm.Inst, r *syscal
 // The return PC will be in the LR. We hope.
 func mmio(p trace.Trace, i *unix.SignalfdSiginfo, inst *arm64asm.Inst, r *syscall.PtraceRegs, asm string) error {
 	addr := uintptr(r.Pc)
-	// The nextpc has to be the previous instruction.
-	// The kernel will add 4 to it since it was an mmio exit.
-	nextpc := r.Regs[kvm.ELREL] - 4
+	lr := r.Regs[kvm.ELREL]
 	pc := uint64(uint32(addr))
-	Debug("MMIO@%#x, rip %#x, LR %#x", addr, pc, nextpc)
+	Debug("================={MMIO START FUNCTION @ %#x, rip %#x, LR %#x", i.Addr, r.Pc, lr)
 	if pc == 0x200 {
 		log.Panicf("HALT: system reset")
 	}
@@ -46,12 +44,11 @@ func mmio(p trace.Trace, i *unix.SignalfdSiginfo, inst *arm64asm.Inst, r *syscal
 	r.Pc -= 4
 	// The i.Addr is a constant we put in to cause an MMIO. Ignore it.
 	i.Addr = r.Pc
-	Debug("================={MMIO START FUNCTION @ %#x", i.Addr)
 	if err := services.Dispatch(&services.Fault{Proc: p, Info: i, Inst: inst, Regs: r, Asm: asm}); err != nil {
 		return fmt.Errorf("Dispatch returned an error: %v: CallInfo: %v", err, trace.CallInfo(i, inst, r))
 	}
-	// Advance to the next instruction. This advance should only happen if the dispatch worked?
-	r.Pc = nextpc
+	// Stay on the MMIO. Kernel then advances the instruction. 
+	r.Pc = lr - 4
 	defer Debug("===========} done MMIO @ %#x, rip was %#x, resume at %#x", addr, pc, r.Pc)
 	return nil
 }
