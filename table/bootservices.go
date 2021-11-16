@@ -50,7 +50,7 @@ const (
 )
 
 // BootServicesNames maps an int to a name
-var BootServicesNames = map[int]string{
+var BootServicesNames = map[uint64]string{
 	RaiseTPL:                            "RaiseTPL",
 	RestoreTPL:                          "RestoreTPL",
 	AllocatePages:                       "AllocatePages",
