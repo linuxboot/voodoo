@@ -798,23 +798,22 @@ func TestUEFICall(t *testing.T) {
 	// So this is the instruction sequence that seems to work for the
 	// UEFI call: ldr, mmio, nop instruction, ret. Fuck me.
 	code := []byte{
-		0x00, 0x00, 0x00, 0x58,
-		0x63, 0x00, 0x00, 0x10,
-		0x60, 0x00, 0x3f, 0xd6,
+		0x00, 0x00, 0x00, 0x58, // ldr	x0, 200000 <.text+0x200000>
+		0x63, 0x00, 0x00, 0x10, // adr	x3, 200010 <cat>
+		0x60, 0x00, 0x3f, 0xd6, // blr	x3
 		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
-		0x01, 0x10, 0xc0, 0xf2,
-		0x21, 0x00, 0x40, 0xf9,
-		//0x21, 0x00, 0x40, 0xf9,
-		//0x21, 0x00, 0x40, 0xf9,
+		0x01, 0x10, 0xc0, 0xf2, // movk	x1, #0x80, lsl #32
+		// increment x8. This tells us we did this instruction.
 		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
-		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
-		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
-		0xc0, 0x03 ,0x5f, 0xd6,
-		0xc0, 0x03 ,0x5f, 0xd6,
-		0xc0, 0x59 ,0x21, 0xd4,
-		0xc0, 0x59 ,0x21, 0xd4,
-		0xc0, 0x59 ,0x21, 0xd4,
-		0xc0, 0x59 ,0x21, 0xd4,
+		0x21, 0x00, 0x40, 0xf9, // ldr	x1, [x1]
+		0x09, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
+		0x0a, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
+		0xc0, 0x03, 0x5f, 0xd6,
+		0xc0, 0x03, 0x5f, 0xd6,
+		0xc0, 0x59, 0x21, 0xd4,
+		0xc0, 0x59, 0x21, 0xd4,
+		0xc0, 0x59, 0x21, 0xd4,
+		0xc0, 0x59, 0x21, 0xd4,
 	}
 	if err := v.Write(uintptr(pc), code); err != nil {
 		t.Fatalf("Writing br . instruction: got %v, want nil", err)
@@ -824,7 +823,7 @@ func TestUEFICall(t *testing.T) {
 		t.Fatalf("Inst: got %v, want nil", err)
 	}
 	var trapno int
-	for i, cur := range []uint64{pc + 4, pc + 8, pc + 0x10, pc + 0x14, pc + 0xc, pc + 0x10, pc + 0x14} {
+	for i, cur := range []uint64{pc + 4, pc + 8, pc + 0x10, pc + 0x14, pc + 0x18, pc + 0x1c} {
 		t.Logf("--------------------> RUN instruction %d, %q @ %#x x1 %#x x3 %#x", i, g, r.Pc, r.Regs[1], r.Regs[3])
 		if err := v.Run(); err != nil {
 			t.Fatalf("Run: got %v, want nil", err)
@@ -836,7 +835,7 @@ func TestUEFICall(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Inst: got %v, want nil", err)
 		}
-		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x x1 %#x x3 %#x", i, g, r.Pc, r.Sp, r.Pstate, r.Regs[1], r.Regs[3])
+		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x x1 %#x x3 %#x x8 %#x", i, g, r.Pc, r.Sp, r.Pstate, r.Regs[1], r.Regs[3], r.Regs[8])
 
 		if ev.Trapno == ExitMmio {
 			trapno = ExitMmio
@@ -864,13 +863,13 @@ func TestUEFICall(t *testing.T) {
 	// Now set the PC to what we think it ought to be, verify its setting,
 	// then Run and hope things seem right.
 	pc = r.Pc
-	if false {
-	pc = 0x200008
-	r.Pc = pc
-	if err := v.SetRegs(r); err != nil {
-		t.Fatalf("SetRegs: got %v, want nil", err)
+	if true {
+		pc = 0x200008
+		r.Pc = pc
+		if err := v.SetRegs(r); err != nil {
+			t.Fatalf("SetRegs: got %v, want nil", err)
+		}
 	}
-}
 	r, err = v.GetRegs()
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
@@ -878,13 +877,16 @@ func TestUEFICall(t *testing.T) {
 	if r.Pc != pc {
 		t.Errorf("PC: got %#x, want %#x", r.Pc, pc)
 	}
+	if r.Regs[8] != 0x8 {
+		t.Errorf("After first loop: x8 is %#x, want 0x8", r.Regs[8])
+	}
 
 	t.Logf("Start next loop with pc %#x x8 %#x", r.Pc, r.Regs[8])
 	// We exited due to an MMIO. It's turning out we can't mess around with the
 	// Pc in the regs -- for whatever reason it is confusing the hell out of kvm.
 	// Further, best if we only set the return register, nothing else.
 	var x8 uint64
-	for i, cur := range []uint64{pc + 8, pc + 12, pc + 16, 0x20000c, 0x200010, }{
+	for i, cur := range []uint64{0x200010, 0x200014, 0x200018} {
 		if err := v.Run(); err != nil {
 			t.Fatalf("Run: got %v, want nil", err)
 		}
@@ -898,11 +900,11 @@ func TestUEFICall(t *testing.T) {
 		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x x8 %#x x3 %#x", i, g, r.Pc, r.Sp, r.Pstate, r.Regs[8], r.Regs[3])
 
 		if r.Pc != cur {
-			t.Fatalf("iteration %d: Pc got %#x, want %#x", i, r.Pc, cur)
+			t.Errorf("iteration %d: Pc got %#x, want %#x", i, r.Pc, cur)
 		}
 		x8 = r.Regs[8]
 	}
-	if x8 != 0x20 {
+	if x8 != 0x18 {
 		t.Errorf("x8: got %#x, want 0x20", x8)
 	}
 }
