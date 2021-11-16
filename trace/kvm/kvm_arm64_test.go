@@ -784,7 +784,8 @@ func TestUEFICall(t *testing.T) {
 	// cat:
 	// 200010:	f2c01001 	movk	x1, #0x80, lsl #32
 	// 200014:	f9400021 	ldr	x1, [x1]
-	// 200018:	f2c01001 	movk	x1, #0x80, lsl #32
+	// xxxxxx:	d42159c0 	brk	#0xace
+	// xxxxxx:	d65f03c0 	ret
 	code := []byte{
 		0x00, 0x00, 0x00, 0x58,
 		0x63, 0x00, 0x00, 0x10,
@@ -792,7 +793,12 @@ func TestUEFICall(t *testing.T) {
 		0x40, 0x04, 0x00, 0x58,
 		0x01, 0x10, 0xc0, 0xf2,
 		0x21, 0x00, 0x40, 0xf9,
+		0xc0, 0x03, 0x5f, 0xd6,
 		0x01, 0x10, 0xc0, 0xf2,
+		0xc0, 0x59 ,0x21, 0xd4,
+		0xc0, 0x59 ,0x21, 0xd4,
+		0xc0, 0x59 ,0x21, 0xd4,
+		0xc0, 0x59 ,0x21, 0xd4,
 	}
 	if err := v.Write(uintptr(pc), code); err != nil {
 		t.Fatalf("Writing br . instruction: got %v, want nil", err)
@@ -802,7 +808,7 @@ func TestUEFICall(t *testing.T) {
 		t.Fatalf("Inst: got %v, want nil", err)
 	}
 	var trapno int
-	for i, cur := range []uint64{pc, pc + 4, pc + 8, pc + 0x10, pc + 0x14, pc + 0xc, pc + 0x10, pc + 0x14} {
+	for i, cur := range []uint64{pc + 4, pc + 8, pc + 0x10, pc + 0x14, pc + 0xc, pc + 0x10, pc + 0x14} {
 		t.Logf("--------------------> RUN instruction %d, %q @ %#x x1 %#x x3 %#x", i, g, r.Pc, r.Regs[1], r.Regs[3])
 		if err := v.Run(); err != nil {
 			t.Fatalf("Run: got %v, want nil", err)
@@ -821,7 +827,7 @@ func TestUEFICall(t *testing.T) {
 		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x x1 %#x x3 %#x", i, g, r.Pc, r.Sp, r.Pstate, r.Regs[1], r.Regs[3])
 
 		if r.Pc != cur {
-			t.Errorf("iteration %d: Pc got %#x, want %#x", i, r.Pc, cur)
+			t.Fatalf("iteration %d: Pc got %#x, want %#x", i, r.Pc, cur)
 		}
 		_, r, g, err = v.Inst()
 		if err != nil {
@@ -830,19 +836,21 @@ func TestUEFICall(t *testing.T) {
 	}
 	t.Logf("Exited first loop")
 	if trapno != ExitMmio {
-		t.Errorf("After first loop: got %v, want %v", trapno, ExitMmio)
+		t.Fatalf("After first loop: got %v, want %v", trapno, ExitMmio)
 	}
 	r, err = v.GetRegs()
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
 	if r.Regs[ELREL] != 0x20000c {
-		t.Errorf("After first loop: LR is %#x, want %#x", r.Regs[ELREL], 0x20000c)
+		t.Fatalf("After first loop: LR is %#x, want %#x", r.Regs[ELREL], 0x20000c)
 	}
 	// Now set the PC to what we think it ought to be, verify its setting,
 	// then Run and hope things seem right.
+	pc = r.Pc
+	if false {
 	pc = 0x200008
-	//r.Pc = pc
+	r.Pc = pc
 	if err := v.SetRegs(r); err != nil {
 		t.Fatalf("SetRegs: got %v, want nil", err)
 	}
@@ -853,6 +861,7 @@ func TestUEFICall(t *testing.T) {
 	if r.Pc != pc {
 		t.Errorf("PC: got %#x, want %#x", r.Pc, pc)
 	}
+}
 
 	for i, cur := range []uint64{pc, pc + 4, pc + 8, pc + 0xc} {
 		_, r, g, err := v.Inst()
@@ -873,7 +882,7 @@ func TestUEFICall(t *testing.T) {
 		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x x3 %#x", i, g, r.Pc, r.Sp, r.Pstate, r.Regs[3])
 
 		if r.Pc != cur {
-			t.Errorf("iteration %d: Pc got %#x, want %#x", i, r.Pc, cur)
+			t.Fatalf("iteration %d: Pc got %#x, want %#x", i, r.Pc, cur)
 		}
 	}
 }
