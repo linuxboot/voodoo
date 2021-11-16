@@ -1032,7 +1032,7 @@ func (t *Tracee) Flags() (uintptr, error) {
 	return uintptr(r.Pstate), nil
 }
 
-// PC implements PC
+// SetPC implements SetPC
 func (t *Tracee) SetPC(pc uintptr) error {
 	r, err := t.GetRegs()
 	if err != nil {
