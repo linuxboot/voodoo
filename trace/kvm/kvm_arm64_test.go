@@ -766,6 +766,7 @@ func TestUEFICall(t *testing.T) {
 	t.Logf("IP is %#x", r.Pc)
 	r.Pc = pc
 	r.Sp = 0x100020
+	Debug = t.Logf
 	//r.ELREL = 0x200000 // convenience only, does not matter
 	if err := v.SetRegs(r); err != nil {
 		t.Fatalf("SetRegs: got %v, want nil", err)
@@ -780,21 +781,36 @@ func TestUEFICall(t *testing.T) {
 	// 200000:	58000000 	ldr	x0, 200000 <.text+0x200000>
 	// 200004:	10000063	adr	x3, 200010 <cat>
 	// 200008:	d63f0060 	blr	x3
-	// 20000c:	58000440 	ldr	x0, 200094 <.text+0x200094>
+	// 20000c:	91002108 	add	x8, x8, #0x8
 	// cat:
 	// 200010:	f2c01001 	movk	x1, #0x80, lsl #32
 	// 200014:	f9400021 	ldr	x1, [x1]
-	// xxxxxx:	d42159c0 	brk	#0xace
+	// 200018:	f9400021 	ldr	x1, [x1]
+	// 20001c:	f9400021 	ldr	x1, [x1]
+	// 20001c:	f9400021 	ldr	x1, [x1]
+	// 20001c:	f9400021 	ldr	x1, [x1]
+	// xxxxxx:	91000421 	add	x1, x1, #0x1
 	// xxxxxx:	d65f03c0 	ret
+	// xxxxxx:	d42159c0 	brk	#0xace
+	// xxxxxx:	91002108 	add	x8, x8, #0x8
+	// I have no fucking clue why this is, but in single step mode,
+	// it seems to skip the instruction after the MMIO on a resume.
+	// So this is the instruction sequence that seems to work for the
+	// UEFI call: ldr, mmio, nop instruction, ret. Fuck me.
 	code := []byte{
 		0x00, 0x00, 0x00, 0x58,
 		0x63, 0x00, 0x00, 0x10,
 		0x60, 0x00, 0x3f, 0xd6,
-		0x40, 0x04, 0x00, 0x58,
+		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
 		0x01, 0x10, 0xc0, 0xf2,
 		0x21, 0x00, 0x40, 0xf9,
-		0xc0, 0x03, 0x5f, 0xd6,
-		0x01, 0x10, 0xc0, 0xf2,
+		//0x21, 0x00, 0x40, 0xf9,
+		//0x21, 0x00, 0x40, 0xf9,
+		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
+		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
+		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
+		0xc0, 0x03 ,0x5f, 0xd6,
+		0xc0, 0x03 ,0x5f, 0xd6,
 		0xc0, 0x59 ,0x21, 0xd4,
 		0xc0, 0x59 ,0x21, 0xd4,
 		0xc0, 0x59 ,0x21, 0xd4,
@@ -816,16 +832,16 @@ func TestUEFICall(t *testing.T) {
 		ev := v.Event()
 		s := unix.Signal(ev.Signo)
 		t.Logf("\t%d: Event %#x, trap %d, %v", i, ev, ev.Trapno, s)
-		if ev.Trapno == ExitMmio {
-			trapno = ExitMmio
-			break
-		}
 		_, r, _, err = v.Inst()
 		if err != nil {
 			t.Fatalf("Inst: got %v, want nil", err)
 		}
 		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x x1 %#x x3 %#x", i, g, r.Pc, r.Sp, r.Pstate, r.Regs[1], r.Regs[3])
 
+		if ev.Trapno == ExitMmio {
+			trapno = ExitMmio
+			break
+		}
 		if r.Pc != cur {
 			t.Fatalf("iteration %d: Pc got %#x, want %#x", i, r.Pc, cur)
 		}
@@ -854,6 +870,7 @@ func TestUEFICall(t *testing.T) {
 	if err := v.SetRegs(r); err != nil {
 		t.Fatalf("SetRegs: got %v, want nil", err)
 	}
+}
 	r, err = v.GetRegs()
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
@@ -861,28 +878,31 @@ func TestUEFICall(t *testing.T) {
 	if r.Pc != pc {
 		t.Errorf("PC: got %#x, want %#x", r.Pc, pc)
 	}
-}
 
-	for i, cur := range []uint64{pc, pc + 4, pc + 8, pc + 0xc} {
-		_, r, g, err := v.Inst()
-		if err != nil {
-			t.Fatalf("Inst: got %v, want nil", err)
-		}
-		t.Logf("--------------------> RUN instruction %d, %q @ %#x x3 %#x", i, g, r.Pc, r.Regs[3])
+	t.Logf("Start next loop with pc %#x x8 %#x", r.Pc, r.Regs[8])
+	// We exited due to an MMIO. It's turning out we can't mess around with the
+	// Pc in the regs -- for whatever reason it is confusing the hell out of kvm.
+	// Further, best if we only set the return register, nothing else.
+	var x8 uint64
+	for i, cur := range []uint64{pc + 8, pc + 12, pc + 16, 0x20000c, 0x200010, }{
 		if err := v.Run(); err != nil {
 			t.Fatalf("Run: got %v, want nil", err)
 		}
 		ev := v.Event()
 		s := unix.Signal(ev.Signo)
 		t.Logf("%d: Event %#x, trap %d, %v", i, ev, ev.Trapno, s)
-		_, r, _, err = v.Inst()
+		_, r, g, err = v.Inst()
 		if err != nil {
 			t.Fatalf("Inst: got %v, want nil", err)
 		}
-		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x x3 %#x", i, g, r.Pc, r.Sp, r.Pstate, r.Regs[3])
+		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x x8 %#x x3 %#x", i, g, r.Pc, r.Sp, r.Pstate, r.Regs[8], r.Regs[3])
 
 		if r.Pc != cur {
 			t.Fatalf("iteration %d: Pc got %#x, want %#x", i, r.Pc, cur)
 		}
+		x8 = r.Regs[8]
+	}
+	if x8 != 0x20 {
+		t.Errorf("x8: got %#x, want 0x20", x8)
 	}
 }
