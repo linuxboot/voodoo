@@ -778,13 +778,13 @@ func TestUEFICall(t *testing.T) {
 		t.Fatalf("PC: got %#x, want %#x", r.Pc, pc)
 	}
 	// 200000:	58000000 	ldr	x0, 200000 <.text+0x200000>
-	// 200004:	10000003	adr	x3, 200010 <cat>
-	// 200008:	d63f0060 	blr	x3
-	// 200004:	10000003 	adr	x3, 200010 <cat>
+	// 200004:	10000063	adr	x3, 200010 <cat>
 	// 200008:	d63f0060 	blr	x3
 	// 20000c:	58000440 	ldr	x0, 200094 <.text+0x200094>
+	// cat:
 	// 200010:	f2c01001 	movk	x1, #0x80, lsl #32
 	// 200014:	f9400021 	ldr	x1, [x1]
+	// 200018:	f2c01001 	movk	x1, #0x80, lsl #32
 	code := []byte{
 		0x00, 0x00, 0x00, 0x58,
 		0x63, 0x00, 0x00, 0x10,
@@ -792,6 +792,7 @@ func TestUEFICall(t *testing.T) {
 		0x40, 0x04, 0x00, 0x58,
 		0x01, 0x10, 0xc0, 0xf2,
 		0x21, 0x00, 0x40, 0xf9,
+		0x01, 0x10, 0xc0, 0xf2,
 	}
 	if err := v.Write(uintptr(pc), code); err != nil {
 		t.Fatalf("Writing br . instruction: got %v, want nil", err)
@@ -800,6 +801,7 @@ func TestUEFICall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inst: got %v, want nil", err)
 	}
+	var trapno int
 	for i, cur := range []uint64{pc, pc + 4, pc + 8, pc + 0x10, pc + 0x14, pc + 0xc, pc + 0x10, pc + 0x14} {
 		t.Logf("--------------------> RUN instruction %d, %q @ %#x x1 %#x x3 %#x", i, g, r.Pc, r.Regs[1], r.Regs[3])
 		if err := v.Run(); err != nil {
@@ -808,7 +810,8 @@ func TestUEFICall(t *testing.T) {
 		ev := v.Event()
 		s := unix.Signal(ev.Signo)
 		t.Logf("\t%d: Event %#x, trap %d, %v", i, ev, ev.Trapno, s)
-		if ev.Trapno == 6 {
+		if ev.Trapno == ExitMmio {
+			trapno = ExitMmio
 			break
 		}
 		_, r, _, err = v.Inst()
@@ -820,9 +823,38 @@ func TestUEFICall(t *testing.T) {
 		if r.Pc != cur {
 			t.Errorf("iteration %d: Pc got %#x, want %#x", i, r.Pc, cur)
 		}
+		_, r, g, err = v.Inst()
+		if err != nil {
+			t.Fatalf("Inst: got %v, want nil", err)
+		}
 	}
-	return
-	for i, cur := range []uint64{pc, pc + 4, pc + 8, pc + 0x10, pc + 0x14, pc + 0xc, pc + 0x10, pc + 0x14} {
+	t.Logf("Exited first loop")
+	if trapno != ExitMmio {
+		t.Errorf("After first loop: got %v, want %v", trapno, ExitMmio)
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if r.Regs[ELREL] != 0x20000c {
+		t.Errorf("After first loop: LR is %#x, want %#x", r.Regs[ELREL], 0x20000c)
+	}
+	// Now set the PC to what we think it ought to be, verify its setting,
+	// then Run and hope things seem right.
+	pc = 0x200008
+	//r.Pc = pc
+	if err := v.SetRegs(r); err != nil {
+		t.Fatalf("SetRegs: got %v, want nil", err)
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if r.Pc != pc {
+		t.Errorf("PC: got %#x, want %#x", r.Pc, pc)
+	}
+
+	for i, cur := range []uint64{pc, pc + 4, pc + 8, pc + 0xc} {
 		_, r, g, err := v.Inst()
 		if err != nil {
 			t.Fatalf("Inst: got %v, want nil", err)
