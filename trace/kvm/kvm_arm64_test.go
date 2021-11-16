@@ -739,3 +739,81 @@ func TestVMCall(t *testing.T) {
 	}
 	t.Errorf("After loop: got no ExitMmio, expected one")
 }
+
+// TestUEFICall tests the ARM64 UEFI calll code.
+// It is a BL x3, followed by the kvm exit code.
+// This runs under single step, as even in that case,
+// we've seen "issues"
+// Test whether the ELREL has what we expect.
+func TestUEFICall(t *testing.T) {
+	v, err := New()
+	if err != nil {
+		t.Fatalf("New: got %v, want nil", err)
+	}
+	defer v.Detach()
+	t.Logf("%v", v)
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
+	}
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if err := v.SingleStep(true); err != nil {
+		t.Fatalf("SingleStep: got %v, want nil", err)
+	}
+	pc := uint64(0x200000)
+	t.Logf("IP is %#x", r.Pc)
+	r.Pc = pc
+	r.Sp = 0x100020
+	//r.ELREL = 0x200000 // convenience only, does not matter
+	if err := v.SetRegs(r); err != nil {
+		t.Fatalf("SetRegs: got %v, want nil", err)
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if r.Pc != pc {
+		t.Fatalf("PC: got %#x, want %#x", r.Pc, pc)
+	}
+	// 200000:	58000000 	ldr	x0, 200000 <.text+0x200000>
+	// 200004:	58000063 	ldr	x3, 200010 <.text+0x200010>
+	// 200008:	d63f0060 	blr	x3
+	// 20000c:	58000440 	ldr	x0, 200094 <.text+0x200094>
+	// 200010:	f2c01008 	movk	x8, #0x80, lsl #32
+	// 200014:	f9400021 	ldr	x1, [x1]
+	code := []byte{
+		0x00, 0x00, 0x00, 0x58,
+		0x63, 0x00, 0x00, 0x58,
+		0x60, 0x00, 0x3f, 0xd6,
+		0x40, 0x04, 0x00, 0x58,
+		0x08, 0x10, 0xc0, 0xf2,
+		0x21, 0x00, 0x40, 0xf9,
+	}
+	if err := v.Write(uintptr(pc), code); err != nil {
+		t.Fatalf("Writing br . instruction: got %v, want nil", err)
+	}
+	for i, cur := range []uint64{pc + 4, pc + 8, pc + 0x10, pc + 0x14, pc + 0xc, pc + 0x10, pc + 0x14} {
+		_, r, g, err := v.Inst()
+		if err != nil {
+			t.Fatalf("Inst: got %v, want nil", err)
+		}
+		t.Logf("--------------------> RUN instruction %d, %q @ %#x", i, g, r.Pc)
+		if err := v.Run(); err != nil {
+			t.Fatalf("Run: got %v, want nil", err)
+		}
+		_, r, _, err = v.Inst()
+		if err != nil {
+			t.Fatalf("Inst: got %v, want nil", err)
+		}
+		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x ", i, g, r.Pc, r.Sp, r.Pstate)
+		ev := v.Event()
+		s := unix.Signal(ev.Signo)
+		t.Logf("%d: Event %#x, trap %d, %v", i, ev, ev.Trapno, s)
+
+		if r.Pc != cur {
+			t.Fatalf("iteration %d: Pc got %#x, want %#x", i, r.Pc, cur)
+		}
+	}
+}
