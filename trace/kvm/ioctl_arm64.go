@@ -65,9 +65,11 @@ const (
 // Pstate stuff
 const (
 	PSRModeEL1h = 0x00000005
+	PSRModeEL1t = 0x00000004
+	PSRModeEL0t = 0x00000000
 	PSRFBit     = 0x00000040
 	PSRIBit     = 0x00000080
-	PSRInit     = PSRModeEL1h | PSRFBit | PSRIBit
+	PSRInit     = PSRModeEL1t | PSRFBit | PSRIBit
 )
 
 // This is kinda bullshit.

@@ -908,3 +908,159 @@ func TestUEFICall(t *testing.T) {
 		t.Errorf("x8: got %#x, want 0x20", x8)
 	}
 }
+
+func TestDebugSingleStep(t *testing.T) {
+	v, err := New()
+	if err != nil {
+		t.Fatalf("New: got %v, want nil", err)
+	}
+	defer v.Detach()
+	t.Logf("%v", v)
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
+	}
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if err := v.SingleStep(true); err != nil {
+		t.Fatalf("SingleStep: got %v, want nil", err)
+	}
+	pc := uint64(0x200000)
+	t.Logf("IP is %#x", r.Pc)
+	r.Pc = pc
+	r.Sp = 0x100020
+	Debug = t.Logf
+	if err := v.SetRegs(r); err != nil {
+		t.Fatalf("SetRegs: got %v, want nil", err)
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if r.Pc != pc {
+		t.Fatalf("PC: got %#x, want %#x", r.Pc, pc)
+	}
+	code := []byte{
+		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
+  		0xc0, 0x59, 0x21, 0xd4, // d42159c0 	brk	#0xace
+		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
+  		0xc0, 0x59, 0x21, 0xd4, // d42159c0 	brk	#0xace
+		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
+  		0xc0, 0x59, 0x21, 0xd4, // d42159c0 	brk	#0xace
+		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
+  		0xc0, 0x59, 0x21, 0xd4, // d42159c0 	brk	#0xace
+	}
+	if err := v.Write(uintptr(pc), code); err != nil {
+		t.Fatalf("Writing br . instruction: got %v, want nil", err)
+	}
+	_, r, g, err := v.Inst()
+	if err != nil {
+		t.Fatalf("Inst: got %v, want nil", err)
+	}
+	// Awesomely, it seems we don't get a break on an instruction past adjusting the Pc
+	for i, cur := range []uint64{pc+4, pc+12, pc+20, pc+28} {
+		t.Logf("--------------------> RUN instruction %d, %q @ %#x x8 %#x", i, g, r.Pc, r.Regs[8])
+		if err := v.Run(); err != nil {
+			t.Fatalf("Run: got %v, want nil", err)
+		}
+		ev := v.Event()
+		s := unix.Signal(ev.Signo)
+		t.Logf("\t%d: Event %#x, trap %d, %v", i, ev, ev.Trapno, s)
+		_, r, g, err = v.Inst()
+		if err != nil {
+			t.Fatalf("Inst: got %v, want nil", err)
+		}
+		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x x8 %#x", i, g, r.Pc, r.Sp, r.Pstate, r.Regs[8])
+
+		if r.Pc != cur {
+			t.Errorf("iteration %d: Pc got %#x, want %#x", i, r.Pc, cur)
+		}
+		// Disassemblers are your friend
+		if g == "brk #0xace" {
+			r.Pc += 4
+		}
+		if err := v.SetRegs(r); err != nil {
+			t.Fatalf("SetRegs: got %v, want nil", err)
+		}
+	}
+}
+
+func TestDebugRun(t *testing.T) {
+	v, err := New()
+	if err != nil {
+		t.Fatalf("New: got %v, want nil", err)
+	}
+	defer v.Detach()
+	t.Logf("%v", v)
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
+	}
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	pc := uint64(0x200000)
+	t.Logf("IP is %#x", r.Pc)
+	r.Pc = pc
+	r.Sp = 0x100020
+	Debug = t.Logf
+	if err := v.SetRegs(r); err != nil {
+		t.Fatalf("SetRegs: got %v, want nil", err)
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if r.Pc != pc {
+		t.Fatalf("PC: got %#x, want %#x", r.Pc, pc)
+	}
+	code := []byte{
+		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
+		0xe3, 0x66, 0x02, 0xd4, // d40266e3 	smc	#0x1337
+		0xe2, 0x66, 0x02, 0xd4, // d40266e2 	hvc	#0x1337
+//  		0xc0, 0x59, 0x21, 0xd4, // d42159c0 	brk	#0xace
+		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
+		0xe2, 0x66, 0x02, 0xd4, // d40266e2 	hvc	#0x1337
+//  		0xc0, 0x59, 0x21, 0xd4, // d42159c0 	brk	#0xace
+		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
+		0xe2, 0x66, 0x02, 0xd4, // d40266e2 	hvc	#0x1337
+//  		0xc0, 0x59, 0x21, 0xd4, // d42159c0 	brk	#0xace
+		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
+		0xe2, 0x66, 0x02, 0xd4, // d40266e2 	hvc	#0x1337
+//  		0xc0, 0x59, 0x21, 0xd4, // d42159c0 	brk	#0xace
+	}
+	if err := v.Write(uintptr(pc), code); err != nil {
+		t.Fatalf("Writing br . instruction: got %v, want nil", err)
+	}
+	_, r, g, err := v.Inst()
+	if err != nil {
+		t.Fatalf("Inst: got %v, want nil", err)
+	}
+	// Awesomely, it seems we don't get a break on an instruction past adjusting the Pc
+	for i, cur := range []uint64{pc+4, pc+12, pc+20, pc+28} {
+		t.Logf("--------------------> RUN instruction %d, %q @ %#x x8 %#x", i, g, r.Pc, r.Regs[8])
+		if err := v.Run(); err != nil {
+			t.Fatalf("Run: got %v, want nil", err)
+		}
+		ev := v.Event()
+		s := unix.Signal(ev.Signo)
+		t.Logf("\t%d: Event %#x, trap %d, %v", i, ev, ev.Trapno, s)
+		_, r, g, err = v.Inst()
+		if err != nil {
+			t.Fatalf("Inst: got %v, want nil", err)
+		}
+		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x x8 %#x", i, g, r.Pc, r.Sp, r.Pstate, r.Regs[8])
+
+		if r.Pc != cur {
+			t.Errorf("iteration %d: Pc got %#x, want %#x", i, r.Pc, cur)
+		}
+		// Disassemblers are your friend
+		if g == "brk #0xace" {
+			r.Pc += 4
+		}
+		if err := v.SetRegs(r); err != nil {
+			t.Fatalf("SetRegs: got %v, want nil", err)
+		}
+	}
+}
