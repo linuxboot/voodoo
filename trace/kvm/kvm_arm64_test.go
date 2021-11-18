@@ -1,6 +1,7 @@
 package kvm
 
 import (
+	"bytes"
 	"fmt"
 	"syscall"
 	"testing"
@@ -15,19 +16,25 @@ import (
 // It gets messy if the Rip is in unaddressable space; that means we
 // must fetch the saved Rip from [Rsp].
 func (t *Tracee) Inst() (*arm64asm.Inst, *syscall.PtraceRegs, string, error) {
+	var dc = []byte{
+		0x7e, 0x0b, 0xd5, //  200048:	d50b7e26 	dc	civac, xxxx
+	}
 	r, err := t.GetRegs()
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("Inst:Getregs:%v", err)
 	}
 	pc := r.Pc
-	insn := make([]byte, 16)
+	insn := make([]byte, 4)
 	if err := t.Read(uintptr(pc), insn); err != nil {
 		return nil, nil, "", fmt.Errorf("Can' read PC at #%x, err %v", pc, err)
+	}
+	if bytes.Equal(insn[1:], dc) {
+		return &arm64asm.Inst{}, r, "dc civac, whatever", nil
 	}
 	d, err := arm64asm.Decode(insn)
 	// There are some privileged opcodes we just can't do.
 	if err != nil {
-		return nil, r, "Can't decode it", fmt.Errorf("Can't decode %#02x: %v", insn, err)
+		return nil, r, fmt.Sprintf("%#02x@%#02x", insn, pc), fmt.Errorf("Can't decode %#02x@%#x: %v", pc, insn, err)
 	}
 	return &d, r, arm64asm.GNUSyntax(d), nil
 }
@@ -824,7 +831,7 @@ func TestUEFICall(t *testing.T) {
 		t.Fatalf("Inst: got %v, want nil", err)
 	}
 	var trapno int
-	for i, cur := range []uint64{pc + 4, pc + 8, pc + 0x10, pc + 0x14, pc + 0x18, pc + 0x1c} {
+	for i, cur := range []uint64{pc, pc + 4, pc + 8, pc + 0x10, pc + 0x14, pc + 0x18, pc + 0x1c} {
 		t.Logf("--------------------> RUN instruction %d, %q @ %#x x1 %#x x3 %#x", i, g, r.Pc, r.Regs[1], r.Regs[3])
 		if err := v.Run(); err != nil {
 			t.Fatalf("Run: got %v, want nil", err)
@@ -843,7 +850,7 @@ func TestUEFICall(t *testing.T) {
 			break
 		}
 		if r.Pc != cur {
-			t.Fatalf("iteration %d: Pc got %#x, want %#x", i, r.Pc, cur)
+			t.Errorf("iteration %d: Pc got %#x, want %#x", i, r.Pc, cur)
 		}
 		_, r, g, err = v.Inst()
 		if err != nil {
@@ -1102,17 +1109,34 @@ func TestSP(t *testing.T) {
 		t.Fatalf("PC: got %#x, want %#x", r.Pc, pc)
 	}
 	code := []byte{
-		0xe0, 0x03, 0x40, 0xf8, // f84003e0 	ldur	x0, [sp]
-		// resets. 0x20, 0x74, 0x0b, 0xd5, // d50b7420 	dc	zva, x0
-		0xe1, 0x03, 0x40, 0xf8, // f84043e1 	ldur	x1, [sp, #4]
-		0xe2, 0x03, 0x40, 0xf8, // f84007e2 	ldur	x2, [sp, #8]
-		0xe3, 0x03, 0x40, 0xf8, // f840c3e3 	ldur	x3, [sp, #12]
-		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
-		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
-		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
-		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
-		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
-		0x08, 0x21, 0x00, 0x91, // add	x8, x8, #0x8
+		0x05, 0x00, 0x00, 0x10, //  200000:	10000005 	adr	x5, 200000 <cat-0x28>
+		0x09, 0x00, 0x00, 0x94, //  200004:     94000009 	bl	20074c <cat>
+		0x05, 0x00, 0x00, 0x10, //  200008:	10000005 	adr	x5, 200008 <cat-0x20>
+		0x07, 0x00, 0x00, 0x94, //  20000c:	94000007 	bl	20074c <cat>
+		0x05, 0x00, 0x00, 0x10, //  200010:	10000005 	adr	x5, 200010 <cat-0x18>
+		0x05, 0x00, 0x00, 0x94, //  200014:	94000005 	bl	20074c <cat>
+		0x05, 0x00, 0x00, 0x10, //  200018:	10000005 	adr	x5, 200018 <cat-0x10>
+		0x03, 0x00, 0x00, 0x94, //  20001c:	94000003 	bl	20074c <cat>
+		0x05, 0x00, 0x00, 0x10, //  200020:	10000005 	adr	x5, 200020 <cat-0x8>
+		0x01, 0x00, 0x00, 0x94, //  200024:	94000001 	bl	20074c <cat>
+
+		//0000000000200028 <cat>:
+		0x05, 0x10, 0xc0, 0xf2, //  200028:	f2c01005 	movk	x5, #0x80, lsl #32
+		0x3e, 0x7e, 0x0b, 0xd5, //  20002c:	d50b7e3e 	dc	civac, x30
+		// what if I told you an invalid address will reset the CPU. It does.
+/*
+		0x20, 0x7e, 0x0b, 0xd5, //  200030:	d50b7e20 	dc	civac, x0
+		0x21, 0x7e, 0x0b, 0xd5, //  200034:	d50b7e21 	dc	civac, x1
+		0x22, 0x7e, 0x0b, 0xd5, //  200038:	d50b7e22 	dc	civac, x2
+		0x23, 0x7e, 0x0b, 0xd5, //  20003c:	d50b7e23 	dc	civac, x3
+		0x24, 0x7e, 0x0b, 0xd5, //  200040:	d50b7e24 	dc	civac, x4
+		0x25, 0x7e, 0x0b, 0xd5, //  200044:	d50b7e25 	dc	civac, x5
+		0x26, 0x7e, 0x0b, 0xd5, //  200048:	d50b7e26 	dc	civac, x6
+*/
+		0xa5, 0x00, 0x40, 0xf9, //  20004c:	f94000a5 	ldr	x5, [x5]
+		0xe5, 0x03, 0x40, 0xf9, // 		f94003e5 	ldr	x5, [sp]
+		0xe0, 0x03, 0x05, 0xaa, //  200050:	aa0503e0 	mov	x0, x5
+		0xc0, 0x03, 0x5f, 0xd6, //  200054:	d65f03c0 	ret
 	}
 	if err := v.Write(uintptr(pc), code); err != nil {
 		t.Fatalf("Writing br . instruction: got %v, want nil", err)
@@ -1127,12 +1151,13 @@ func TestSP(t *testing.T) {
 	t.Logf("w at %#x is %#x", r.Sp, w)
 	// Awesomely, it seems we don't get a break on an instruction past adjusting the Pc
 	t.Logf("Before loop sp %#x, Regs 0-3: #%x", r.Sp, r.Regs[0:4])
-	for i, cur := range []uint64{pc + 4, pc + 8, pc + 12, pc + 16, pc + 20} {
+	// number iteratons:
+	for i := 0; i < 77; i++ {
 		_, r, g, err := v.Inst()
 		if err != nil {
 			t.Logf("Inst: got %v, want nil, proceeding anyway", err)
 		}
-		t.Logf("--------------------> RUN instruction %d, %q @ %#x SP %#x regs 0-3: %#x", i, g, r.Pc, r.Sp, r.Regs[0:4])
+		t.Logf("--------------------> RUN instruction %d, %q @ %#x SP %#x regs 0-3: %#x", i, g, r.Pc, r.Sp, r.Regs[0:6])
 		if err := v.Run(); err != nil {
 			t.Fatalf("Run: got %v, want nil", err)
 		}
@@ -1143,9 +1168,12 @@ func TestSP(t *testing.T) {
 		if err != nil {
 			t.Logf("Inst: got %v, want nil, proceeding anyway", err)
 		}
-		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x regs 0-3: %#x", i, g, r.Pc, r.Sp, r.Pstate, r.Regs[0:4])
+		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x regs 0-3: %#x", i, g, r.Pc, r.Sp, r.Pstate, r.Regs[0:6])
 
-		if i >= 0 {
+		if r.Pc < 0x200000 || int(r.Pc) > 0x200000 + len(code) {
+			t.Fatalf("r.Pc: got %#x, want it to be in range 0x200000-%#x", r.Pc, 0x200000 + len(code))
+		}
+		if i > 1 {
 			b := 0x01020304005060700 + uint64(i)
 			t.Logf("Rewrite SP %#x to %#x", r.Sp, b)
 			if err := v.WriteWord(uintptr(r.Sp), b); err != nil {
@@ -1156,9 +1184,6 @@ func TestSP(t *testing.T) {
 				t.Fatalf("Reading Sp %#x: want no error, got %v", r.Sp, err)
 			}
 			t.Logf("w at %#x is %#x", r.Sp, w)
-		}
-		if r.Pc != cur {
-			t.Errorf("iteration %d: Pc got %#x, want %#x", i, r.Pc, cur)
 		}
 	}
 	r, err = v.GetRegs()
