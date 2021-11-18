@@ -25,8 +25,9 @@ func (t *Tracee) Inst() (*arm64asm.Inst, *syscall.PtraceRegs, string, error) {
 		return nil, nil, "", fmt.Errorf("Can' read PC at #%x, err %v", pc, err)
 	}
 	d, err := arm64asm.Decode(insn)
+	// There are some privileged opcodes we just can't do.
 	if err != nil {
-		return nil, nil, "", fmt.Errorf("Can't decode %#02x: %v", insn, err)
+		return nil, r, "Can't decode it", fmt.Errorf("Can't decode %#02x: %v", insn, err)
 	}
 	return &d, r, arm64asm.GNUSyntax(d), nil
 }
@@ -1069,6 +1070,7 @@ func testDebugRun(t *testing.T) {
 
 // Test writing to the stack.
 func TestSP(t *testing.T) {
+	Debug = t.Logf
 	v, err := New()
 	if err != nil {
 		t.Fatalf("New: got %v, want nil", err)
@@ -1089,7 +1091,6 @@ func TestSP(t *testing.T) {
 	t.Logf("IP is %#x", r.Pc)
 	r.Pc = pc
 	r.Sp = 0x220000
-	Debug = t.Logf
 	if err := v.SetRegs(r); err != nil {
 		t.Fatalf("SetRegs: got %v, want nil", err)
 	}
@@ -1102,6 +1103,7 @@ func TestSP(t *testing.T) {
 	}
 	code := []byte{
 		0xe0, 0x03, 0x40, 0xf8, // f84003e0 	ldur	x0, [sp]
+		// resets. 0x20, 0x74, 0x0b, 0xd5, // d50b7420 	dc	zva, x0
 		0xe1, 0x03, 0x40, 0xf8, // f84043e1 	ldur	x1, [sp, #4]
 		0xe2, 0x03, 0x40, 0xf8, // f84007e2 	ldur	x2, [sp, #8]
 		0xe3, 0x03, 0x40, 0xf8, // f840c3e3 	ldur	x3, [sp, #12]
@@ -1115,15 +1117,20 @@ func TestSP(t *testing.T) {
 	if err := v.Write(uintptr(pc), code); err != nil {
 		t.Fatalf("Writing br . instruction: got %v, want nil", err)
 	}
-	if err := v.Write(uintptr(r.Sp), code); err != nil {
+	if err := v.WriteWord(uintptr(r.Sp), 0xdeadbeefcafebad0); err != nil {
 		t.Fatalf("Writing br . instruction: got %v, want nil", err)
 	}
+	w, err := v.ReadWord(uintptr(r.Sp))
+	if err != nil {
+		t.Fatalf("Reading Sp %#x: want no error, got %v", r.Sp, err)
+	}
+	t.Logf("w at %#x is %#x", r.Sp, w)
 	// Awesomely, it seems we don't get a break on an instruction past adjusting the Pc
-	t.Logf("Before loop Regs 0-3: #%x", r.Regs[0:4])
+	t.Logf("Before loop sp %#x, Regs 0-3: #%x", r.Sp, r.Regs[0:4])
 	for i, cur := range []uint64{pc + 4, pc + 8, pc + 12, pc + 16, pc + 20} {
 		_, r, g, err := v.Inst()
 		if err != nil {
-			t.Fatalf("Inst: got %v, want nil", err)
+			t.Logf("Inst: got %v, want nil, proceeding anyway", err)
 		}
 		t.Logf("--------------------> RUN instruction %d, %q @ %#x SP %#x regs 0-3: %#x", i, g, r.Pc, r.Sp, r.Regs[0:4])
 		if err := v.Run(); err != nil {
@@ -1134,20 +1141,29 @@ func TestSP(t *testing.T) {
 		t.Logf("\t%d: Event %#x, trap %d, %v", i, ev, ev.Trapno, s)
 		_, r, _, err = v.Inst()
 		if err != nil {
-			t.Fatalf("Inst: got %v, want nil", err)
+			t.Logf("Inst: got %v, want nil, proceeding anyway", err)
 		}
 		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x regs 0-3: %#x", i, g, r.Pc, r.Sp, r.Pstate, r.Regs[0:4])
 
 		if i >= 0 {
-			b := []byte{1, 2, 3, 4, byte(i), 5, 6, 7,}
-			t.Logf("Rewrite SP to %#x",  b)
-		if err := v.Write(uintptr(r.Sp), b); err != nil {
-			t.Fatalf("Writing br . instruction: got %v, want nil", err)
+			b := 0x01020304005060700 + uint64(i)
+			t.Logf("Rewrite SP %#x to %#x", r.Sp, b)
+			if err := v.WriteWord(uintptr(r.Sp), b); err != nil {
+				t.Fatalf("Writing br . instruction: got %v, want nil", err)
+			}
+			w, err := v.ReadWord(uintptr(r.Sp))
+			if err != nil {
+				t.Fatalf("Reading Sp %#x: want no error, got %v", r.Sp, err)
+			}
+			t.Logf("w at %#x is %#x", r.Sp, w)
 		}
-	}
 		if r.Pc != cur {
 			t.Errorf("iteration %d: Pc got %#x, want %#x", i, r.Pc, cur)
 		}
 	}
-	t.Logf("Regs 0-3: #%x", r.Regs[0:4])
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	t.Logf("Done Sp %#x Regs 0-3: #%x", r.Sp, r.Regs[0:4])
 }

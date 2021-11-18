@@ -17,6 +17,10 @@ const (
 	dirshift  = sizeshift + sizebits
 )
 
+const (
+	capUserMemory = 3
+)
+
 func iIOWR(nr, size uintptr) uintptr {
 	return iIOC(readwrite, nr, size)
 }

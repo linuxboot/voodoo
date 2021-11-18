@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync/atomic"
 	"syscall"
 	"unsafe"
 
@@ -172,6 +173,29 @@ func version(f *os.File) int {
 	return int(r1)
 }
 
+// extensions makes sure we have all the extensions we need.
+func extensions(f *os.File) error {
+	exts := []struct {
+		name string
+		val  uintptr
+	}{
+		{"userMemory", capUserMemory},
+	}
+	for _, s := range exts {
+		r1, _, e := syscall.Syscall(syscall.SYS_IOCTL, uintptr(f.Fd()), checkExtension, s.val)
+		var err error
+		if e != 0 {
+			err = e
+			return fmt.Errorf("Can't check extensions: %v", err)
+		}
+		if r1 == 0 {
+			return fmt.Errorf("Required extension %v not present", s)
+		}
+		Debug("Extension %v is supported", s.name)
+	}
+	return nil
+}
+
 func startvm(f *os.File) (uintptr, error) {
 	r1, _, errno := syscall.Syscall(syscall.SYS_IOCTL, uintptr(f.Fd()), vmcreate, 0)
 	if errno == 0 {
@@ -190,6 +214,10 @@ func New() (*Tracee, error) {
 	}
 	if v := version(k); v != APIVersion {
 		return nil, fmt.Errorf("Version: got %d, must be %d", v, APIVersion)
+	}
+
+	if err := extensions(k); err != nil {
+		return nil, err
 	}
 
 	vm, err := startvm(k)
@@ -302,11 +330,26 @@ func (t *Tracee) Read(address uintptr, data []byte) error {
 
 // WriteWord writes the given word into the inferior's address space.
 func (t *Tracee) WriteWord(address uintptr, word uint64) error {
-	var b [8]byte
-	binary.LittleEndian.PutUint64(b[:], word)
-	return t.Write(address, b[:])
+	r := t.regions[0]
+	last := r.gpa + uint64(len(r.data)) - 8
+	if address > uintptr(last) {
+		return fmt.Errorf("Address %#x is out of range [0-%#x]", address, last)
+	}
+	ptr := (*uint64)(unsafe.Pointer(&r.data[address]))
+	Debug("WriteWord(%#x, %#x)", ptr, word)
+	atomic.StoreUint64(ptr, word)
+	// useless on arm64, not needed on x86_64. kill me.
+	if false {
+		p := uintptr(unsafe.Pointer(&r.data[address]))
+		p = (p >> 12) << 12
+		if r1, r2, errno := syscall.Syscall(227, p, 4096, 4); errno != 0 {
+			Debug("msync(%#x): %v, %v, %v", p, r1, r2, errno)
+		}
+	}
+	return nil
 }
 
+// Write writes data. It is not synchronized. yet.
 func (t *Tracee) Write(address uintptr, data []byte) error {
 	r := t.regions[0]
 	last := r.gpa + uint64(len(r.data))

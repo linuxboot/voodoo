@@ -748,7 +748,7 @@ func (t *Tracee) archInit() error {
 		{base: 0xff000000, size: 0x800000}, // Where the protocols etc. go
 	}
 	for i, s := range regions {
-		mem, err := mmap(s.base, s.size, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_PRIVATE|unix.MAP_ANONYMOUS|unix.MAP_NORESERVE, -1, 0)
+		mem, err := mmap(s.base, s.size, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_PRIVATE|unix.MAP_ANONYMOUS|unix.MAP_POPULATE, -1, 0)
 		if err != nil {
 			return err
 		}
@@ -763,7 +763,7 @@ func (t *Tracee) archInit() error {
 		// This debug print is here mainly so I don't forget we're doing it!
 		// learned the hard way: UEFI can't run with poisoned memory because
 		// it's a toy.
-		Debug("NOT Poisoning %d byte slice with 0xf7f0a000 for memory range %#x-%#x", len(mem), s.base, s.base+s.size-1)
+		Debug("NOT Poisoning %d byte slice @%#x with 0xf7f0a000 for memory range %#x-%#x", len(mem), unsafe.Pointer(&mem[0]), s.base, s.base+s.size-1)
 		if false {
 			for i := 0; i < len(mem); i += 4 {
 				copy(mem[i:i+4], []byte{0x00, 0xa0, 0xf0, 0xf7})
