@@ -19,6 +19,7 @@ const (
 
 const (
 	capUserMemory = 3
+	capSyncMMU    = 16
 )
 
 func iIOWR(nr, size uintptr) uintptr {

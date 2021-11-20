@@ -180,6 +180,7 @@ func extensions(f *os.File) error {
 		val  uintptr
 	}{
 		{"userMemory", capUserMemory},
+		{"SyncMMU", capSyncMMU},
 	}
 	for _, s := range exts {
 		r1, _, e := syscall.Syscall(syscall.SYS_IOCTL, uintptr(f.Fd()), checkExtension, s.val)
