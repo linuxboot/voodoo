@@ -52,6 +52,8 @@ var (
 		0x08, 0x10, 0xc0, 0xf2, // movk    x8, #0x80, lsl #32
 		0x08, 0x01, 0x40, 0xf9,
 	}
+	// This is not exposed but tests can set it so they can write the trampolines
+	inTest bool
 )
 
 type cpu struct {
@@ -787,11 +789,43 @@ func (t *Tracee) archInit() error {
 
 	// slot 0 is low memory, to 2g for now.
 	// slot 1 is high bios, 64k at top of 4g. Not yet used.
-	// Set up 8M of image table data at 0xff000000
-	for i := 0; i < len(regions[2].dat[0x400000:]); i += len(VMCall) {
-		copy(regions[2].dat[0x400000+i:], VMCall)
-	}
-	if false {
+
+	if !inTest {
+		// Set up 4M of image table data at 0xff000000
+		// Generate the jmps to the trampoline
+		var low16m [0x400000 - 0x10000]byte
+		for i := 0; i < len(low16m); i += 8 {
+			var w uint64 = 0x1403bfff10000008 - (uint64((i/8)*2) << 32)
+			binary.LittleEndian.PutUint64(low16m[i:], w)
+		}
+		if err := t.Write(0xff400000, low16m[:]); err != nil {
+			return fmt.Errorf("Writing low16m instruction: %v", err)
+		}
+
+		top64k := []byte{
+			// 00000000ff4f0000 <cat>:
+			0x3e, 0x7e, 0x0b, 0xd5, //      ff4f0000:	d50b7e3e 	dc	civac, x30
+			0xe7, 0x03, 0x00, 0x2a, //      ff4f0004:	2a0003e7 	mov	w7, w0
+			0x27, 0x7e, 0x0b, 0xd5, //      ff4f0008:	d50b7e27 	dc	civac, x7
+			0xe7, 0x03, 0x01, 0x2a, //      ff4f000c:	2a0103e7 	mov	w7, w1
+			0x27, 0x7e, 0x0b, 0xd5, //      ff4f0010:	d50b7e27 	dc	civac, x7
+			0xe7, 0x03, 0x02, 0x2a, //      ff4f0014:	2a0203e7 	mov	w7, w2
+			0x27, 0x7e, 0x0b, 0xd5, //      ff4f0018:	d50b7e27 	dc	civac, x7
+			0xe7, 0x03, 0x03, 0x2a, //      ff4f001c:	2a0303e7 	mov	w7, w3
+			0x27, 0x7e, 0x0b, 0xd5, //      ff4f0020:	d50b7e27 	dc	civac, x7
+			0xe7, 0x03, 0x04, 0x2a, //      ff4f0024:	2a0403e7 	mov	w7, w4
+			0x27, 0x7e, 0x0b, 0xd5, //      ff4f0028:	d50b7e27 	dc	civac, x7
+			0xe7, 0x03, 0x05, 0x2a, //      ff4f002c:	2a0503e7 	mov	w7, w5
+			0x27, 0x7e, 0x0b, 0xd5, //      ff4f0030:	d50b7e27 	dc	civac, x7
+			0xe7, 0x03, 0x06, 0x2a, //      ff4f0034:	2a0603e7 	mov	w7, w6
+			0x27, 0x7e, 0x0b, 0xd5, //      ff4f0038:	d50b7e27 	dc	civac, x7
+			0x09, 0x10, 0xc0, 0xd2, //      ff4f003c:	f2c01009 	movz	x9, #0x80, lsl #32
+			0x29, 0x01, 0x40, 0xf9, //      ff4f0040:	f9400129 	ldr	x9, [x9]
+			0xc0, 0x03, 0x5f, 0xd6, //      ff4f0044:	d65f03c0 	ret
+		}
+		if err := t.Write(0xff4f0000, top64k); err != nil {
+			return fmt.Errorf("Writing top64k instruction: got %v, want nil", err)
+		}
 		if err := readonly(regions[2].dat[0x400000:]); err != nil {
 			log.Panicf("Marking ffun readonly: %v", err)
 		}

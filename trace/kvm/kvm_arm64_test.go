@@ -675,6 +675,7 @@ func TestELREL(t *testing.T) {
 // (below) and the test will still run until the proper exit condition
 // is met, or error if it was not.
 func TestVMCall(t *testing.T) {
+	inTest = true
 	v, err := New()
 	if err != nil {
 		t.Fatalf("New: got %v, want nil", err)
@@ -757,6 +758,7 @@ func TestVMCall(t *testing.T) {
 // This no longer works and I Just Don't Care -- we have the
 // working one below.
 func testUEFICall(t *testing.T) {
+	inTest = true
 	v, err := New()
 	if err != nil {
 		t.Fatalf("New: got %v, want nil", err)
@@ -921,6 +923,7 @@ func testUEFICall(t *testing.T) {
 }
 
 func TestDebugSingleStep(t *testing.T) {
+	inTest = true
 	v, err := New()
 	if err != nil {
 		t.Fatalf("New: got %v, want nil", err)
@@ -999,6 +1002,7 @@ func TestDebugSingleStep(t *testing.T) {
 
 // This does not work. Dammit. how do we get HVC out?
 func testDebugRun(t *testing.T) {
+	inTest = true
 	v, err := New()
 	if err != nil {
 		t.Fatalf("New: got %v, want nil", err)
@@ -1080,6 +1084,7 @@ func testDebugRun(t *testing.T) {
 
 // Test writing to the stack.
 func TestSP(t *testing.T) {
+	inTest = true
 	Debug = t.Logf
 	v, err := New()
 	if err != nil {
@@ -1203,6 +1208,7 @@ func TestSP(t *testing.T) {
 
 // Test writing to the stack.
 func TestTramp(t *testing.T) {
+	inTest = true
 	Debug = t.Logf
 	v, err := New()
 	if err != nil {
@@ -1345,6 +1351,7 @@ func TestTramp(t *testing.T) {
 
 // Test writing to the stack using a generate trampoline
 func TestGenTramp(t *testing.T) {
+	inTest = true
 	Debug = t.Logf
 	v, err := New()
 	if err != nil {
@@ -1380,7 +1387,7 @@ func TestGenTramp(t *testing.T) {
 	// jmp to the trampoline code, which in turn does the DC ops and exits.
 	code := []byte{
 		//0x08, 0xe8, 0xbf, 0xd2, //	d2bfe808 	mov	x8, #0xff400000
-		0x08, 0xe9, 0xbf, 0xd2,	//	d2bfe908 	mov	x8, #0xff480000
+		0x08, 0xe9, 0xbf, 0xd2, //	d2bfe908 	mov	x8, #0xff480000
 		0x00, 0x01, 0x3f, 0xd6, //	d63f0100 	blr	x8
 		0xe0, 0x03, 0x40, 0xf9, //   	f94003e0 	ldr	x0, [sp]
 		// Just so we don't do a bad insn.
@@ -1395,7 +1402,7 @@ func TestGenTramp(t *testing.T) {
 	// Generate the jmps to the trampoline
 	var low16m [0x400000 - 0x10000]byte
 	for i := 0; i < len(low16m); i += 8 {
-		var w uint64 = 0x1403bfff10000008 - (uint64((i/8)*2)<<32)
+		var w uint64 = 0x1403bfff10000008 - (uint64((i/8)*2) << 32)
 		binary.LittleEndian.PutUint64(low16m[i:], w)
 	}
 	if err := v.Write(0xff400000, low16m[:]); err != nil {
