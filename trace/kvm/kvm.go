@@ -339,27 +339,24 @@ func (t *Tracee) WriteWord(address uintptr, word uint64) error {
 	ptr := (*uint64)(unsafe.Pointer(&r.data[address]))
 	Debug("WriteWord(%#x, %#x)", ptr, word)
 	atomic.StoreUint64(ptr, word)
-	// useless on arm64, not needed on x86_64. kill me.
-	if false {
-		p := uintptr(unsafe.Pointer(&r.data[address]))
-		p = (p >> 12) << 12
-		if r1, r2, errno := syscall.Syscall(227, p, 4096, 4); errno != 0 {
-			Debug("msync(%#x): %v, %v, %v", p, r1, r2, errno)
-		}
-	}
 	return nil
 }
 
 // Write writes data. It is not synchronized. yet.
 func (t *Tracee) Write(address uintptr, data []byte) error {
-	r := t.regions[0]
-	last := r.gpa + uint64(len(r.data))
-	if address+uintptr(len(data)) > uintptr(last) {
-		return fmt.Errorf("Address %#x is out of range", address)
+	for _, r := range t.regions {
+		if address < uintptr(r.gpa) {
+			continue
+		}
+		last := r.gpa + uint64(len(r.data))
+		if address > uintptr(last) {
+			continue
+		}
+		a := address - uintptr(r.gpa)
+		copy(r.data[a:], data)
+		return nil
 	}
-	copy(r.data[address:], data)
-
-	return nil
+	return fmt.Errorf("Address %#x is out of range", address)
 }
 
 // GetSiginfo reads the signal information for the signal that stopped the inferior.  Only

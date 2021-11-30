@@ -791,8 +791,10 @@ func (t *Tracee) archInit() error {
 	for i := 0; i < len(regions[2].dat[0x400000:]); i += len(VMCall) {
 		copy(regions[2].dat[0x400000+i:], VMCall)
 	}
-	if err := readonly(regions[2].dat[0x400000:]); err != nil {
-		log.Panicf("Marking ffun readonly: %v", err)
+	if false {
+		if err := readonly(regions[2].dat[0x400000:]); err != nil {
+			log.Panicf("Marking ffun readonly: %v", err)
+		}
 	}
 	t.tab = regions[2].dat
 	// We learned the hard way: for portability, you MUST read all the processor state, e.g. segment stuff,

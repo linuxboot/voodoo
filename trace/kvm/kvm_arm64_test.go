@@ -2,6 +2,7 @@ package kvm
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"syscall"
 	"testing"
@@ -753,7 +754,9 @@ func TestVMCall(t *testing.T) {
 // This runs under single step, as even in that case,
 // we've seen "issues"
 // Test whether the ELREL has what we expect.
-func TestUEFICall(t *testing.T) {
+// This no longer works and I Just Don't Care -- we have the
+// working one below.
+func testUEFICall(t *testing.T) {
 	v, err := New()
 	if err != nil {
 		t.Fatalf("New: got %v, want nil", err)
@@ -1194,6 +1197,287 @@ func TestSP(t *testing.T) {
 	r, err = v.GetRegs()
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	t.Logf("Done Sp %#x Regs 0-3: #%x", r.Sp, r.Regs[0:4])
+}
+
+// Test writing to the stack.
+func TestTramp(t *testing.T) {
+	Debug = t.Logf
+	v, err := New()
+	if err != nil {
+		t.Fatalf("New: got %v, want nil", err)
+	}
+	defer v.Detach()
+	t.Logf("%v", v)
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
+	}
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if err := v.SingleStep(true); err != nil {
+		t.Fatalf("SingleStep: got %v, want nil", err)
+	}
+	pc := uint64(0x200000)
+	t.Logf("IP is %#x", r.Pc)
+	r.Pc = pc
+	r.Sp = 0x220000
+	if err := v.SetRegs(r); err != nil {
+		t.Fatalf("SetRegs: got %v, want nil", err)
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if r.Pc != pc {
+		t.Fatalf("PC: got %#x, want %#x", r.Pc, pc)
+	}
+	// This models what we have to do in rundxerun, mainly, fill in this slice with the
+	// jmp to the trampoline code, which in turn does the DC ops and exits.
+	code := []byte{
+		0x08, 0xe8, 0xbf, 0xd2, //	d2bfe808 	mov	x8, #0xff400000
+		0x00, 0x01, 0x3f, 0xd6, //	d63f0100 	blr	x8
+		0xe0, 0x03, 0x40, 0xf9, //   	f94003e0 	ldr	x0, [sp]
+		// Just so we don't do a bad insn.
+		0xe0, 0x03, 0x40, 0xf9, //   	f94003e0 	ldr	x0, [sp]
+		0xe0, 0x03, 0x40, 0xf9, //   	f94003e0 	ldr	x0, [sp]
+		0xe0, 0x03, 0x40, 0xf9, //   	f94003e0 	ldr	x0, [sp]
+	}
+
+	low16m := []byte{
+		//		00000000ff400000 <main>:
+		0x08, 0x00, 0x00, 0x10, //      ff400000:	10000008 	adr	x8, ff400000 <main>
+		0xff, 0xbf, 0x03, 0x14, //      ff400004:	1403bfff 	b	ff4f0000 <cat>
+		0x08, 0x00, 0x00, 0x10, //      ff400008:	10000008 	adr	x8, ff400008 <main+0x8>
+		0xfd, 0xbf, 0x03, 0x14, //      ff40000c:	1403bffd 	b	ff4f0000 <cat>
+		0x08, 0x00, 0x00, 0x10, //      ff400010:	10000008 	adr	x8, ff400010 <main+0x10>
+		0xfb, 0xbf, 0x03, 0x14, //      ff400014:	1403bffb 	b	ff4f0000 <cat>
+		0x08, 0x00, 0x00, 0x10, //      ff400018:	10000008 	adr	x8, ff400018 <main+0x18>
+		0xf9, 0xbf, 0x03, 0x14, //      ff40001c:	1403bff9 	b	ff4f0000 <cat>
+		0x08, 0x00, 0x00, 0x10, //      ff400020:	10000008 	adr	x8, ff400020 <main+0x20>
+	}
+	top64k := []byte{
+		// 00000000ff4f0000 <cat>:
+		0x3e, 0x7e, 0x0b, 0xd5, //      ff4f0000:	d50b7e3e 	dc	civac, x30
+		0xe7, 0x03, 0x00, 0x2a, //      ff4f0004:	2a0003e7 	mov	w7, w0
+		0x27, 0x7e, 0x0b, 0xd5, //      ff4f0008:	d50b7e27 	dc	civac, x7
+		0xe7, 0x03, 0x01, 0x2a, //      ff4f000c:	2a0103e7 	mov	w7, w1
+		0x27, 0x7e, 0x0b, 0xd5, //      ff4f0010:	d50b7e27 	dc	civac, x7
+		0xe7, 0x03, 0x02, 0x2a, //      ff4f0014:	2a0203e7 	mov	w7, w2
+		0x27, 0x7e, 0x0b, 0xd5, //      ff4f0018:	d50b7e27 	dc	civac, x7
+		0xe7, 0x03, 0x03, 0x2a, //      ff4f001c:	2a0303e7 	mov	w7, w3
+		0x27, 0x7e, 0x0b, 0xd5, //      ff4f0020:	d50b7e27 	dc	civac, x7
+		0xe7, 0x03, 0x04, 0x2a, //      ff4f0024:	2a0403e7 	mov	w7, w4
+		0x27, 0x7e, 0x0b, 0xd5, //      ff4f0028:	d50b7e27 	dc	civac, x7
+		0xe7, 0x03, 0x05, 0x2a, //      ff4f002c:	2a0503e7 	mov	w7, w5
+		0x27, 0x7e, 0x0b, 0xd5, //      ff4f0030:	d50b7e27 	dc	civac, x7
+		0xe7, 0x03, 0x06, 0x2a, //      ff4f0034:	2a0603e7 	mov	w7, w6
+		0x27, 0x7e, 0x0b, 0xd5, //      ff4f0038:	d50b7e27 	dc	civac, x7
+		0x09, 0x10, 0xc0, 0xd2, //      ff4f003c:	f2c01009 	movz	x9, #0x80, lsl #32
+		0x29, 0x01, 0x40, 0xf9, //      ff4f0040:	f9400129 	ldr	x9, [x9]
+		0xc0, 0x03, 0x5f, 0xd6, //      ff4f0044:	d65f03c0 	ret
+	}
+	if err := v.Write(0xff400000, low16m); err != nil {
+		t.Fatalf("Writing low16m instruction: got %v, want nil", err)
+	}
+	if err := v.Write(0xff4f0000, top64k); err != nil {
+		t.Fatalf("Writing top64k instruction: got %v, want nil", err)
+	}
+	if err := v.Write(uintptr(pc), code); err != nil {
+		t.Fatalf("Writing br . instruction: got %v, want nil", err)
+	}
+	if err := v.WriteWord(uintptr(r.Sp), 0xdeadbeefcafebad0); err != nil {
+		t.Fatalf("Writing br . instruction: got %v, want nil", err)
+	}
+	w, err := v.ReadWord(uintptr(r.Sp))
+	if err != nil {
+		t.Fatalf("Reading Sp %#x: want no error, got %v", r.Sp, err)
+	}
+	t.Logf("w at %#x is %#x", r.Sp, w)
+	// Awesomely, it seems we don't get a break on an instruction past adjusting the Pc
+	t.Logf("Before loop sp %#x, Regs 0-3: #%x", r.Sp, r.Regs[0:4])
+	// number iteratons:
+	for i := 0; i < 26; i++ {
+		_, r, g, err := v.Inst()
+		if err != nil {
+			t.Logf("Inst: got %v, want nil, proceeding anyway", err)
+		}
+		t.Logf("--------------------> RUN instruction %d, %q @ %#x SP %#x regs 0-5: %#x, x8: %#x", i, g, r.Pc, r.Sp, r.Regs[0:6], r.Regs[8])
+		if err := v.Run(); err != nil {
+			t.Fatalf("Run: got %v, want nil", err)
+		}
+		ev := v.Event()
+		s := unix.Signal(ev.Signo)
+		t.Logf("\t%d: Event %#x, trap %d, %v", i, ev, ev.Trapno, s)
+		_, r, _, err = v.Inst()
+		if err != nil {
+			t.Logf("Inst: got %v, want nil, proceeding anyway", err)
+		}
+		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x regs 0-5: %#x, x8: %#x", i, g, r.Pc, r.Sp, r.Pstate, r.Regs[0:6], r.Regs[8])
+
+		if i > 1 {
+			b := 0x01020304005060700 + uint64(i)
+			t.Logf("Rewrite SP %#x to %#x", r.Sp, b)
+			if err := v.WriteWord(uintptr(r.Sp), b); err != nil {
+				t.Fatalf("Writing sp : got %v, want nil", err)
+			}
+			w, err := v.ReadWord(uintptr(r.Sp))
+			if err != nil {
+				t.Fatalf("Reading Sp %#x: want no error, got %v", r.Sp, err)
+			}
+			t.Logf("w at %#x is %#x", r.Sp, w)
+		}
+		if r.Pc == 0x200010 {
+			break
+		}
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if r.Regs[0] != 0x1020304005060715 {
+		t.Fatalf("R0: got %#x, want 0x1020304005060715", r.Regs[0])
+	}
+	t.Logf("Done Sp %#x Regs 0-3: #%x", r.Sp, r.Regs[0:4])
+}
+
+// Test writing to the stack using a generate trampoline
+func TestGenTramp(t *testing.T) {
+	Debug = t.Logf
+	v, err := New()
+	if err != nil {
+		t.Fatalf("New: got %v, want nil", err)
+	}
+	defer v.Detach()
+	t.Logf("%v", v)
+	if err := v.NewProc(0); err != nil {
+		t.Fatalf("NewProc: got %v, want nil", err)
+	}
+	r, err := v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if err := v.SingleStep(true); err != nil {
+		t.Fatalf("SingleStep: got %v, want nil", err)
+	}
+	pc := uint64(0x200000)
+	t.Logf("IP is %#x", r.Pc)
+	r.Pc = pc
+	r.Sp = 0x220000
+	if err := v.SetRegs(r); err != nil {
+		t.Fatalf("SetRegs: got %v, want nil", err)
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if r.Pc != pc {
+		t.Fatalf("PC: got %#x, want %#x", r.Pc, pc)
+	}
+	// This models what we have to do in rundxerun, mainly, fill in this slice with the
+	// jmp to the trampoline code, which in turn does the DC ops and exits.
+	code := []byte{
+		//0x08, 0xe8, 0xbf, 0xd2, //	d2bfe808 	mov	x8, #0xff400000
+		0x08, 0xe9, 0xbf, 0xd2,	//	d2bfe908 	mov	x8, #0xff480000
+		0x00, 0x01, 0x3f, 0xd6, //	d63f0100 	blr	x8
+		0xe0, 0x03, 0x40, 0xf9, //   	f94003e0 	ldr	x0, [sp]
+		// Just so we don't do a bad insn.
+		0xe0, 0x03, 0x40, 0xf9, //   	f94003e0 	ldr	x0, [sp]
+		0xe0, 0x03, 0x40, 0xf9, //   	f94003e0 	ldr	x0, [sp]
+		0xe0, 0x03, 0x40, 0xf9, //   	f94003e0 	ldr	x0, [sp]
+	}
+	if err := v.Write(uintptr(pc), code); err != nil {
+		t.Fatalf("Writing br . instruction: got %v, want nil", err)
+	}
+
+	// Generate the jmps to the trampoline
+	var low16m [0x400000 - 0x10000]byte
+	for i := 0; i < len(low16m); i += 8 {
+		var w uint64 = 0x1403bfff10000008 - (uint64((i/8)*2)<<32)
+		binary.LittleEndian.PutUint64(low16m[i:], w)
+	}
+	if err := v.Write(0xff400000, low16m[:]); err != nil {
+		t.Fatalf("Writing low16m instruction: got %v, want nil", err)
+	}
+
+	top64k := []byte{
+		// 00000000ff4f0000 <cat>:
+		0x3e, 0x7e, 0x0b, 0xd5, //      ff4f0000:	d50b7e3e 	dc	civac, x30
+		0xe7, 0x03, 0x00, 0x2a, //      ff4f0004:	2a0003e7 	mov	w7, w0
+		0x27, 0x7e, 0x0b, 0xd5, //      ff4f0008:	d50b7e27 	dc	civac, x7
+		0xe7, 0x03, 0x01, 0x2a, //      ff4f000c:	2a0103e7 	mov	w7, w1
+		0x27, 0x7e, 0x0b, 0xd5, //      ff4f0010:	d50b7e27 	dc	civac, x7
+		0xe7, 0x03, 0x02, 0x2a, //      ff4f0014:	2a0203e7 	mov	w7, w2
+		0x27, 0x7e, 0x0b, 0xd5, //      ff4f0018:	d50b7e27 	dc	civac, x7
+		0xe7, 0x03, 0x03, 0x2a, //      ff4f001c:	2a0303e7 	mov	w7, w3
+		0x27, 0x7e, 0x0b, 0xd5, //      ff4f0020:	d50b7e27 	dc	civac, x7
+		0xe7, 0x03, 0x04, 0x2a, //      ff4f0024:	2a0403e7 	mov	w7, w4
+		0x27, 0x7e, 0x0b, 0xd5, //      ff4f0028:	d50b7e27 	dc	civac, x7
+		0xe7, 0x03, 0x05, 0x2a, //      ff4f002c:	2a0503e7 	mov	w7, w5
+		0x27, 0x7e, 0x0b, 0xd5, //      ff4f0030:	d50b7e27 	dc	civac, x7
+		0xe7, 0x03, 0x06, 0x2a, //      ff4f0034:	2a0603e7 	mov	w7, w6
+		0x27, 0x7e, 0x0b, 0xd5, //      ff4f0038:	d50b7e27 	dc	civac, x7
+		0x09, 0x10, 0xc0, 0xd2, //      ff4f003c:	f2c01009 	movz	x9, #0x80, lsl #32
+		0x29, 0x01, 0x40, 0xf9, //      ff4f0040:	f9400129 	ldr	x9, [x9]
+		0xc0, 0x03, 0x5f, 0xd6, //      ff4f0044:	d65f03c0 	ret
+	}
+	if err := v.Write(0xff4f0000, top64k); err != nil {
+		t.Fatalf("Writing top64k instruction: got %v, want nil", err)
+	}
+
+	if err := v.WriteWord(uintptr(r.Sp), 0xdeadbeefcafebad0); err != nil {
+		t.Fatalf("Writing br . instruction: got %v, want nil", err)
+	}
+	w, err := v.ReadWord(uintptr(r.Sp))
+	if err != nil {
+		t.Fatalf("Reading Sp %#x: want no error, got %v", r.Sp, err)
+	}
+	t.Logf("w at %#x is %#x", r.Sp, w)
+	// Awesomely, it seems we don't get a break on an instruction past adjusting the Pc
+	t.Logf("Before loop sp %#x, Regs 0-3: #%x", r.Sp, r.Regs[0:4])
+	// number iteratons:
+	for i := 0; i < 26; i++ {
+		_, r, g, err := v.Inst()
+		if err != nil {
+			t.Logf("Inst: got %v, want nil, proceeding anyway", err)
+		}
+		t.Logf("--------------------> RUN instruction %d, %q @ %#x SP %#x regs 0-5: %#x, x8: %#x", i, g, r.Pc, r.Sp, r.Regs[0:6], r.Regs[8])
+		if err := v.Run(); err != nil {
+			t.Fatalf("Run: got %v, want nil", err)
+		}
+		ev := v.Event()
+		s := unix.Signal(ev.Signo)
+		t.Logf("\t%d: Event %#x, trap %d, %v", i, ev, ev.Trapno, s)
+		_, r, _, err = v.Inst()
+		if err != nil {
+			t.Logf("Inst: got %v, want nil, proceeding anyway", err)
+		}
+		t.Logf("====================# DONE instruction %d, %q, EIP %#x, SP %#x, PSTATE %#x regs 0-5: %#x, x8: %#x", i, g, r.Pc, r.Sp, r.Pstate, r.Regs[0:6], r.Regs[8])
+
+		if i > 1 {
+			b := 0x01020304005060700 + uint64(i)
+			t.Logf("Rewrite SP %#x to %#x", r.Sp, b)
+			if err := v.WriteWord(uintptr(r.Sp), b); err != nil {
+				t.Fatalf("Writing sp : got %v, want nil", err)
+			}
+			w, err := v.ReadWord(uintptr(r.Sp))
+			if err != nil {
+				t.Fatalf("Reading Sp %#x: want no error, got %v", r.Sp, err)
+			}
+			t.Logf("w at %#x is %#x", r.Sp, w)
+		}
+		if r.Pc == 0x200010 {
+			break
+		}
+	}
+	r, err = v.GetRegs()
+	if err != nil {
+		t.Fatalf("GetRegs: got %v, want nil", err)
+	}
+	if r.Regs[0] != 0x1020304005060715 {
+		t.Fatalf("R0: got %#x, want 0x1020304005060715", r.Regs[0])
 	}
 	t.Logf("Done Sp %#x Regs 0-3: #%x", r.Sp, r.Regs[0:4])
 }
