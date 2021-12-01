@@ -26,9 +26,8 @@ func halt(p trace.Trace, i *unix.SignalfdSiginfo, inst *arm64asm.Inst, r *syscal
 // mmiohandles the mmio case.
 // The return PC will be in the LR. We hope.
 func mmio(p trace.Trace, i *unix.SignalfdSiginfo, inst *arm64asm.Inst, r *syscall.PtraceRegs, asm string) error {
-	addr := uintptr(r.Pc)
 	lr := r.Regs[kvm.ELREL]
-	pc := uint64(uint32(addr))
+	pc := r.Pc
 	Debug("================={MMIO START FUNCTION @ %#x, rip %#x, LR %#x", i.Addr, r.Pc, lr)
 	if pc == 0x200 {
 		log.Panicf("HALT: system reset")
@@ -38,18 +37,18 @@ func mmio(p trace.Trace, i *unix.SignalfdSiginfo, inst *arm64asm.Inst, r *syscal
 	}
 
 	// The mmio instruction is the one after the one we use for RPC.
-	// This needs a bit of fixin' I suppose. 
-	// one option is that services.Dispatch could blow the low 3 bits clear, 
+	// This needs a bit of fixin' I suppose.
+	// one option is that services.Dispatch could blow the low 3 bits clear,
 	// but that loses some useful error check.
-	r.Pc -= 4
+	// r.Pc -= 4
 	// The i.Addr is a constant we put in to cause an MMIO. Ignore it.
-	i.Addr = r.Pc
+	i.Addr = r.Regs[8]
 	if err := services.Dispatch(&services.Fault{Proc: p, Info: i, Inst: inst, Regs: r, Asm: asm}); err != nil {
 		return fmt.Errorf("Dispatch returned an error: %v: CallInfo: %v", err, trace.CallInfo(i, inst, r))
 	}
-	// Stay on the MMIO. Kernel then advances the instruction. 
-	r.Pc = lr - 4
-	defer Debug("===========} done MMIO @ %#x, rip was %#x, resume at %#x", addr, pc, r.Pc)
+	// Stay on the MMIO. Kernel then advances the instruction.
+	r.Pc = pc
+	defer Debug("===========} done MMIO @ %#x, rip was %#x, resume at %#x", i.Addr, pc, r.Pc)
 	return nil
 }
 

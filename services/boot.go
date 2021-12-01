@@ -166,7 +166,7 @@ func (r *Boot) Call(f *Fault) error {
 		if err := f.Proc.Write(f.Args[2], bb[:]); err != nil {
 			return fmt.Errorf("Can't write %v to %#x: %v", d, f.Args[2], err)
 		}
-		Debug("OK all done handleprotocol")
+		Debug("OK all done handleprotocol; wrote %#x to %#x", bb[:], f.Args[2])
 		return nil
 
 	// This is just the worst design ever.
