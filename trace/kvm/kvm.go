@@ -331,14 +331,19 @@ func (t *Tracee) Read(address uintptr, data []byte) error {
 
 // WriteWord writes the given word into the inferior's address space.
 func (t *Tracee) WriteWord(address uintptr, word uint64) error {
-	r := t.regions[0]
-	last := r.gpa + uint64(len(r.data)) - 8
-	if address > uintptr(last) {
-		return fmt.Errorf("Address %#x is out of range [0-%#x]", address, last)
+	for _, r := range t.regions {
+		if address < uintptr(r.gpa) {
+			continue
+		}
+		last := r.gpa + uint64(len(r.data))
+		if address > uintptr(last) {
+			continue
+		}
+		a := address - uintptr(r.gpa)
+		ptr := (*uint64)(unsafe.Pointer(&r.data[a]))
+		Debug("WriteWord(%#x, %#x)", ptr, word)
+		atomic.StoreUint64(ptr, word)
 	}
-	ptr := (*uint64)(unsafe.Pointer(&r.data[address]))
-	Debug("WriteWord(%#x, %#x)", ptr, word)
-	atomic.StoreUint64(ptr, word)
 	return nil
 }
 

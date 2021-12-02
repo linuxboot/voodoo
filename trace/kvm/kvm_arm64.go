@@ -147,7 +147,7 @@ type dtable struct {
 
 func kvmRegstoPtraceRegs(pr *syscall.PtraceRegs, r *regs, s *sregs) {
 	copy(pr.Regs[:], r.Regs[:])
-	pr.Sp = r.SpEL1
+	pr.Sp = r.Sp
 	pr.Pc = r.Rip
 	pr.Pstate = r.Pstate
 }
