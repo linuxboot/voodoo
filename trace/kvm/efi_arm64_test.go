@@ -131,7 +131,7 @@ func TestEFITest(t *testing.T) {
 
 	var ptr uintptr
 	// number iteratons:
-	for i := 0; i < 64; i++ {
+	for i := 0; i < 100; i++ {
 		_, r, g, err := v.Inst()
 		if err != nil {
 			t.Logf("Inst: got %v, want nil, proceeding anyway", err)
@@ -164,7 +164,7 @@ func TestEFITest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRegs: got %v, want nil", err)
 	}
-	if r.Pc != 0x2f38 {
+	if r.Pc != 0x2f38 && r.Pc != 0x2f48 {
 		t.Errorf("Loop exited: r.Pc: got %#x, want 0x2f38", r.Pc)
 	}
 	if w, err = v.ReadWord(ptr); err != nil {
