@@ -32,7 +32,7 @@ func mmio(p trace.Trace, i *unix.SignalfdSiginfo, inst *arm64asm.Inst, r *syscal
 	if pc == 0x200 {
 		log.Panicf("HALT: system reset")
 	}
-	if r.Pc < uint64(services.ProtocolBase) {
+	if pc < uint64(services.ProtocolBase) {
 		log.Panicf("MMIO outside RPC area: %#x", r.Pc)
 	}
 
@@ -47,7 +47,7 @@ func mmio(p trace.Trace, i *unix.SignalfdSiginfo, inst *arm64asm.Inst, r *syscal
 		return fmt.Errorf("Dispatch returned an error: %v: CallInfo: %v", err, trace.CallInfo(i, inst, r))
 	}
 	// Stay on the MMIO. Kernel then advances the instruction.
-	r.Pc = pc
+	//r.Pc = pc
 	defer Debug("===========} done MMIO @ %#x, rip was %#x, resume at %#x", i.Addr, pc, r.Pc)
 	return nil
 }

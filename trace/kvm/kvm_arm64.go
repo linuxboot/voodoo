@@ -652,6 +652,7 @@ func (t Tracee) getRegs() (*regs, *sregs, error) {
 	r.Pstate = r.Regs[Pstate]
 	r.SpEL1 = r.Regs[SpEL1]
 	r.ELREL = r.Regs[ELREL]
+	Debug("getregs: %#x", r.Regs)
 	copy(r.SPSR[:], r.Regs[SPSR:])
 
 	return r, &sregs{}, nil
