@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	allocAmt     = ServPtr(1 << 16)
+	allocAmt = ServPtr(1 << 16)
 	// ProtocolBase is the start of the KVM exit functions.
 	ProtocolBase = ServPtr(0xff000000)
 	servBaseFmt  = "SB%#x"

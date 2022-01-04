@@ -21,10 +21,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const ()
-
-var ()
-
 type msg func()
 
 var (
@@ -180,7 +176,7 @@ func main() {
 			log.Printf("Run: got %v, want nil", err)
 		}
 		Debug("\treturns:")
-		if *debug && false{
+		if *debug && false {
 			insn, r, g, err := trace.Inst(v)
 			log.Printf("%v, %v, %v, %v", insn, r, g, err)
 			if err != nil {
@@ -206,8 +202,8 @@ func main() {
 			Debug("Trapno: ExitDebug")
 			{
 				w, err := v.ReadWord(0x1fffb8)
-			Debug("W at 0x1fffb8: %#x, %v", w, err)
-		}
+				Debug("W at 0x1fffb8: %#x, %v", w, err)
+			}
 			Debug("Inst returns %v, %#x, %q, %v", insn, r, g, err)
 		case ev.Trapno == kvm.ExitHlt:
 			Debug("Trapno: ExitHlt")

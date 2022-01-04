@@ -19,21 +19,21 @@ const (
 )
 
 var RuntimeServicesNames = map[uint64]*val{
-	RTHdr:                       &val{N: "Hdr"},
-	RTGetTime:                   &val{N: "GetTime"},
-	RTSetTime:                   &val{N: "SetTime"},
-	RTGetWakeupTime:             &val{N: "GetWakeupTime"},
-	RTSetWakeupTime:             &val{N: "SetWakeupTime"},
-	RTSetVirtualAddressMap:      &val{N: "SetVirtualAddressMap"},
-	RTConvertPointer:            &val{N: "ConvertPointer"},
-	RTGetVariable:               &val{N: "GetVariable"},
-	RTGetNextVariableName:       &val{N: "GetNextVariableName"},
-	RTSetVariable:               &val{N: "SetVariable"},
-	RTGetNextHighMonotonicCount: &val{N: "GetNextHighMonotonicCount"},
-	RTResetSystem:               &val{N: "ResetSystem"},
-	RTUpdateCapsule:             &val{N: "UpdateCapsule"},
-	RTQueryCapsuleCapabilities:  &val{N: "QueryCapsuleCapabilities"},
-	RTQueryVariableInfo:         &val{N: "QueryVariableInfo"},
+	RTHdr:                       {N: "Hdr"},
+	RTGetTime:                   {N: "GetTime"},
+	RTSetTime:                   {N: "SetTime"},
+	RTGetWakeupTime:             {N: "GetWakeupTime"},
+	RTSetWakeupTime:             {N: "SetWakeupTime"},
+	RTSetVirtualAddressMap:      {N: "SetVirtualAddressMap"},
+	RTConvertPointer:            {N: "ConvertPointer"},
+	RTGetVariable:               {N: "GetVariable"},
+	RTGetNextVariableName:       {N: "GetNextVariableName"},
+	RTSetVariable:               {N: "SetVariable"},
+	RTGetNextHighMonotonicCount: {N: "GetNextHighMonotonicCount"},
+	RTResetSystem:               {N: "ResetSystem"},
+	RTUpdateCapsule:             {N: "UpdateCapsule"},
+	RTQueryCapsuleCapabilities:  {N: "QueryCapsuleCapabilities"},
+	RTQueryVariableInfo:         {N: "QueryVariableInfo"},
 }
 
 type EfiTime struct {
